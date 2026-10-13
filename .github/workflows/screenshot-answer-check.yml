@@ -1,0 +1,32 @@
+name: Screenshot Answer checks
+
+on:
+  pull_request:
+    paths:
+      - "ScreenshotAnswer/**"
+      - ".gitignore"
+      - ".github/workflows/screenshot-answer-check.yml"
+  push:
+    paths:
+      - "ScreenshotAnswer/**"
+      - ".gitignore"
+      - ".github/workflows/screenshot-answer-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Check public files for local information
+        run: ./ScreenshotAnswer/scripts/check-public-safety.sh
+
+      - name: Run Screenshot Answer tests
+        working-directory: ScreenshotAnswer
+        run: swift test

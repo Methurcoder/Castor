@@ -1,0 +1,27 @@
+.build/
+dist/
+.swiftpm/
+*.xcodeproj/
+.DS_Store
+**/.DS_Store
+
+# Signing credentials and machine-local signing configuration
+*.cer
+*.crt
+*.p12
+*.p8
+*.pem
+*.key
+*.csr
+*.certSigningRequest
+*.keychain
+*.keychain-db
+*.mobileprovision
+*.provisionprofile
+Signing.local
+.secrets/
+secrets.*
+credentials.*
+.env
+.env.*
+!.env.example

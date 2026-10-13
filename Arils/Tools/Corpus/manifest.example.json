@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "minimumBoundaryPrecisionForAcceptance": 0.75,
+  "entries": [
+    {
+      "id": "replace-with-local-sample",
+      "image": "../../../Arils_Corpus/front/sample.png",
+      "faceLayout": {
+        "headRect": { "x": 0, "y": 0, "width": 1, "height": 1 },
+        "eyeLeftRect": { "x": 0, "y": 0, "width": 1, "height": 1 },
+        "eyeRightRect": { "x": 0, "y": 0, "width": 1, "height": 1 },
+        "mouthRect": { "x": 0, "y": 0, "width": 1, "height": 1 }
+      }
+    }
+  ]
+}

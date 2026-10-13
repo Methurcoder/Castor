@@ -1,0 +1,59 @@
+.DS_Store
+
+# Xcode user state
+*.xcuserstate
+xcuserdata/
+*.xccheckout
+*.moved-aside
+DerivedData/
+build/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Local Python and experiment artifacts
+.venv/
+venv/
+.pomegranate-tts/
+.pomegranate-lama/
+.pomegranate-pointer/
+.pomegranate-anime-face/
+.castor-tts/
+.castor-lama/
+.castor-pointer/
+.castor-anime-face/
+__pycache__/
+*.py[cod]
+
+# Local runtime output
+logs/
+*.log
+
+# Local secrets and machine-specific settings
+.env
+.env.*
+!.env.example
+*.local
+xcuserdata/
+*.xcuserstate
+
+# Local development instructions and scratch notes
+AGENTS.md
+temporary.md
+HANDOFF_CODEX.md
+X_PROMOTION_PLAN.md
+.claude/
+dist/
+layer-eval-report/
+xcuserdata/
+*.xcuserstate
+
+# Local Arils training data and generated models
+Arils_Dataset/
+yolo11n.pt
+yolo11n-cls.pt
+Arils/Sources/ArilsFaceInference/Resources/AnimeFaceModels/*.mlmodelc/
+Arils/Tools/AnimeFaceModels/build/
+Arils/Sources/ArilsSubjectInference/Resources/AnimeSegmentationModel/*.mlmodelc/
+Arils/Tools/AnimeSegmentationModel/build/
