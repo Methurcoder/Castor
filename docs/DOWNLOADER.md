@@ -86,9 +86,9 @@ Windows 版では未実装です。
 
 ## 非公開 Release の認証
 
-現在の `Methurcoder/Castor` は非公開です。非公開 Release を取得するには
-GitHub CLI (`gh`) を用意し、アクセス権のあるアカウントで手元のターミナルから
-ログインします。
+現在の `Methurcoder/Castor` はソース公開済みで、公開 Release の取得に認証は不要です。
+Release 自体はまだ準備中です。将来、非公開リポジトリでランチャーを使う場合は、
+GitHub CLI (`gh`) を用意し、アクセス権のあるアカウントで手元のターミナルからログインします。
 
 ```sh
 gh auth login

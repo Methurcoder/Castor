@@ -123,8 +123,8 @@ New in the Arils API, not yet driven by the app:
 - Use managed Metal output textures with GPU-to-CPU synchronization on dedicated-memory GPUs.
 - Show neutral status for an explicit GIF cancellation, silently invalidate obsolete jobs,
   and prepare an opt-in repository URL for builds made after public release.
-- Two-factor authentication setup and real Intel/Windows GUI checks are still pending.
-- Enabled GitHub immutable releases for future releases; the repository remains private.
+- The owner confirmed two-factor authentication is enabled; real Intel/Windows GUI checks are still pending.
+- Enabled GitHub immutable releases for future releases. The source repository is public; app distribution Releases are still being prepared.
 - Fixed Intel compilation of float16 Core ML outputs using Core ML numeric subscripts;
   Apple Silicon retains its direct Float16 conversion path.
 
@@ -137,3 +137,9 @@ New in the Arils API, not yet driven by the app:
   or executed locally for this correction.
 - Dedicated-memory Intel GIF rendering, first-run OS prompts, Windows PowerShell 5.1
   downloads/install and GUI interactions still need checks on their target systems.
+
+## Source publication (2026-10-14)
+
+- Publish the audited source with the owner's authorization and confirmed two-factor authentication.
+- Update setup documentation for public access; no binary Release has been created.
+- Enable the repository URL in the GIF sharing Web Intent for public builds.

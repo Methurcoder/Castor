@@ -4,7 +4,7 @@
 
 Castor は、画像からキャラクターを作り、呼吸・瞬き・視線・声で反応するデスクトップコンパニオンです。少しためらったり、目を逸らしたりする「不器用な生命感」を目指しています。macOS アプリを中心に開発している、研究・試作段階のプロジェクトです。
 
-Castor は、[Pomegranate](https://github.com/atemoyacode-sudo/Pomegranate) の**許諾済みの後継プロジェクト**です。`Methurcoder` が管理する本リポジトリでは、Pomegranate由来の説明・著作権表示・MITライセンスを残し、新しいGit履歴で開発を続けています。現在のリポジトリは非公開です。リリース番号と配布バイナリは未確定です。アプリ、Xcode プロジェクト、Swift Package、ペットの実行ファイルと新規保存先は `Castor` 名義へ統一しています。既存データの互換性を保つため、macOS の bundle ID `dev.pomegranate.prototype` と `Pomegranate.*` の設定キーを維持し、旧保存ファイルも読み込みます。
+Castor は、[Pomegranate](https://github.com/atemoyacode-sudo/Pomegranate) の**許諾済みの後継プロジェクト**です。`Methurcoder` が管理する本リポジトリでは、Pomegranate由来の説明・著作権表示・MITライセンスを残し、新しいGit履歴で開発を続けています。ソースコードを公開しています。リリース番号と配布バイナリは未確定です。アプリ、Xcode プロジェクト、Swift Package、ペットの実行ファイルと新規保存先は `Castor` 名義へ統一しています。既存データの互換性を保つため、macOS の bundle ID `dev.pomegranate.prototype` と `Pomegranate.*` の設定キーを維持し、旧保存ファイルも読み込みます。
 
 ## 現在できること
 
@@ -47,7 +47,7 @@ macOS は26.5以上、Windows 配布は現在 x64 向けです。Windows のペ�
 
 ## macOS で始める
 
-現在は非公開のため、アクセス権のあるアカウントでリポジトリを取得し、Xcode プロジェクトを開きます。
+公開リポジトリを取得し、Xcode プロジェクトを開きます。
 
 ```sh
 git clone https://github.com/Methurcoder/Castor.git
@@ -83,7 +83,7 @@ xcodebuild -project Castor/Castor.xcodeproj \
 ペットと選んだ背景だけをローカルで描画します。通常のArils、2枚画像のQuality、
 従来の手動リグに対応し、GIF容量を抑えるため解像度やフレーム数を自動調整します。
 Xへの画像アップロードやAPI投稿、アカウント認証の保存は行いません。
-リポジトリが公開された後の配布ビルドでは、投稿画面にプロジェクトURLも用意できます。
+公開版のビルドでは、投稿画面にプロジェクトURLも用意します。
 この共有UIはmacOS版の機能です。実機のGIF生成・プレビュー・保存・手動添付の確認は別途必要です。
 
 ## ローカル AI と操作の違い
@@ -233,7 +233,7 @@ swift run --package-path CastorDesktop -c release \
 
 ## 公開・移行について
 
-ソースコードの管理先は [Methurcoder/Castor](https://github.com/Methurcoder/Castor) です。ユーザーがリポジトリを非公開に戻したため、閲覧・取得にはアクセス権が必要です。Pomegranateからの移行方針と互換性は [Castor 移行メモ](docs/CASTOR_MIGRATION.md)、今後の公開作業の手順は [公開ガイド](docs/PUBLISHING.md)を参照してください。
+ソースコードの管理先は [Methurcoder/Castor](https://github.com/Methurcoder/Castor) です。ソースコードを公開しています。アプリ配布の Release は準備中です。Pomegranateからの移行方針と互換性は [Castor 移行メモ](docs/CASTOR_MIGRATION.md)、今後の公開作業の手順は [公開ガイド](docs/PUBLISHING.md)を参照してください。
 
 ## ライセンス
 

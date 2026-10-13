@@ -2,7 +2,7 @@
 
 2026-10-14 時点。Castor は Pomegranate の後継プロジェクトとして、別 GitHub
 アカウントに新規作成しました。公開先は [Methurcoder/Castor](https://github.com/Methurcoder/Castor)
-です。ユーザーの許可を受け、新しい Git 履歴でソースコードを公開し、現在はユーザーの指定で非公開へ戻しています。Pomegranate由来の
+です。監査修正後、ユーザーの許可を受けてソースコードを再公開しました。新しい Git 履歴とPomegranate由来の
 説明と著作権・ライセンスを保持しています。Windows実機と配布バイナリは別途確認します。
 
 ## 準備する範囲

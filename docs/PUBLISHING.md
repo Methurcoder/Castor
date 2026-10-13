@@ -2,9 +2,9 @@
 
 Castor は Pomegranate の後継として、新しい GitHub アカウントに新規リポジトリを
 作成しました。管理先は [Methurcoder/Castor](https://github.com/Methurcoder/Castor) です。
-Pomegranate由来とライセンスを残して新しい履歴を開始しました。ユーザーがリポジトリを
-非公開に戻したため、現在はアクセス権のあるアカウントだけが閲覧・取得できます。
-初回リリースのバージョンと配布バイナリは未確定です。再公開はユーザーへの声掛けと確認後に行います。
+Pomegranate由来とライセンスを残して新しい履歴を開始しました。2026-10-14に監査修正と
+ユーザーによる2段階認証の有効化確認を経て、許可を受けてソースを再公開しました。
+初回リリースのバージョンと配布バイナリは未確定です。
 アカウント切り替えと公開操作の前にユーザーへ声をかけます。
 
 ## ローカルで用意するもの
@@ -53,7 +53,7 @@ git diff --check
 
 ## 更新・再公開前
 
-`Methurcoder/Castor` は作成済みで、現在は非公開です。ローカルの修正内容と確認結果を
+`Methurcoder/Castor` はソース公開済みです。ローカルの修正内容と確認結果を
 示し、ユーザーへ声をかけてから push を行います。非公開リポジトリへの push も対象です。
 公開設定変更、Release 作成、バイナリ添付の前にも対象を伝え、確認を受けます。
 
@@ -80,9 +80,18 @@ Castor は新しい Git 履歴で開始済みです。旧 Pomegranate とその�
 ## 公開後のX紹介URL
 
 GIF の Web Intent にリポジトリ URL を入れる準備を実装済み。
-現在は非公開なので、`CASTOR_PUBLIC_REPOSITORY` のコンパイル条件は定義しない。
-リポジトリの再公開をユーザーへ知らせ、外部から閲覧できることを確認した後、Xcode の
-app ターゲットの配布用設定で `SWIFT_ACTIVE_COMPILATION_CONDITIONS` に
-`$(inherited) CASTOR_PUBLIC_REPOSITORY` を指定してビルドする。すると投稿画面の `url` に
+ソースの再公開に合わせ、Xcode の app ターゲットの Debug / Release で
+`SWIFT_ACTIVE_COMPILATION_CONDITIONS` に `$(inherited) CASTOR_PUBLIC_REPOSITORY` を
+指定した。投稿画面の `url` に
 `https://github.com/Methurcoder/Castor` が追加される。
 X への添付・投稿は引き続きユーザーが手動で行う。
+
+## ソース再公開の確認記録 (2026-10-14)
+
+- 2段階認証の有効化を管理者本人が確認した。認証情報や recovery codes は取得・保存していない。
+- 監査修正コミット `b7aab1c` の Windows / Mac CI は成功。
+- 公開前に到達可能な Git 履歴の326 blobで既知のcredential・個人ホームパスを検査し、
+  検出なし。ScreenshotAnswer の公開対象24ファイルの検査も成功。
+  これらは包括的な秘密情報・セキュリティ監査ではない。
+- Release の不変設定は有効。アプリ配布 Release は作成しない。
+- Developer ID署名・公証、Intel GPUのGIF出力、WindowsのGUI・配布物の実機確認は継続課題。
