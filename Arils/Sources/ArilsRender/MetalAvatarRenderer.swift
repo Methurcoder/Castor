@@ -235,7 +235,7 @@ public final class MetalAvatarRenderer: AvatarRendering {
         if exportColor?.width != width || exportColor?.height != height {
             let color = MTLTextureDescriptor.texture2DDescriptor(
                 pixelFormat: colorPixelFormat, width: width, height: height, mipmapped: false)
-            color.storageMode = .shared
+            color.storageMode = device.hasUnifiedMemory ? .shared : .managed
             color.usage = .renderTarget
             let depth = MTLTextureDescriptor.texture2DDescriptor(
                 pixelFormat: .depth32Float, width: width, height: height, mipmapped: false)
@@ -260,6 +260,19 @@ public final class MetalAvatarRenderer: AvatarRendering {
         }
         command.waitUntilCompleted()
         guard command.status == .completed else { throw RendererError.imageExportFailed }
+        if color.storageMode == .managed {
+            // Dedicated-memory GPUs keep separate GPU/CPU copies. Synchronize the
+            // rendered slice before getBytes reads the CPU copy.
+            guard let synchronization = commandQueue.makeCommandBuffer(),
+                  let blit = synchronization.makeBlitCommandEncoder() else {
+                throw RendererError.imageExportFailed
+            }
+            blit.synchronize(texture: color, slice: 0, level: 0)
+            blit.endEncoding()
+            synchronization.commit()
+            synchronization.waitUntilCompleted()
+            guard synchronization.status == .completed else { throw RendererError.imageExportFailed }
+        }
         var pixels = [UInt8](repeating: 0, count: width * height * 4)
         pixels.withUnsafeMutableBytes { buffer in
             color.getBytes(buffer.baseAddress!, bytesPerRow: width * 4,

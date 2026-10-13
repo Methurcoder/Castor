@@ -33,7 +33,7 @@ prepared for a new repository under a different GitHub account.
 
 ## Pet GIF sharing (macOS)
 
-- Add “GIFを作って投稿する” to Rigging and the floating pet context menu.
+- Add “GIFを作ってXで共有” to Rigging and the floating pet context menu.
 - Preview a 3–5 second animation, choose a background, then save the GIF and open X's composer.
 - Explicitly state that the GIF is not automatically attached: the user attaches the saved file and publishes on X.
 - Standard and Quality export through the same Metal draw path as the live pet; manual rigs use the existing SwiftUI renderer.
@@ -112,3 +112,28 @@ New in the Arils API, not yet driven by the app:
   estimators.
 - Attitudes, hesitation, personality presets and speech timelines are in the
   Arils API only; wiring them into the app is next.
+
+## Pre-release audit corrections
+
+- Document the lack of automatically added quarantine / Mark of the Web on script-fetched apps,
+  the trust limits of the same-Release SHA-256 manifest, and first-run launcher warnings.
+- Stage Windows downloads under LocalApplicationData/Programs/Castor on the install volume;
+  suppress PowerShell 5.1 progress overhead and restrict authentication hints to relevant failures.
+- Restrict Mac curl redirects to HTTPS.
+- Use managed Metal output textures with GPU-to-CPU synchronization on dedicated-memory GPUs.
+- Show neutral status for an explicit GIF cancellation, silently invalidate obsolete jobs,
+  and prepare an opt-in repository URL for builds made after public release.
+- Two-factor authentication setup and real Intel/Windows GUI checks are still pending.
+- Enabled GitHub immutable releases for future releases; the repository remains private.
+- Fixed Intel compilation of float16 Core ML outputs using Core ML numeric subscripts;
+  Apple Silicon retains its direct Float16 conversion path.
+
+### Audit correction verification (2026-10-14)
+
+- Universal macOS Release build succeeded with arm64 and x86_64 slices. Code signing was
+  disabled for this compilation check; the result is not a signed distribution package.
+- Bash syntax, PowerShell parser checks and `git diff --check` passed.
+- Existing downloader fixtures now refer to the new install root. No test cases were added
+  or executed locally for this correction.
+- Dedicated-memory Intel GIF rendering, first-run OS prompts, Windows PowerShell 5.1
+  downloads/install and GUI interactions still need checks on their target systems.

@@ -139,6 +139,10 @@ enum PetGIFSharing {
             URLQueryItem(name: "text", value: "Castorで作ったペットです。"),
             URLQueryItem(name: "hashtags", value: "Castor")
         ]
+        // Add this compilation condition only after the repository is public.
+        #if CASTOR_PUBLIC_REPOSITORY
+        components?.queryItems?.append(URLQueryItem(name: "url", value: "https://github.com/Methurcoder/Castor"))
+        #endif
         return components?.url
     }
 }

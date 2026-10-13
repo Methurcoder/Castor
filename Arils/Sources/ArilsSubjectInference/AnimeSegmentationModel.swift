@@ -96,8 +96,14 @@ package final class AnimeSegmentationModel: @unchecked Sendable {
         let count = array.count
         switch array.dataType {
         case .float16:
+            #if arch(arm64)
             let pointer = array.dataPointer.bindMemory(to: Float16.self, capacity: count)
             return (0..<count).map { Float(pointer[$0]) }
+            #else
+            // Swift Float16 is unavailable on Intel macOS; Core ML handles
+            // conversion through its numeric subscript instead.
+            return (0..<count).map { array[$0].floatValue }
+            #endif
         case .float32:
             let pointer = array.dataPointer.bindMemory(to: Float.self, capacity: count)
             return Array(UnsafeBufferPointer(start: pointer, count: count))

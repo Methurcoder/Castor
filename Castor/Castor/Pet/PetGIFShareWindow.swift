@@ -13,7 +13,7 @@ final class PetGIFShareWindow: NSObject, NSWindowDelegate {
         window?.close()
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 490, height: 650),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        window.title = "GIFを作って投稿する"
+        window.title = "GIFを作ってXで共有"
         window.isReleasedWhenClosed = false
         window.delegate = self
         window.contentViewController = NSHostingController(rootView: PetGIFShareView(asset: asset))
@@ -39,6 +39,8 @@ private struct PetGIFShareView: View {
     @State private var progress = 0.0
     @State private var task: Task<Void, Never>?
     @State private var error: String?
+    @State private var status: String?
+    @State private var generationID: UUID?
 
     private var isWorking: Bool { task != nil }
 
@@ -77,7 +79,10 @@ private struct PetGIFShareView: View {
                 }.frame(height: 280)
                 HStack {
                     if isWorking {
-                        Button("キャンセル") { task?.cancel() }
+                        Button("キャンセル") {
+                            task?.cancel()
+                            status = "GIFの作成を停止しました。"
+                        }
                     } else {
                         Button(result == nil ? "プレビューを作成" : "プレビューを作り直す", action: generate)
                     }
@@ -89,6 +94,7 @@ private struct PetGIFShareView: View {
                     }
                 }
                 if let error { Text(error).font(.callout).foregroundStyle(.red).textSelection(.enabled) }
+                if let status { Text(status).font(.callout).foregroundStyle(.secondary) }
                 Label(PetGIFSharing.manualAttachmentNotice, systemImage: "paperclip")
                     .font(.callout).fixedSize(horizontal: false, vertical: true)
                     .padding(12).frame(maxWidth: .infinity, alignment: .leading)
@@ -115,11 +121,14 @@ private struct PetGIFShareView: View {
         .onChange(of: motion) { invalidatePreview() }
         .onChange(of: duration) { invalidatePreview() }
         .onChange(of: background) { invalidatePreview() }
-        .onDisappear { task?.cancel() }
+        .onDisappear { invalidatePreview() }
     }
 
     private func invalidatePreview() {
         task?.cancel()
+        generationID = nil
+        task = nil
+        status = nil
         result = nil
         savedURL = nil
         error = nil
@@ -127,19 +136,31 @@ private struct PetGIFShareView: View {
 
     private func generate() {
         error = nil
+        status = nil
         savedURL = nil
         progress = 0
+        let id = UUID()
+        generationID = id
         let options = PetGIFOptions(motion: motion, duration: duration, background: NSColor(background))
         task = Task { @MainActor in
-            defer { task = nil }
+            defer {
+                if generationID == id {
+                    task = nil
+                    generationID = nil
+                }
+            }
             do {
-                let generated = try await PetGIFExporter.make(asset: asset, options: options) { progress = $0 }
+                let generated = try await PetGIFExporter.make(asset: asset, options: options) {
+                    if generationID == id { progress = $0 }
+                }
                 try Task.checkCancellation()
+                guard generationID == id else { return }
                 result = generated
             } catch is CancellationError {
-                error = "GIFの作成をキャンセルしました。"
+                // A changed setting or closed window silently invalidates the old job.
+                // Only the explicit Cancel button supplies a neutral status message.
             } catch {
-                self.error = error.localizedDescription
+                if generationID == id { self.error = error.localizedDescription }
             }
         }
     }

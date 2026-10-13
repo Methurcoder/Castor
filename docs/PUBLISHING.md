@@ -59,3 +59,30 @@ git diff --check
 
 Castor は新しい Git 履歴で開始済みです。旧 Pomegranate とその未コミット作業を保持します。
 公開範囲とバージョンが決まったら README とリリース説明に反映します。
+
+## アカウントとReleaseの保護
+
+- Methurcoder の「Settings → Password and authentication」で 2段階認証を有効にし、
+  recovery codes を安全な場所へ保存する。公開前にユーザーが手元で有効なことを確認する。
+  GitHub API の取得結果が null の場合は、有効・無効の根拠には使わない。
+- リポジトリの「Settings → General → Releases → Enable release immutability」を有効にする。
+  2026-10-14 に有効化済み（API 読取値 `enabled: true`）。公開前にも再確認する。
+  [GitHub の手順](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/establish-provenance-and-integrity/prevent-release-changes)。
+- 不変設定は今後公開する Release に適用される。Draft の間に全 ZIP、manifest、
+  ライセンスと説明を揃えて確認し、それから Release を公開する。公開後の asset/tag の
+  差し替えによる修正は行わず、新しいバージョンを作る。
+- 不変設定だけでは、不正な新規 Release の作成やビルド環境の侵害を防げない。
+  SHA-256 と同じ Release の manifest だけでは配布者の真正性を証明できない。
+  [ダウンローダーの保護と限界](DOWNLOADER.md#アプリ取得時の保護と限界)を利用者へ示す。
+- Developer ID 署名・notarization は未整備。Apple の証明書と公証を使う正式配布経路を
+  次の段階で用意し、鍵や認証情報は手元の keychain / CI の秘密情報として管理する。
+
+## 公開後のX紹介URL
+
+GIF の Web Intent にリポジトリ URL を入れる準備を実装済み。
+現在は非公開なので、`CASTOR_PUBLIC_REPOSITORY` のコンパイル条件は定義しない。
+リポジトリの再公開をユーザーへ知らせ、外部から閲覧できることを確認した後、Xcode の
+app ターゲットの配布用設定で `SWIFT_ACTIVE_COMPILATION_CONDITIONS` に
+`$(inherited) CASTOR_PUBLIC_REPOSITORY` を指定してビルドする。すると投稿画面の `url` に
+`https://github.com/Methurcoder/Castor` が追加される。
+X への添付・投稿は引き続きユーザーが手動で行う。

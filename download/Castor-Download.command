@@ -3,7 +3,8 @@
 set -euo pipefail
 repo='Methurcoder/Castor'
 fail() { printf '\nCastor: %s\n' "$1" >&2; exit 1; }
-trap 'status=$?; [ -z "${work:-}" ] || rm -rf "$work"; if [ "$status" -ne 0 ]; then printf "Releaseがない、または非公開の場合は、アクセス権と gh auth login を確認してください。\n" >&2; fi' EXIT
+auth_hint=false
+trap 'status=$?; [ -z "${work:-}" ] || rm -rf "$work"; if [ "$status" -ne 0 ] && $auth_hint; then printf "Releaseがない、または非公開の場合は、アクセス権と gh auth login を確認してください。\n" >&2; fi' EXIT
 [ "$(uname -s)" = Darwin ] || fail 'This launcher is for macOS.'
 version_os=$(sw_vers -productVersion)
 major=${version_os%%.*}; rest=${version_os#*.}; minor=${rest%%.*}
@@ -14,10 +15,28 @@ case "$arch" in arm64) platform=macos_arm64;; x86_64) platform=macos_x86_64;; *)
 work=$(mktemp -d "${TMPDIR:-/tmp}/castor-download.XXXXXXXX")
 auth=false
 if command -v gh >/dev/null 2>&1 && gh auth status --hostname github.com >/dev/null 2>&1; then auth=true; fi
+fetch_https() {
+    local http_code
+    if ! http_code=$(curl --fail --location --proto '=https' --proto-redir '=https' --tlsv1.2 --retry 2 \
+        --write-out '%{http_code}' "$1" -o "$2"); then
+        case "$http_code" in 401|404) auth_hint=true;; esac
+        fail "GitHub download failed (HTTP ${http_code:-unknown})."
+    fi
+}
+github_api() {
+    local destination=$1
+    shift
+    if ! gh api "$@" > "$destination" 2> "$work/github-error"; then
+        if /usr/bin/grep -Eqi 'HTTP (401|404)|gh auth login|not logged|requires authentication' "$work/github-error"; then
+            auth_hint=true
+        fi
+        fail 'GitHub API request failed.'
+    fi
+}
 if $auth; then
-    gh api "repos/$repo/releases/latest" > "$work/release.json"
+    github_api "$work/release.json" "repos/$repo/releases/latest"
 else
-    curl --fail --location --proto '=https' --tlsv1.2 --retry 2 "https://api.github.com/repos/$repo/releases/latest" -o "$work/release.json"
+    fetch_https "https://api.github.com/repos/$repo/releases/latest" "$work/release.json"
 fi
 # macOS includes JavaScript for Automation; all fields are validated before use.
 json() {
@@ -49,9 +68,9 @@ fetch() {
     IFS=$'\t' read -r id url <<< "$(json asset "$work/release.json" "$1")"
     [ -n "$id" ] && [ -n "$url" ] || fail 'Missing release asset.'
     if $auth; then
-        gh api -H 'Accept: application/octet-stream' "repos/$repo/releases/assets/$id" > "$2"
+        github_api "$2" -H 'Accept: application/octet-stream' "repos/$repo/releases/assets/$id"
     else
-        curl --fail --location --proto '=https' --tlsv1.2 --retry 2 "$url" -o "$2"
+        fetch_https "$url" "$2"
     fi
 }
 fetch castor-downloads.json "$work/manifest.json"

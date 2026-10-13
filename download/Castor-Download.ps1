@@ -1,8 +1,11 @@
 # Download only the native Windows app; no Swift installation or elevation.
 $ErrorActionPreference = 'Stop'
+# Windows PowerShell 5.1 progress rendering can dominate large downloads.
+$ProgressPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $repo = 'Methurcoder/Castor'
 $work = $null
+$authenticationFailure = $false
 try {
     if ($env:OS -ne 'Windows_NT') { throw 'This launcher is for Windows.' }
     # Do not mistake an emulated x64 process on ARM64 for an x64 computer.
@@ -10,27 +13,67 @@ try {
     if ($env:PROCESSOR_ARCHITEW6432) { $arch = $env:PROCESSOR_ARCHITEW6432 }
     if ($arch -ne 'AMD64') { throw 'The preview currently supports Windows x64 only.' }
     $platform = 'windows_x86_64'
-    $work = Join-Path ([IO.Path]::GetTempPath()) ('castor-download-' + [Guid]::NewGuid())
+    $localData = [Environment]::GetFolderPath('LocalApplicationData')
+    if ([string]::IsNullOrWhiteSpace($localData)) { throw 'The local application data folder is unavailable.' }
+    $base = Join-Path $localData 'Programs\Castor'
+    [IO.Directory]::CreateDirectory($base) | Out-Null
+    # Stage and target share a volume even when TEMP is on another drive.
+    $work = Join-Path $base ('.castor-download-' + [Guid]::NewGuid())
     New-Item -ItemType Directory -Path $work | Out-Null
     $authenticated = $false
     if (Get-Command gh -ErrorAction SilentlyContinue) {
         & gh auth status --hostname github.com *> $null
         $authenticated = $LASTEXITCODE -eq 0
     }
+    function Set-AuthenticationHint([string]$details) {
+        if ($details -match '(?i)HTTP (401|404)\b|gh auth login|not logged|requires authentication') {
+            $script:authenticationFailure = $true
+        }
+    }
+    function Invoke-AuthenticatedGitHub([string[]]$arguments) {
+        $errorFile = Join-Path $work 'github-error.txt'
+        $previousPreference = $ErrorActionPreference
+        try {
+            # PS 5.1 represents native stderr as ErrorRecords. Classify failures
+            # after gh exits rather than terminating before inspecting its status.
+            $ErrorActionPreference = 'Continue'
+            $output = & gh @arguments 2> $errorFile
+            $exitCode = $LASTEXITCODE
+        } finally { $ErrorActionPreference = $previousPreference }
+        if ($exitCode -ne 0) {
+            Set-AuthenticationHint (Get-Content -Raw -LiteralPath $errorFile)
+            throw 'GitHub request failed.'
+        }
+        return $output
+    }
+    function Invoke-PublicGitHubRequest([string]$uri, [string]$destination) {
+        try {
+            if ($destination) {
+                Invoke-WebRequest -UseBasicParsing -Uri $uri -OutFile $destination
+            } else {
+                Invoke-RestMethod -Uri $uri
+            }
+        } catch {
+            $response = $_.Exception.Response
+            if ($response -and [int]$response.StatusCode -in @(401, 404)) {
+                $script:authenticationFailure = $true
+            }
+            throw
+        }
+    }
     $endpoint = "repos/$repo/releases/latest"
     if ($authenticated) {
-        $releaseText = & gh api $endpoint
-        if ($LASTEXITCODE -ne 0) { throw 'Could not read the Release. Check repository access.' }
+        $releaseText = Invoke-AuthenticatedGitHub -arguments @('api', $endpoint)
         $release = ($releaseText -join "`n") | ConvertFrom-Json
     } else {
-        $release = Invoke-RestMethod -Uri "https://api.github.com/$endpoint"
+        $release = Invoke-PublicGitHubRequest "https://api.github.com/$endpoint"
     }
     if ($release.tag_name -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$') { throw 'Invalid Release tag.' }
     if ($release.draft -or $release.prerelease) { throw 'Use a stable Release.' }
     function Get-ReleaseFile([string]$name, [string]$destination) {
-        $matches = @($release.assets | Where-Object { $_.name -ceq $name })
-        if ($matches.Count -ne 1) { throw "Missing or duplicate Release asset: $name" }
-        $asset = $matches[0]
+        $matchingAssets = @($release.assets | Where-Object { $_.name -ceq $name })
+        if ($matchingAssets.Count -ne 1) { throw "Missing or duplicate Release asset: $name" }
+        $asset = $matchingAssets[0]
         if ($asset.id -le 0 -or $asset.browser_download_url -cnotlike "https://github.com/$repo/releases/download/*") {
             throw 'Unexpected Release asset.'
         }
@@ -38,11 +81,11 @@ try {
             # gh writes asset bytes itself; PowerShell 5.1 stdout redirection would corrupt ZIPs.
             $fetchDirectory = Join-Path $work ([Guid]::NewGuid().ToString())
             New-Item -ItemType Directory -Path $fetchDirectory | Out-Null
-            & gh release download $release.tag_name --repo $repo --pattern $name --dir $fetchDirectory
-            if ($LASTEXITCODE -ne 0) { throw 'Asset download failed.' }
+            Invoke-AuthenticatedGitHub -arguments @('release', 'download', $release.tag_name, '--repo', $repo,
+                '--pattern', $name, '--dir', $fetchDirectory) | Out-Null
             Move-Item -LiteralPath (Join-Path $fetchDirectory $name) -Destination $destination
         } else {
-            Invoke-WebRequest -UseBasicParsing -Uri $asset.browser_download_url -OutFile $destination
+            Invoke-PublicGitHubRequest $asset.browser_download_url $destination
         }
     }
     $manifestFile = Join-Path $work 'manifest.json'
@@ -84,8 +127,6 @@ try {
     } finally { $zip.Dispose() }
     [IO.Compression.ZipFile]::ExtractToDirectory($zipFile, $stage)
     if (-not (Test-Path -LiteralPath (Join-Path $stage 'CastorPet.exe') -PathType Leaf)) { throw 'CastorPet.exe is missing.' }
-    $base = Join-Path ([Environment]::GetFolderPath('UserProfile')) 'Downloads'
-    [IO.Directory]::CreateDirectory($base) | Out-Null
     $target = Join-Path $base "Castor-$version-$platform"
     # Directory.Move fails if destination already exists, including races.
     [IO.Directory]::Move($stage, $target)
@@ -93,7 +134,9 @@ try {
     Start-Process explorer.exe -ArgumentList ('"' + $target + '"')
 } catch {
     Write-Host ("Castor: " + $_.Exception.Message) -ForegroundColor Red
-    Write-Host 'If the repository is private, check access and run gh auth login locally. A Release must exist.'
+    if ($authenticationFailure) {
+        Write-Host 'Check that a Release exists. For a private repository, check access and run gh auth login locally.'
+    }
     exit 1
 } finally {
     if ($work -and (Test-Path -LiteralPath $work)) { Remove-Item -LiteralPath $work -Recurse -Force }

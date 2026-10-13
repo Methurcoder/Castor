@@ -407,7 +407,7 @@ struct ImageRiggingView: View {
                 Button {
                     sharePetGIF()
                 } label: {
-                    Label("GIFを作って投稿する", systemImage: "square.and.arrow.up")
+                    Label("GIFを作ってXで共有", systemImage: "square.and.arrow.up")
                 }
                 .disabled(!canSavePet)
                 .help("GIFを保存してXを開きます。GIFはXで手動添付してください。")

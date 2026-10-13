@@ -50,7 +50,7 @@ struct PetFloatingView: View {
             Button {
                 PetGIFShareWindow.shared.show(asset: asset)
             } label: {
-                Label("GIFを作って投稿する", systemImage: "square.and.arrow.up")
+                Label("GIFを作ってXで共有", systemImage: "square.and.arrow.up")
             }
             Divider()
             Button("ペットを閉じる", action: onClose)

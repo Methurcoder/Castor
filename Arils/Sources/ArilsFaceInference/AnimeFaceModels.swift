@@ -294,7 +294,23 @@ struct Plane {
             }
         }
         switch array.dataType {
-        case .float16: copy(Float16.self) { Float($0) }
+        case .float16:
+            #if arch(arm64)
+            copy(Float16.self) { Float($0) }
+            #else
+            // Core ML converts float16 without the ARM-only Swift type.
+            var indices = [NSNumber](repeating: 0, count: rank)
+            for c in 0..<channels {
+                if rank >= 3 { indices[rank - 3] = NSNumber(value: c) }
+                for y in 0..<height {
+                    if rank >= 2 { indices[rank - 2] = NSNumber(value: y) }
+                    for x in 0..<width {
+                        indices[rank - 1] = NSNumber(value: x)
+                        out[(c * height + y) * width + x] = array[indices].floatValue
+                    }
+                }
+            }
+            #endif
         case .double: copy(Double.self) { Float($0) }
         default: copy(Float.self) { $0 }
         }
@@ -322,7 +338,18 @@ struct Matrix {
             for r in 0..<rows { for c in 0..<columns { out[r * columns + c] = convert(pointer[r * rs + c * cs]) } }
         }
         switch array.dataType {
-        case .float16: copy(Float16.self) { Float($0) }
+        case .float16:
+            #if arch(arm64)
+            copy(Float16.self) { Float($0) }
+            #else
+            for r in 0..<rows {
+                for c in 0..<columns {
+                    let indices = shape.count > 1
+                        ? [NSNumber(value: r), NSNumber(value: c)] : [NSNumber(value: r)]
+                    out[r * columns + c] = array[indices].floatValue
+                }
+            }
+            #endif
         case .double: copy(Double.self) { Float($0) }
         default: copy(Float.self) { $0 }
         }

@@ -17,19 +17,67 @@ Release が用意された後、対応するランチャーを実行します。
 `castor-downloads.json` を読みます。対応する ZIP だけを取得し、manifest の
 SHA-256 と照合してから展開します。対応する配布物がない環境では取得できません。
 
-展開先はユーザーのホームフォルダ内です。`<version>` と `<platform>` は
+展開先はユーザー専用のフォルダです。`<version>` と `<platform>` は
 Release の情報に置き換わります。
 
 | 環境 | 展開後のアプリ |
 | --- | --- |
 | macOS | `~/Applications/Castor-<version>-<platform>/Castor.app` |
-| Windows | `~/Downloads/Castor-<version>-<platform>/CastorPet.exe` |
+| Windows | `%LOCALAPPDATA%\Programs\Castor\Castor-<version>-<platform>\CastorPet.exe` |
 
 配布用 `Castor-Downloader.zip` には両OSの小さな起動スクリプトを同梱します。
 Mac版・Windows版の大きなアプリを両方ダウンロードすることはありません。
 
 新しいフォルダへ展開し、既存のインストールを上書きしません。取得用の一時 ZIP は
 削除します。アプリは自動実行せず、展開したフォルダを表示します。
+
+Windows は OS の LocalApplicationData フォルダを使い、配置先と同じ場所に作業用
+フォルダを作ります。TEMP が別ドライブでもフォルダ移動で失敗しない構成です。
+古い Downloads 内のインストールは移動・削除しません。
+
+### ダウンローダーを初めて開くとき
+
+ブラウザで取得した `Castor-Downloader.zip` は、展開したスクリプトにもインターネット
+由来の印が引き継がれる場合があります。表示は OS の版、ブラウザ、展開方法、管理ポリシー
+によって異なります。警告が出た場合、配布元が `Methurcoder/Castor` であることと、
+このスクリプトが実行する内容を確認してから、必要な場合に限り次の操作を行います。
+
+- **Mac:** Finder で `Castor-Download.command` を開こうとして止まったら、
+  「システム設定 → プライバシーとセキュリティ」のセキュリティ欄で、そのファイル名を
+  確認して「このまま開く」を選び、再度の確認に従います。
+  [Apple の案内](https://support.apple.com/en-us/102445)も参照してください。
+- **Windows:** SmartScreen の「Windows によって PC が保護されました」が出た場合は、
+  「詳細情報」で対象ファイルを確認し、実行を選ぶ場合は「実行」を押します。
+  管理ポリシーなどにより実行ボタンが出ない場合は、保護を無効化せず管理者へ確認してください。
+
+この手順は、表示された特定のファイルをユーザーが判断して開くためのものです。
+ウイルス対策や Gatekeeper / SmartScreen の全体設定を無効化する手順ではありません。
+
+### アプリ取得時の保護と限界
+
+最初にブラウザから取得するダウンローダーと、スクリプトが後から取得するアプリでは、
+インターネット由来の印の扱いが異なります。`curl`、`gh`、`Invoke-WebRequest` による取得では、
+Mac の `com.apple.quarantine` や Windows の `Zone.Identifier`（Mark of the Web）が
+自動で付くことを前提にできません。このランチャーも、その印を新たに付けていません。
+したがって、展開したアプリをユーザーが開く際に、**Gatekeeper や SmartScreen の
+ダウンロード由来の警告が表示されない場合があります。警告がないことは安全性の証明ではありません。**
+OS のその他の保護まで無効になるという意味でもありません。
+
+ランチャーは既存の quarantine / Mark of the Web を削除せず、OS 全体の保護設定も
+変更しませんが、これだけでダウンロード由来の確認が働き続けるとは言えません。
+Windows の `.cmd` は同梱スクリプトをその PowerShell プロセスだけで
+`-ExecutionPolicy Bypass` により実行します。これはスクリプト実行ポリシーの
+プロセス内での上書きであり、システム設定の永続変更や管理者権限取得ではありません。
+
+SHA-256 は ZIP と **同じ Release に置かれた manifest** と照合します。
+壊れた取得や manifest と異なるファイルを検出できますが、配布者の真正性を独立に
+証明しません。Release と manifest の両方が攻撃者によって差し替えられれば、この照合は
+通り得ます。配布元アカウント、Release 作成環境、GitHub の配信、手元のランチャーへ
+信頼を置く方式です。現在のダウンローダーは独立した署名・attestation の検証を行いません。
+
+Mac app は通常のローカルビルドでは ad-hoc 署名です。現在の確認用 ZIP も ad-hoc 署名で、
+配布者を確認できる Developer ID 署名・公証（notarization）は未実施です。
+Windows 配布用 EXE のコード署名も未整備です。
 
 Windows 版はペットの再生プレビューです。アプリ本体にキャラクターのデータは
 含みません。ペットデータがない場合は、Mac の Arils で作成した `CastorPet.json`
@@ -98,8 +146,6 @@ DLLの依存が全て揃うことをこのツールだけでは証明できな�
 Windowsで起動し、Swift/ICU/Visual C++等の再配布条件・必要なライセンスを確認してください。
 生成物はOS別ZIP、`castor-downloads.json`、小さな `Castor-Downloader.zip` です。
 
-Mac appは通常のビルドだけではad-hoc署名になります。現在のローカル確認用ZIPも
-ad-hoc署名で、公開配布用のDeveloper ID署名・notarizationは未実施です。
-ランチャーはGatekeeperの設定やファイルのquarantineを解除しません。
-Windowsの `.cmd` は同梱スクリプトをそのPowerShellプロセスだけで実行し、
-システムのExecutionPolicyや管理者設定は変更しません。
+将来の macOS 正式配布では、Developer ID Application で署名し、Apple の公証を
+受けて ticket を staple した app を配布します。証明書・秘密鍵・公証の認証情報は
+Git 管理やチャットに含めません。署名・公証済みの配布物でも、対象 Mac で初回起動を確認します。

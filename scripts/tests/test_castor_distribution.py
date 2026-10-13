@@ -178,7 +178,7 @@ shutil.copyfile(Path(os.environ['TEST_RELEASE'])/name, args[args.index('-o')+1])
         self.setup_release(corrupt)
         script = (ROOT/'download/Castor-Download.ps1').read_text()
         # Isolate just the install root for a non-Windows host; production has no test hooks.
-        script = script.replace("Join-Path ([Environment]::GetFolderPath('UserProfile')) 'Downloads'", "$env:TEST_HOME")
+        script = script.replace("[Environment]::GetFolderPath('LocalApplicationData')", "$env:TEST_HOME")
         copy = self.base/'download.ps1'
         copy.write_text(script)
         wrapper = self.base/'check.ps1'
@@ -210,9 +210,9 @@ function gh {
         else:
             mocks += "function Get-Command { param($Name,$ErrorAction); if ($Name -ne 'gh') { throw 'Unexpected command' } }\n"
         wrapper.write_text(mocks+"& $env:TEST_SCRIPT\nexit $LASTEXITCODE\n")
-        target = self.home/'Castor-local-test-windows_x86_64'
+        target = self.home/'Programs/Castor/Castor-local-test-windows_x86_64'
         if existing:
-            target.mkdir()
+            target.mkdir(parents=True)
             (target/'keep').write_text('existing')
         env = dict(os.environ, TEST_HOME=str(self.home), TEST_RELEASE=str(self.output), TEST_SCRIPT=str(copy), TEST_LOG=str(self.log))
         result = subprocess.run([PWSH, '-NoProfile', '-File', str(wrapper)], env=env, capture_output=True, text=True)
