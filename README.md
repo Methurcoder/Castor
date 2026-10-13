@@ -4,7 +4,7 @@
 
 Castor は、画像からキャラクターを作り、呼吸・瞬き・視線・声で反応するデスクトップコンパニオンです。少しためらったり、目を逸らしたりする「不器用な生命感」を目指しています。macOS アプリを中心に開発している、研究・試作段階のプロジェクトです。
 
-Castor は **Pomegranate の後継プロジェクト**です。GitHub アカウント `Methurcoder` の新しい `Castor` リポジトリへ、Pomegranate由来とライセンスを残して新しい履歴で移行する予定です。現在はローカル準備段階で、公開リポジトリとリリース番号は未確定です。アプリ、Xcode プロジェクト、Swift Package、ペットの実行ファイルと新規保存先は `Castor` 名義へ統一しています。既存データの互換性を保つため、macOS の bundle ID `dev.pomegranate.prototype` と `Pomegranate.*` の設定キーを維持し、旧保存ファイルも読み込みます。
+Castor は、[Pomegranate](https://github.com/atemoyacode-sudo/Pomegranate) の**許諾済みの後継プロジェクト**です。GitHub アカウント `Methurcoder` の新しい `Castor` リポジトリへ、Pomegranate由来とライセンスを残して新しい履歴で移行する予定です。現在はローカル準備段階で、公開リポジトリとリリース番号は未確定です。アプリ、Xcode プロジェクト、Swift Package、ペットの実行ファイルと新規保存先は `Castor` 名義へ統一しています。既存データの互換性を保つため、macOS の bundle ID `dev.pomegranate.prototype` と `Pomegranate.*` の設定キーを維持し、旧保存ファイルも読み込みます。
 
 ## 現在できること
 
