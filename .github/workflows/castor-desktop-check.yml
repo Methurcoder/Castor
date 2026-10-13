@@ -1,0 +1,33 @@
+name: CastorDesktop checks
+on:
+  pull_request:
+    paths: ["CastorDesktop/**", "Arils/**", "download/**", "scripts/prepare-castor-release.py", "scripts/tests/test_castor_distribution.py", ".github/workflows/castor-desktop-check.yml"]
+  push:
+    paths: ["CastorDesktop/**", "Arils/**", "download/**", "scripts/prepare-castor-release.py", "scripts/tests/test_castor_distribution.py", ".github/workflows/castor-desktop-check.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: compnerd/gha-setup-swift@bbae8ce86bac5a3449f3992b3d88bc4ca25f2057 # pinned setup-swift
+        with:
+          swift-version: swift-6.4.1-release
+          swift-build: 6.4.1-RELEASE
+      - name: Test portable archive loading and rendering
+        run: swift test --package-path CastorDesktop --scratch-path "$env:RUNNER_TEMP/CastorDesktop"
+      - name: Check packaging and Windows downloader offline
+        run: python scripts/tests/test_castor_distribution.py
+      - name: Build the actual Win32 release executable
+        run: swift build --package-path CastorDesktop --scratch-path "$env:RUNNER_TEMP/CastorDesktop" -c release --product CastorPet
+  macos:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - run: swift test --package-path CastorDesktop
+      - name: Check packaging and native Mac downloader offline
+        run: python3 scripts/tests/test_castor_distribution.py

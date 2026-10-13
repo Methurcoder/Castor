@@ -224,7 +224,7 @@ do {
 }
 
 let scale = Double(GetDpiForSystem()) / 96
-let window = PetWindow(player: player, width: Int(260 * scale), height: Int(340 * scale))
+private let window = PetWindow(player: player, width: Int(260 * scale), height: Int(340 * scale))
 PetWindow.shared = window
 guard window.create() else {
     showError("Could not create the pet window.")
@@ -232,7 +232,7 @@ guard window.create() else {
 }
 
 var message = MSG()
-while GetMessageW(&message, nil, 0, 0).boolValue {
+while GetMessageW(&message, nil, 0, 0) {
     _ = TranslateMessage(&message)
     _ = DispatchMessageW(&message)
 }

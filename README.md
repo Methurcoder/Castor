@@ -4,7 +4,7 @@
 
 Castor は、画像からキャラクターを作り、呼吸・瞬き・視線・声で反応するデスクトップコンパニオンです。少しためらったり、目を逸らしたりする「不器用な生命感」を目指しています。macOS アプリを中心に開発している、研究・試作段階のプロジェクトです。
 
-Castor は、[Pomegranate](https://github.com/atemoyacode-sudo/Pomegranate) の**許諾済みの後継プロジェクト**です。`Methurcoder` が管理する本リポジトリでは、Pomegranate由来の説明・著作権表示・MITライセンスを残し、新しいGit履歴で開発を続けています。現在はソースコードを公開しており、リリース番号と配布バイナリは未確定です。アプリ、Xcode プロジェクト、Swift Package、ペットの実行ファイルと新規保存先は `Castor` 名義へ統一しています。既存データの互換性を保つため、macOS の bundle ID `dev.pomegranate.prototype` と `Pomegranate.*` の設定キーを維持し、旧保存ファイルも読み込みます。
+Castor は、[Pomegranate](https://github.com/atemoyacode-sudo/Pomegranate) の**許諾済みの後継プロジェクト**です。`Methurcoder` が管理する本リポジトリでは、Pomegranate由来の説明・著作権表示・MITライセンスを残し、新しいGit履歴で開発を続けています。現在のリポジトリは非公開です。リリース番号と配布バイナリは未確定です。アプリ、Xcode プロジェクト、Swift Package、ペットの実行ファイルと新規保存先は `Castor` 名義へ統一しています。既存データの互換性を保つため、macOS の bundle ID `dev.pomegranate.prototype` と `Pomegranate.*` の設定キーを維持し、旧保存ファイルも読み込みます。
 
 ## 現在できること
 
@@ -25,16 +25,26 @@ macOS アプリでは、次の機能を使えます。
 | 環境 | 現在の範囲 | 確認の境界 |
 | --- | --- | --- |
 | macOS | SwiftUI アプリ、自動リギング、ペット、会話・音声、外部エージェント連携 | アプリのビルドとパッケージテストを確認済み。最新変更の GUI 表示、実モデルでの応答、権限付きの各機能は実機確認が必要です。 |
-| Windows | `CastorDesktop` のペット再生プレビュー。Mac で作ったリグを読み込み、透過ウインドウで表示 | Win32 のウインドウ・入力・描画は実機確認待ちです。Windows でのリグ作成、会話、音声、カメラは未実装です。 |
+| Windows | `CastorDesktop` のペット再生プレビュー。Mac で作ったリグを読み込み、透過ウインドウで表示 | 旧 Pomegranate ZIP の検査ではコンパイルエラー2件を確認し、補正コピーのビルドと合成図形の表示が成功しました。現在の Castor の Windows 再検査、GUI 操作、実ペットの品質は未確認です。リグ作成、会話、音声、カメラは未実装です。 |
 | Linux | `CastorCore` の共有ロジック、`ArilsPortable` のモーション・変形・保存形式、ペットの CPU 描画部分 | 改名前の Linux 向けクロスビルド成功は引き継ぎ記録にあります。今回の改名後には未再確認で、デスクトップ UI は未実装です。 |
 
 macOS アプリの Xcode プロジェクトは現在 **macOS 26.5** を deployment target にしています。Swift Package の macOS 14 指定とは別の要件です。`CastorCore` のビルドには Swift 6.2 以降が必要です。
 
 ビルドや単体テストの成功は、すべての画像・実デバイス・長時間運転での品質を保証するものではありません。現在の変更点は [リリースノート下書き](docs/RELEASE_NOTES_DRAFT.md)にも記載しています。
 
+## ダウンローダー（Release 準備中）
+
+**現在は Release がないため、ダウンローダーでアプリを取得できません。** ソースからの実行方法は以下を参照してください。
+
+Release 公開後は、macOS では `download/Castor-Download.command`、Windows では `download/Castor-Download.cmd`（同じフォルダに `Castor-Download.ps1` が必要）をダブルクリックします。OS と CPU に合う ZIP だけを取得し、SHA-256 を照合して新しいフォルダへ展開します。既存のインストールは上書きせず、アプリは自動起動しません。
+
+macOS は26.5以上、Windows 配布は現在 x64 向けです。Windows のペット表示には、Mac で作った Arils のペットデータを用意して選ぶ必要があります。非公開 Release の取得には、アクセス権のあるアカウントで手元の `gh auth login` が必要です。ダウンローダーがアカウントを切り替えることはありません。公開 Release の取得には `gh` は不要です。
+
+保存先、配布物の準備、署名・DLL の確認範囲は [ダウンローダーの案内](docs/DOWNLOADER.md)を参照してください。
+
 ## macOS で始める
 
-リポジトリを取得し、Xcode プロジェクトを開きます。
+現在は非公開のため、アクセス権のあるアカウントでリポジトリを取得し、Xcode プロジェクトを開きます。
 
 ```sh
 git clone https://github.com/Methurcoder/Castor.git
@@ -95,15 +105,23 @@ Bridge は `stream-json` と専用の MCP permission prompt を使用し、user 
 
 Windows 版は、Mac で作った Arils ペットを再生する独立 Swift Package です。Swift と Windows 向けビルド環境の導入手順、ペットのコピー元、操作方法は [CastorDesktop/README.md](CastorDesktop/README.md)を参照してください。
 
-Windows のターミナルで、リポジトリルートから実行します。
+Windows の PowerShell で、リポジトリルートから実行します。ペットのパスは実際の保存先に置き換えてください。ビルド生成先は `swift build --show-bin-path` で取得し、フォルダ名に空白があっても扱えるよう引用します。
 
 ```powershell
-cd CastorDesktop
-swift build -c release --product CastorPet
-.build\release\CastorPet.exe C:\path\to\CastorPet.json
+Set-Location -LiteralPath 'CastorDesktop'
+$castorBuildPath = Join-Path $env:TEMP 'Castor-preview-build'
+swift build -c release --product CastorPet --scratch-path "$castorBuildPath"
+if ($LASTEXITCODE -ne 0) { throw 'CastorPet build failed' }
+$castorBinPath = ([string](swift build -c release --show-bin-path --scratch-path "$castorBuildPath" | Select-Object -Last 1)).Trim()
+if ($LASTEXITCODE -ne 0) { throw 'Could not locate the executable' }
+& (Join-Path $castorBinPath 'CastorPet.exe') 'C:\path with spaces\CastorPet.json'
 ```
 
-Arils で保存した `CastorPet.json` または単体の `.arils` アーカイブを渡します。引数を省略した場合は現在のフォルダの `CastorPet.json` を優先し、なければ旧 `PomegranatePet.json` を探します。旧保存ファイルを明示的に指定しても読み込めます。従来の手動リグには対応していません。ドラッグで移動、頭の上のポインタ操作で撫でる反応、Alt を押して背後をクリック、右クリックメニューで終了できます。これらの Win32 動作は実機確認待ちです。
+Arils で保存した `CastorPet.json` または単体の `.arils` アーカイブを渡します。引数を省略した場合は現在のフォルダの `CastorPet.json` を優先し、なければ旧 `PomegranatePet.json` を探します。旧保存ファイルを明示的に指定しても読み込めます。従来の手動リグには対応していません。ドラッグで移動、頭の上のポインタ操作で撫でる反応、Alt を押して背後をクリック、右クリックメニューで終了できます。これらの GUI 操作は未検証です。
+
+2026-10-13〜14 の Windows x64 / Swift 6.4.1 の報告は、改名前の Pomegranate ZIP を対象としています。元 ZIP はトップレベル変数のアクセス修飾子と `GetMessageW` の戻り値処理の2件でビルドが止まり、2行を補正した検証用コピーでは Release ビルドが成功しました。テストは7件成功扱いですが、1件はペットデータ不在で検証せず終了しており、実際にアサーションを実行したのは6件です。
+
+合成データの `pet-snapshot` は画像4枚を出力し、補正コピーの Debug アプリでは赤い図形の表示が確認されました。ドラッグ・右クリック終了・Alt の透過クリック、および実際の Mac 製ペットの動きと描画品質は未検証です。現在の Castor ソースの Windows 再検査はまだ行っていません。
 
 ## 任意機能とモデル
 
@@ -195,7 +213,7 @@ swift run --package-path CastorDesktop -c release \
 
 ## 公開・移行について
 
-ソースコードは [Methurcoder/Castor](https://github.com/Methurcoder/Castor) で公開しています。Pomegranateからの移行方針と互換性は [Castor 移行メモ](docs/CASTOR_MIGRATION.md)、今後の公開作業の手順は [公開ガイド](docs/PUBLISHING.md)を参照してください。
+ソースコードの管理先は [Methurcoder/Castor](https://github.com/Methurcoder/Castor) です。ユーザーがリポジトリを非公開に戻したため、閲覧・取得にはアクセス権が必要です。Pomegranateからの移行方針と互換性は [Castor 移行メモ](docs/CASTOR_MIGRATION.md)、今後の公開作業の手順は [公開ガイド](docs/PUBLISHING.md)を参照してください。
 
 ## ライセンス
 

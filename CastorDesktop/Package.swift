@@ -41,7 +41,7 @@ let package = Package(
         // runtime on any platform without a window.
         .executableTarget(name: "PetSnapshot", dependencies: ["PetRuntime"]),
 
-        .testTarget(name: "PetRuntimeTests", dependencies: ["PetRuntime"]),
+        .testTarget(name: "PetRuntimeTests", dependencies: ["PetRuntime", .product(name: "ArilsPortable", package: "Arils")]),
     ],
     swiftLanguageModes: [.v5]
 )

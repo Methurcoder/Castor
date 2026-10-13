@@ -1,8 +1,10 @@
 # Castor の公開準備
 
 Castor は Pomegranate の後継として、新しい GitHub アカウントに新規リポジトリを
-作成しました。公開先は [Methurcoder/Castor](https://github.com/Methurcoder/Castor) です。
-Pomegranate由来とライセンスを残して新しい履歴を開始し、ソースコードを公開しています。初回リリースのバージョンと配布バイナリは未確定です。
+作成しました。管理先は [Methurcoder/Castor](https://github.com/Methurcoder/Castor) です。
+Pomegranate由来とライセンスを残して新しい履歴を開始しました。ユーザーがリポジトリを
+非公開に戻したため、現在はアクセス権のあるアカウントだけが閲覧・取得できます。
+初回リリースのバージョンと配布バイナリは未確定です。再公開はユーザーへの声掛けと確認後に行います。
 アカウント切り替えと公開操作の前にユーザーへ声をかけます。
 
 ## ローカルで用意するもの
@@ -22,7 +24,8 @@ python3 scripts/prepare-castor-source.py --output /private/tmp/castor-source-pre
 
 結果は `Castor/`、`Castor-source-preparation.zip`、ファイルごとの SHA-256 を持つ
 `migration-manifest.json` です。履歴を含まない確認用ソースで、Git 初期化、ログイン、
-remote 変更、アップロードは行いません。新しい履歴で始めるかは別途確定します。
+remote 変更、アップロードは行いません。Castor 本体は新しい履歴で開始済みですが、
+このソースコピーは履歴を持たない確認用成果物です。
 
 ## 公開対象の確認
 
@@ -48,12 +51,11 @@ git diff --check
 ログインはユーザーが手元で行い、パスワードやトークンをチャットへ貼り付けません。
 現在の Pomegranate の `origin` へ push する従来手順は、この移行では使いません。
 
-## 新リポジトリの作成・公開前
+## 更新・再公開前
 
-準備済みソース、名前、owner、履歴方式、公開範囲を示して確認した後、新アカウントの
-リポジトリ作成と最初の push を行います。private 作成と push の前にも声をかけます。
-公開設定変更、Release 作成、バイナリ添付の前にも対象を伝えます。
+`Methurcoder/Castor` は作成済みで、現在は非公開です。ローカルの修正内容と確認結果を
+示し、ユーザーへ声をかけてから push を行います。非公開リポジトリへの push も対象です。
+公開設定変更、Release 作成、バイナリ添付の前にも対象を伝え、確認を受けます。
 
-履歴なしで始める場合は準備済み `Castor/` で新しい Git を初期化し、履歴を継承する場合は
-別 checkout に監査済み履歴を用意します。既存 Pomegranate と本体の未コミット作業を保持します。
-新しい URL とバージョンが確定したら README とリリース説明に反映します。
+Castor は新しい Git 履歴で開始済みです。旧 Pomegranate とその未コミット作業を保持します。
+公開範囲とバージョンが決まったら README とリリース説明に反映します。

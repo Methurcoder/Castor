@@ -1,8 +1,8 @@
 # Pomegranate から Castor への移行メモ
 
-2026-10-13 時点。Castor は Pomegranate の後継プロジェクトとして、別 GitHub
+2026-10-14 時点。Castor は Pomegranate の後継プロジェクトとして、別 GitHub
 アカウントに新規作成しました。公開先は [Methurcoder/Castor](https://github.com/Methurcoder/Castor)
-です。ユーザーの許可を受け、新しい Git 履歴でソースコードを公開しました。Pomegranate由来の
+です。ユーザーの許可を受け、新しい Git 履歴でソースコードを公開し、現在はユーザーの指定で非公開へ戻しています。Pomegranate由来の
 説明と著作権・ライセンスを保持しています。Windows実機と配布バイナリは別途確認します。
 
 ## 準備する範囲
@@ -77,9 +77,24 @@ Windows preview は macOS の全機能を備える版ではなく、音声会話
 
 改名前の内蔵 AI 変更は Core の 109 テストと macOS app build が成功しています。
 Linux クロスビルド成功は改名前の引き継ぎ資料の記録で、改名後の再実行はしていません。
-Castor への改名後は Core の 109 件、Desktop の 4 件、macOS app の 34 件、
+Castor への改名後は Core の 109 件、Desktop の 4 件（当時1件は保存ペット不在で検証を省略）、macOS app の 34 件、
 ScreenshotAnswer の 23 件、Claude Bridge helper の 6 件のテストが成功しました。
 macOS の app test は `Castor` scheme でビルドも行い、旧ペット読み込み・新保存名の優先・
 旧ファイルを変更しないことを回帰テストで確認しています。UI テストは除外しました。
 移行用フォルダと zip と manifest の指紋一致も確認します。
 GUI、実モデル、Windows 実機、アクセシビリティ権限付き退避は未確認です。
+
+
+### 2026-10-14 Windows報告への対応
+
+旧Pomegranate preview ZIPのWindows Swift 6.4.1 x64テスト報告を受け、
+CastorPetのprivate型を使う変数とGetMessageWのBoolの扱いを修正しました。
+個人の保存済みペットを探すテストは、全OSで常に実行する合成リグ描画へ置換しました。
+MacのSwift 6.4.1でDesktopの7件がすべて実際に検査を実行して成功し、
+MacアプリのReleaseビルドも成功しました。配布ZIPとダウンローダーの11件は
+オフライン固定データで成功し、PowerShell側の処理もMac上のPowerShellで検査しました。
+これらは修正後のWindowsビルド、Windows GUI、実ペットの見た目の再検査ではありません。
+
+OS/CPUに対応する完成アプリだけを取得するダウンローダーと配布準備ツールを追加しました。
+GitHub Releaseは未作成です。ローカルで用意したMac appはad-hoc署名で、
+配布用署名・notarizationは完了していません。詳しくは[ダウンローダー](DOWNLOADER.md)を参照してください。

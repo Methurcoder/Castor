@@ -18,6 +18,19 @@ prepared for a new repository under a different GitHub account.
   build. Windows GUI remains unverified. Linux cross-build success is from the
   pre-rename handoff; it has not been repeated after renaming.
 
+## Windows preview fixes and app downloads
+
+- Fix the private top-level PetWindow variable and Swift 6.4.1 WinSDK Bool handling
+  reported in the original Pomegranate preview ZIP.
+- Replace the saved-Mac-pet test's silent return with a synthetic archive that
+  always checks drawing, transparent background and premultiplied alpha.
+- Test bare, saved and Quality-front archive loading, opacity and pose changes.
+- Add Windows CI that builds the actual Win32 Release executable.
+- Add native download launchers selecting only the matching OS/CPU ZIP,
+  checking SHA-256, installing in a new version folder and deleting temporary downloads.
+  Apps and download manifests must first be prepared as a Release; none exists yet.
+- Add a Windows launcher that lets the user select a Mac-built pet file.
+
 ## Characters and setup
 
 - Official characters and the Prototype shape character are removed; you bring

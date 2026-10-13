@@ -6,10 +6,11 @@ pointer, and reacts when you move the pointer over its head.
 
 This is the first step of the Windows version. Building a pet (automatic
 rigging) still needs the Mac app, because it uses Apple's Vision and Core ML;
-conversation, voice and camera come later. The Win32 window, input and
-rendering are still awaiting a Windows hardware check. Linux cross-build
-success was recorded before the Castor rename; it has not been repeated after
-renaming. A non-Windows build does not exercise the Win32 code.
+conversation, voice and camera come later. The current Castor source has not
+yet been retested on Windows; GUI interaction and real-pet rendering remain
+unverified. Linux cross-build success was recorded before the Castor rename;
+it has not been repeated after renaming. A non-Windows build does not exercise
+the Win32 code.
 
 | Action | How |
 | --- | --- |
@@ -17,6 +18,26 @@ renaming. A non-Windows build does not exercise the Win32 code.
 | Pet it | Move the pointer back and forth over its head |
 | Click what it covers | Hold Alt over it; it turns faint and lets clicks through |
 | Quit | Right-click › Quit Castor |
+
+## Windows verification report
+
+The 2026-10-13–14 report tested the **old Pomegranate preview ZIP** on Windows
+x64 with Swift 6.4.1, not the current Castor checkout. The original ZIP failed
+to compile because a top-level variable using a private type lacked `private`,
+and `GetMessageW` returned Swift `Bool` where the code called `.boolValue`.
+A validation copy with those two lines corrected built successfully in Release.
+
+Seven tests were reported as passing, but one returned without checking anything
+because a saved pet was absent; six executed assertions. Synthetic archives
+covered loading, alpha, deformation and invalid-data rejection. `pet-snapshot`
+wrote four synthetic frames, and the user confirmed a red synthetic shape in
+the corrected Debug app. These results do not establish real-character quality
+or performance.
+
+Dragging, right-click Quit and Alt click-through were not tested. No real pet
+exported from a Mac was available, so breathing, blinking, gaze, petting and
+`--wide-head` appearance remain unverified. A Windows build and runtime check
+of the current Castor checkout is still pending.
 
 ## 1. Bring a pet from the Mac
 
@@ -48,13 +69,23 @@ Open a new terminal afterwards so `swift` is on the PATH.
 
 ## 3. Build and run
 
-From the repository root:
+Run this in **PowerShell** from the repository root. Replace the pet path with
+your actual file. Build products go under `%TEMP%` to avoid a non-writable source
+folder. Use `--show-bin-path` with the same configuration and scratch path;
+Windows toolchains do not always put the executable in `.build\release`.
 
+```powershell
+Set-Location -LiteralPath 'CastorDesktop'
+$castorBuildPath = Join-Path $env:TEMP 'Castor-preview-build'
+swift build -c release --product CastorPet --scratch-path "$castorBuildPath"
+if ($LASTEXITCODE -ne 0) { throw 'CastorPet build failed' }
+$castorBinPath = ([string](swift build -c release --show-bin-path --scratch-path "$castorBuildPath" | Select-Object -Last 1)).Trim()
+if ($LASTEXITCODE -ne 0) { throw 'Could not locate the executable' }
+& (Join-Path $castorBinPath 'CastorPet.exe') 'C:\path with spaces\CastorPet.json'
 ```
-cd CastorDesktop
-swift build -c release --product CastorPet
-.build\release\CastorPet.exe C:\path\to\CastorPet.json
-```
+
+`Join-Path` and the call operator `&` handle executable paths containing spaces.
+The quoted pet path is passed as one argument.
 
 Without an argument it looks for `CastorPet.json` in the current folder, then
 falls back to `PomegranatePet.json`. An explicit path to an old pet also works.

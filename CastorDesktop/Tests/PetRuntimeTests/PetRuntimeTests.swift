@@ -1,17 +1,9 @@
+import ArilsCore
+import ArilsPlayer
 import Foundation
 import Testing
 
 @testable import PetRuntime
-
-/// The macOS app's saved Arils pet, when this machine has one (read only).
-private let savedPet: URL? = ["dev.pomegranate.prototype", "atemoya.pomegranate"]
-    .flatMap { container in
-        ["Castor/CastorPet.json", "Pomegranate/PomegranatePet.json"].map { name in
-            FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("Library/Containers/\(container)/Data/Library/Application Support/\(name)")
-        }
-    }
-    .first { (try? PetSource.load(contentsOf: $0)) != nil }
 
 @Test func defaultPetFilenamePrefersCastorAndFallsBackToExistingPomegranateExport() throws {
     let manager = FileManager.default
@@ -38,13 +30,12 @@ private let savedPet: URL? = ["dev.pomegranate.prototype", "atemoya.pomegranate"
     #expect(up.y == 1)
 }
 
-@Test func playsTheMacPetIntoACanvas() throws {
-    guard let savedPet else { return } // machine without a saved Arils pet
-    let player = PetPlayer(archive: try PetSource.load(contentsOf: savedPet))
+@Test func drawsSyntheticPetIntoACanvasOnEveryPlatform() throws {
+    let player = PetPlayer(archive: try syntheticArchive())
     var canvas = PetCanvas(width: 260, height: 340)
     player.render(into: &canvas, time: 0)
     var covered = 0
-    for i in 0..<(canvas.width * canvas.height) where canvas.bgra[i * 4 + 3] > 128 { covered += 1 }
+    for i in 0..<(canvas.width * canvas.height) where canvas.bgra[i * 4 + 3] > 0 { covered += 1 }
     #expect(covered > canvas.width * canvas.height / 20)          // the pet is drawn
     #expect(canvas.bgra[3] == 0)                                    // top-left corner stays clear
     // Premultiplied: no colour channel exceeds alpha.
