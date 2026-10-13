@@ -31,6 +31,16 @@ prepared for a new repository under a different GitHub account.
   Apps and download manifests must first be prepared as a Release; none exists yet.
 - Add a Windows launcher that lets the user select a Mac-built pet file.
 
+## Pet GIF sharing (macOS)
+
+- Add “GIFを作って投稿する” to Rigging and the floating pet context menu.
+- Preview a 3–5 second animation, choose a background, then save the GIF and open X's composer.
+- Explicitly state that the GIF is not automatically attached: the user attaches the saved file and publishes on X.
+- Standard and Quality export through the same Metal draw path as the live pet; manual rigs use the existing SwiftUI renderer.
+- Encode locally, automatically reduce resolution/frame rate to limit file size, and keep desktop/camera/chat content out of the export.
+- Add sandbox access only for files explicitly chosen in the system file picker. No X API upload or credential storage.
+- Compilation has been checked; actual GPU export, animated preview, sandboxed save and X attachment still need manual verification.
+
 ## Characters and setup
 
 - Official characters and the Prototype shape character are removed; you bring

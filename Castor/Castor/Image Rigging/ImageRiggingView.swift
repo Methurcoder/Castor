@@ -403,6 +403,14 @@ struct ImageRiggingView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(palette.meterFill)
                 .disabled(!canSavePet)
+
+                Button {
+                    sharePetGIF()
+                } label: {
+                    Label("GIFを作って投稿する", systemImage: "square.and.arrow.up")
+                }
+                .disabled(!canSavePet)
+                .help("GIFを保存してXを開きます。GIFはXで手動添付してください。")
                 }
                 .fixedSize(horizontal: true, vertical: false)
             }
@@ -1390,6 +1398,18 @@ struct ImageRiggingView: View {
             statusText = "Saved \(url.lastPathComponent)."
         } catch {
             statusText = "JSON save failed: \(error.localizedDescription)"
+        }
+    }
+
+    private func sharePetGIF() {
+        guard canSavePet, let image, let document else { return }
+        do {
+            let asset = SavedPetCharacter(document: document, imageData: image.tiffRepresentation,
+                arilsArchiveData: try arilsEngine?.archiveData(),
+                qualityArchiveData: try qualityEngine?.archive.data())
+            PetGIFShareWindow.shared.show(asset: asset)
+        } catch {
+            statusText = "GIF用のペットを読み込めませんでした: \(error.localizedDescription)"
         }
     }
 

@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import Metal
 import MetalKit
@@ -32,6 +33,7 @@ public final class MetalAvatarRenderer: AvatarRendering {
         case deviceUnavailable
         case libraryUnavailable
         case textureCreationFailed(partID: String)
+        case imageExportFailed
     }
 
     private struct PartResources {
@@ -47,6 +49,9 @@ public final class MetalAvatarRenderer: AvatarRendering {
 
     private let device: MTLDevice
     private let commandQueue: MTLCommandQueue
+    private let colorPixelFormat: MTLPixelFormat
+    private var exportColor: MTLTexture?
+    private var exportDepth: MTLTexture?
     private let legacyPipelineState: MTLRenderPipelineState
     private let opaquePipelineState: MTLRenderPipelineState
     private let featherPipelineState: MTLRenderPipelineState
@@ -63,6 +68,7 @@ public final class MetalAvatarRenderer: AvatarRendering {
 
     public init(device: MTLDevice, avatar: RiggedAvatar, colorPixelFormat: MTLPixelFormat) throws {
         self.device = device
+        self.colorPixelFormat = colorPixelFormat
         guard let queue = device.makeCommandQueue() else {
             throw RendererError.deviceUnavailable
         }
@@ -213,8 +219,72 @@ public final class MetalAvatarRenderer: AvatarRendering {
         drawable: CAMetalDrawable,
         drawableSize: CGSize
     ) {
+        _ = submit(parameters: parameters, renderPassDescriptor: renderPassDescriptor,
+                   drawable: drawable, drawableSize: drawableSize)
+    }
+
+    /// Renders just the avatar into a readable texture using the same deformation,
+    /// projection and depth/alpha passes as the live view. Never captures the screen.
+    public func renderImage(parameters: [ParameterID: Float], size: CGSize) throws -> CGImage {
+        guard colorPixelFormat == .bgra8Unorm,
+              size.width.isFinite, size.height.isFinite,
+              size.width >= 1, size.height >= 1, size.width <= 4096, size.height <= 4096 else {
+            throw RendererError.imageExportFailed
+        }
+        let width = Int(size.width.rounded(.up)), height = Int(size.height.rounded(.up))
+        if exportColor?.width != width || exportColor?.height != height {
+            let color = MTLTextureDescriptor.texture2DDescriptor(
+                pixelFormat: colorPixelFormat, width: width, height: height, mipmapped: false)
+            color.storageMode = .shared
+            color.usage = .renderTarget
+            let depth = MTLTextureDescriptor.texture2DDescriptor(
+                pixelFormat: .depth32Float, width: width, height: height, mipmapped: false)
+            depth.storageMode = .private
+            depth.usage = .renderTarget
+            exportColor = device.makeTexture(descriptor: color)
+            exportDepth = device.makeTexture(descriptor: depth)
+        }
+        guard let color = exportColor, let depth = exportDepth else { throw RendererError.imageExportFailed }
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = color
+        pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].storeAction = .store
+        pass.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
+        pass.depthAttachment.texture = depth
+        pass.depthAttachment.loadAction = .clear
+        pass.depthAttachment.storeAction = .dontCare
+        pass.depthAttachment.clearDepth = 1
+        guard let command = submit(parameters: parameters, renderPassDescriptor: pass,
+                                   drawable: nil, drawableSize: CGSize(width: width, height: height)) else {
+            throw RendererError.imageExportFailed
+        }
+        command.waitUntilCompleted()
+        guard command.status == .completed else { throw RendererError.imageExportFailed }
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        pixels.withUnsafeMutableBytes { buffer in
+            color.getBytes(buffer.baseAddress!, bytesPerRow: width * 4,
+                           from: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0)
+        }
+        guard let provider = CGDataProvider(data: Data(pixels) as CFData),
+              let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let image = CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32,
+                  bytesPerRow: width * 4, space: space,
+                  bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedFirst.rawValue)
+                      .union(.byteOrder32Little), provider: provider, decode: nil,
+                  shouldInterpolate: true, intent: .defaultIntent) else {
+            throw RendererError.imageExportFailed
+        }
+        return image
+    }
+
+    private func submit(
+        parameters: [ParameterID: Float],
+        renderPassDescriptor: MTLRenderPassDescriptor,
+        drawable: CAMetalDrawable?,
+        drawableSize: CGSize
+    ) -> MTLCommandBuffer? {
         guard drawableSize.width > 1, drawableSize.height > 1,
-              imageSize.x > 0, imageSize.y > 0 else { return }
+              imageSize.x > 0, imageSize.y > 0 else { return nil }
 
         let deformed = evaluator.evaluate(parameters: parameters)
         inFlightSemaphore.wait()
@@ -250,7 +320,7 @@ public final class MetalAvatarRenderer: AvatarRendering {
 
         guard let commandBuffer = commandQueue.makeCommandBuffer(),
               let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else {
-            return
+            return nil
         }
         // Draw-order bias in depth units. Its job is to let the intended
         // layer order (body < head < mouth < eyes) win wherever two parts
@@ -323,12 +393,13 @@ public final class MetalAvatarRenderer: AvatarRendering {
             }
         }
         encoder.endEncoding()
-        commandBuffer.present(drawable)
+        if let drawable { commandBuffer.present(drawable) }
         let semaphore = inFlightSemaphore
         commandBuffer.addCompletedHandler { _ in
             semaphore.signal()
         }
         submitted = true
         commandBuffer.commit()
+        return commandBuffer
     }
 }

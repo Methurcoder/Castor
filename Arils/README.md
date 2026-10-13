@@ -220,3 +220,13 @@ app ターゲットにローカルパッケージとしてリンク済み。橋�
 - 腕は体メッシュの側面ワープによる微動のみ(1枚絵からの腕分離は将来課題)
 - 口の開閉は自動生成した5つの2次元キーフォームで補間し、開口時の暗部も生成する。ただし歯・舌・母音別の描き分けは入力画像に根拠がないため未対応
 - 表情バリアント(通常⇄笑顔など)未対応。Quality の2枚は視点(正面⇄横)専用で、表情の切替は行わない
+
+
+## 画像フレームの書き出し（macOS）
+
+`AvatarImageExporter(archive:)` または `AvatarImageExporter(qualityArchive:)` をMainActor上で作り、
+`image(at:size:gaze:viewTurn:)` から `CGImage` を取得できます。専用のモーションengineを使い、
+表示中のキャラクターの状態は変更しません。Qualityの表示モード、方向制限、首の登録位置も保持します。
+`MetalAvatarRenderer.renderImage(parameters:size:)` はライブ描画と同じ変形・投影・depth/alpha passを
+オフスクリーンtextureへ描画します。Metal deviceが必要です。画面キャプチャは使いません。
+GIFのエンコードや投稿用UIはホスト（Castor）の責務です。

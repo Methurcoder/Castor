@@ -46,6 +46,16 @@ struct PetFloatingView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.clear)
+        .contextMenu {
+            Button {
+                PetGIFShareWindow.shared.show(asset: asset)
+            } label: {
+                Label("GIFを作って投稿する", systemImage: "square.and.arrow.up")
+            }
+            Divider()
+            Button("ペットを閉じる", action: onClose)
+        }
+
         .background(
             WindowOcclusionObserver { isVisible in
                 isWindowVisible = isVisible
