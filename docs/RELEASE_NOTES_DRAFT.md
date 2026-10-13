@@ -1,7 +1,7 @@
 # Castor release notes (draft)
 
-Changes since the public `Pomegranate-release-v1.1` branch. Version name and
-project home are still to be decided. Castor is the successor to Pomegranate,
+Changes since the public `Pomegranate-release-v1.1` branch. The version name is still undecided. The source repository is
+[Methurcoder/Castor](https://github.com/Methurcoder/Castor). Castor is the successor to Pomegranate,
 prepared for a new repository under a different GitHub account.
 
 ## Project name and compatibility

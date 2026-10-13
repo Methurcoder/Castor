@@ -1,8 +1,8 @@
 # Castor の公開準備
 
 Castor は Pomegranate の後継として、新しい GitHub アカウントに新規リポジトリを
-作成する予定です。owner は `Methurcoder`、リポジトリ名は `Castor` を予定し、
-Pomegranate由来とライセンスを残して新しい履歴を開始します。公開範囲と初回バージョンは未確定です。
+作成しました。公開先は [Methurcoder/Castor](https://github.com/Methurcoder/Castor) です。
+Pomegranate由来とライセンスを残して新しい履歴を開始し、ソースコードを公開しています。初回リリースのバージョンと配布バイナリは未確定です。
 アカウント切り替えと公開操作の前にユーザーへ声をかけます。
 
 ## ローカルで用意するもの

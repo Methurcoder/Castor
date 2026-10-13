@@ -4,7 +4,7 @@
 
 Castor は、画像からキャラクターを作り、呼吸・瞬き・視線・声で反応するデスクトップコンパニオンです。少しためらったり、目を逸らしたりする「不器用な生命感」を目指しています。macOS アプリを中心に開発している、研究・試作段階のプロジェクトです。
 
-Castor は、[Pomegranate](https://github.com/atemoyacode-sudo/Pomegranate) の**許諾済みの後継プロジェクト**です。GitHub アカウント `Methurcoder` の新しい `Castor` リポジトリへ、Pomegranate由来とライセンスを残して新しい履歴で移行する予定です。現在はローカル準備段階で、公開リポジトリとリリース番号は未確定です。アプリ、Xcode プロジェクト、Swift Package、ペットの実行ファイルと新規保存先は `Castor` 名義へ統一しています。既存データの互換性を保つため、macOS の bundle ID `dev.pomegranate.prototype` と `Pomegranate.*` の設定キーを維持し、旧保存ファイルも読み込みます。
+Castor は、[Pomegranate](https://github.com/atemoyacode-sudo/Pomegranate) の**許諾済みの後継プロジェクト**です。`Methurcoder` が管理する本リポジトリでは、Pomegranate由来の説明・著作権表示・MITライセンスを残し、新しいGit履歴で開発を続けています。現在はソースコードを公開しており、リリース番号と配布バイナリは未確定です。アプリ、Xcode プロジェクト、Swift Package、ペットの実行ファイルと新規保存先は `Castor` 名義へ統一しています。既存データの互換性を保つため、macOS の bundle ID `dev.pomegranate.prototype` と `Pomegranate.*` の設定キーを維持し、旧保存ファイルも読み込みます。
 
 ## 現在できること
 
@@ -34,9 +34,11 @@ macOS アプリの Xcode プロジェクトは現在 **macOS 26.5** を deployme
 
 ## macOS で始める
 
-リポジトリルートから Xcode プロジェクトを開きます。
+リポジトリを取得し、Xcode プロジェクトを開きます。
 
 ```sh
+git clone https://github.com/Methurcoder/Castor.git
+cd Castor
 open Castor/Castor.xcodeproj
 ```
 
@@ -191,9 +193,9 @@ swift run --package-path CastorDesktop -c release \
 
 `frame-0.ppm` などの画像を書き出します。カメラ・マイク・アクセシビリティ・署名・実モデルとの接続は、パッケージのテストとは別に確認してください。
 
-## 公開・移行の準備
+## 公開・移行について
 
-別アカウントの新しいリポジトリへ後継として公開するための判断事項は [Castor 移行準備](docs/CASTOR_MIGRATION.md)、公開時の手順は [公開ガイド](docs/PUBLISHING.md)を参照してください。公開先が確定するまでは、新しいリポジトリの URL や clone コマンドを案内しません。
+ソースコードは [Methurcoder/Castor](https://github.com/Methurcoder/Castor) で公開しています。Pomegranateからの移行方針と互換性は [Castor 移行メモ](docs/CASTOR_MIGRATION.md)、今後の公開作業の手順は [公開ガイド](docs/PUBLISHING.md)を参照してください。
 
 ## ライセンス
 
