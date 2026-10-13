@@ -93,7 +93,9 @@ CastorPetのprivate型を使う変数とGetMessageWのBoolの扱いを修正し�
 MacのSwift 6.4.1でDesktopの7件がすべて実際に検査を実行して成功し、
 MacアプリのReleaseビルドも成功しました。配布ZIPとダウンローダーの11件は
 オフライン固定データで成功し、PowerShell側の処理もMac上のPowerShellで検査しました。
-これらは修正後のWindowsビルド、Windows GUI、実ペットの見た目の再検査ではありません。
+加えて[Windows/macOS CI](https://github.com/Methurcoder/Castor/actions/runs/38424052817)で両OSの7件とWindows Win32 Releaseビルドが成功しました。
+ダウンローダーはWindowsで8件を実行し、Mac専用3件を明示的に省略、Macでは11件が成功しました。
+Windows GUIと実ペットの見た目の再検査は未実施です。
 
 OS/CPUに対応する完成アプリだけを取得するダウンローダーと配布準備ツールを追加しました。
 GitHub Releaseは未作成です。ローカルで用意したMac appはad-hoc署名で、

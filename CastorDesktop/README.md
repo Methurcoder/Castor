@@ -6,9 +6,9 @@ pointer, and reacts when you move the pointer over its head.
 
 This is the first step of the Windows version. Building a pet (automatic
 rigging) still needs the Mac app, because it uses Apple's Vision and Core ML;
-conversation, voice and camera come later. The current Castor source has not
-yet been retested on Windows; GUI interaction and real-pet rendering remain
-unverified. Linux cross-build success was recorded before the Castor rename;
+conversation, voice and camera come later. The fixed Castor source passes a Windows x64 Swift 6.4.1 Release
+build and seven portable runtime tests in CI. GUI interaction and real-pet
+rendering remain unverified. Linux cross-build success was recorded before the Castor rename;
 it has not been repeated after renaming. A non-Windows build does not exercise
 the Win32 code.
 
@@ -36,8 +36,7 @@ or performance.
 
 Dragging, right-click Quit and Alt click-through were not tested. No real pet
 exported from a Mac was available, so breathing, blinking, gaze, petting and
-`--wide-head` appearance remain unverified. A Windows build and runtime check
-of the current Castor checkout is still pending.
+`--wide-head` appearance remain unverified. The fixed Castor checkout now passes [Windows/macOS CI](https://github.com/Methurcoder/Castor/actions/runs/38424052817): seven runtime tests on both platforms and a Windows Win32 Release build. The old silent return has been replaced with a deterministic synthetic archive. Distribution checks pass 11 tests on macOS and eight on Windows; the three Mac-only launcher checks are explicitly skipped on Windows. A real-pet GUI check is still pending.
 
 ## 1. Bring a pet from the Mac
 
