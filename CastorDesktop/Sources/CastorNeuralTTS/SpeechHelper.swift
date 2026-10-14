@@ -12,8 +12,36 @@ import SwiftUI
     private var process: Process?
     private var preparation: Task<Void, Never>?
     private var generation = 0
+    private var parentWatchdog: Timer?
+    private var ownedControlFile: URL?
     var japanese: Bool { Locale.preferredLanguages.first?.hasPrefix("ja") == true }
     func text(_ ja: String, _ en: String) -> String { japanese ? ja : en }
+
+    func attachToParent() -> Bool {
+        guard parentWatchdog == nil else { return true }
+        // Launch Services may reopen a GUI without delivering new argv. A bounded,
+        // container-local request associates only this exact helper with its owner.
+        let directory = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(
+            "Library/Containers/dev.pomegranate.prototype/Data/Library/Application Support/Castor/NeuralSpeechControl", isDirectory: true)
+        let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+        let candidates = files.prefix(256).compactMap { file -> (URL, Int32)? in
+            guard NeuralSpeechHelperControl.validatedFile(file.path, directory: directory) != nil,
+                  NeuralSpeechHelperControl.read(file) == .run,
+                  let owner = NeuralSpeechHelperControl.owner(file, helper: Bundle.main.bundleURL),
+                  NSRunningApplication(processIdentifier: owner.parentPID)?.bundleIdentifier == "dev.pomegranate.prototype" else { return nil }
+            return (file, owner.parentPID)
+        }
+        guard candidates.count == 1, let (file, pid) = candidates.first else { return false }
+        ownedControlFile = file
+        parentWatchdog = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+            MainActor.assumeIsolated {
+                if NeuralSpeechHelperControl.read(file) != .run || NSRunningApplication(processIdentifier: pid)?.bundleIdentifier != "dev.pomegranate.prototype" {
+                    NSApp.terminate(nil)
+                }
+            }
+        }
+        return true
+    }
 
     func start() async {
         guard process == nil else { return }
@@ -85,7 +113,11 @@ import SwiftUI
             status = text("停止しています…", "Stopping…"); process.terminate()
         } else { process = nil; running = false }
     }
-    func stopBeforeQuit() { preparation?.cancel(); if process?.isRunning == true { process?.terminate() } }
+    func stopBeforeQuit() {
+        parentWatchdog?.invalidate(); preparation?.cancel()
+        if process?.isRunning == true { process?.terminate() }
+        if let ownedControlFile { NeuralSpeechHelperControl.remove(ownedControlFile) }
+    }
 }
 
 @MainActor final class SpeechHelperDelegate: NSObject, NSApplicationDelegate {
@@ -115,7 +147,7 @@ import SwiftUI
                 if model.preparing { Button(model.text("準備をキャンセル", "Cancel preparation")) { model.cancel() } }
             }
             .padding(28).frame(width: 540, alignment: .leading)
-            .task { if CommandLine.arguments.contains("--start") { await model.start() } }
+            .task { if model.attachToParent() || CommandLine.arguments.contains("--start") { await model.start() } }
         }.windowResizability(.contentSize)
     }
 }

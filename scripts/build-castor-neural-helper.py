@@ -74,7 +74,13 @@ print(json.dumps({'missing':missing,'system':platform.system(),'machine':platfor
         for module in modules:
             command += ['--collect-all', module]
         command += [str(ROOT/'scripts/windows_neural_tts_server.py')]
-        subprocess.run(command, check=True)
+        # Collection imports third-party modules. Keep build hooks offline and
+        # prevent any ambient Hub credential from being used during those imports.
+        build_environment = os.environ.copy()
+        for key in ('HF_TOKEN', 'HUGGING_FACE_HUB_TOKEN'): build_environment.pop(key, None)
+        build_environment['HF_HUB_OFFLINE'] = '1'
+        build_environment['HF_HUB_DISABLE_IMPLICIT_TOKEN'] = '1'
+        subprocess.run(command, check=True, env=build_environment)
         final = stage/'candidate'; final.mkdir()
         payload = final/'CastorNeuralTTS.app' if mac else final
         if mac:

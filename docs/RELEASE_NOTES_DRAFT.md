@@ -210,7 +210,7 @@ UI刷新は後回しとし、既存UIのままQwen 3 TTSと配布前監査への
 - Mac候補はApple Silicon向け。本体内にGUI Setup、native Qwen helper、必須4モデルを同梱。
   Intel版のコンパイル記録はありますが、今回のQwen同梱候補にはIntel版を含めません。
 - Mac Qwen helperのGUIからモデル準備と日本語音声生成を確認し、3.12秒のWAVをOSで再生。
-  この確認では既存モデルキャッシュを使用。新規ダウンロード・長文品質・本体Voice画面は未確認。
+  この確認では既存モデルキャッシュを使用。新規ダウンロード・長文品質は未確認。下記の追加確認で本体Voice画面も検査しました。
 - Windows x64の通常CIとQwen同梱候補jobは成功（run 38599469990、commit 1a1566d）。
   同OSで梱包し、開発用PATHを除いた依存読込も成功。実機GUI・実モデル生成・
   スピーカー出力の確認とは区別します。macOS hosted jobはqueuedで、Macは下記ローカル確認です。
@@ -233,9 +233,25 @@ UI刷新は後回しとし、既存UIのままQwen 3 TTSと配布前監査への
 
 ### ローカル確認結果
 
-- CastorCore: 132件成功。Desktop: 57件成功。Mac app既存単体検査成功。
-- Python speech: 8件成功。配布/model/privacy: 20件中5件platform skip、残り成功。
+- CastorCore: 135件成功。Desktop: 57件成功。Mac app既存単体検査成功。
+- Python speech: 9件成功。配布/model/privacy: 20件中5件platform skip、残り成功。
 - Mac候補内の4モデルをCPU Core MLで読み込み成功。顔推定精度の証明ではありません。
 - Mac候補の深い署名検証成功。ad-hoc署名であり配布者の認証・公証を意味しません。
 
 公開可否の確認はこれらの記録と未確認事項を示してから行います。
+
+### Mac Qwen GUIの追加確認（2026-10-15）
+
+- 配布候補のVoice画面で起動、既存キャッシュからのモデル準備、27文字/3区間の日本語試聴を確認。
+  最終候補の各区間の音声生成は3.58/2.04/1.69秒。アプリ内再生完了、標準音声fallbackなし。
+- 本体からの停止が動かなかったため、起動ごとのUUID controlとowner情報をcontainer内に保存し、
+  正しいhelper pathと親app PID/bundleだけを確認するwatchdogへ変更。
+  既に別途起動されているhelperの停止管理は取得しません。
+- 本体の停止→再起動→モデル準備→試聴→停止、および本体終了時のhelper/runtime終了を実GUIで確認。
+- frozen Python入口へfreeze_supportを追加。resource_trackerがGUI経路へ入る不具合を修正し、
+  試聴後の停止でruntime/子processが残らないことを確認。
+- Mac helperの46依存のlicense本文欠落なし。frozen runtimeのarchive一覧で追加音声モデルweightなし。
+  builderのcollection hookは今後offline/implicit credential無効で実行する。
+- Windows側にも共通Python入口の変更を反映した候補を再梱包する。旧Windows CI候補はこの修正前です。
+- この確認は既存モデルcacheと開発署名候補で実施。新規取得、最初のOS警告、Windows実発声、
+  Developer ID/公証/Windows署名、全機能parityの未確認境界は維持する。

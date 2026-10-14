@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import threading
 import unittest
+import runpy
 from unittest.mock import patch
 import urllib.error
 import urllib.request
@@ -27,6 +28,13 @@ class FakeBackend:
         return data.getvalue()
 
 class NeuralServerTests(unittest.TestCase):
+    def test_frozen_entrypoint_handles_multiprocessing_before_server_or_gui(self):
+        class WorkerDiverted(Exception): pass
+        script = Path(__file__).parents[1]/'windows_neural_tts_server.py'
+        with patch('multiprocessing.freeze_support', side_effect=WorkerDiverted) as support:
+            with self.assertRaises(WorkerDiverted): runpy.run_path(str(script), run_name='__main__')
+        support.assert_called_once_with()
+
     def setUp(self):
         self.server = TTS.SpeechServer(('127.0.0.1', 0), FakeBackend())
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True); self.thread.start()

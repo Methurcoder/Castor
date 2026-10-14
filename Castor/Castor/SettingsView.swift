@@ -709,6 +709,13 @@ private struct VoiceSettingsPane: View {
                     Button(language == .japanese ? "停止" : "Stop") { speechLauncher.stop() }
                         .disabled(!speechLauncher.canStop || neuralSpeechSettings.isPreparingQwen)
                 }
+                if speechLauncher.stopFailed {
+                    Label(language == .japanese
+                        ? "停止要求を送れませんでした。音声helperの画面で停止してください。"
+                        : "Could not send the stop request. Stop in the speech helper window.",
+                        systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                }
                 if speechLauncher.launchFailed {
                     Label(language == .japanese
                         ? "音声helperを開けませんでした。導入GUIで取得・修復してください。"

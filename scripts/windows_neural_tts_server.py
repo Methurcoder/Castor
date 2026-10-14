@@ -5,6 +5,11 @@ No model loads/downloads on startup. Prepare/speech require a local app request.
 Only the two official CustomVoice models are allowed; no arbitrary Python code,
 model URL, microphone recording or voice-cloning input is accepted.
 """
+# Divert frozen worker/resource-tracker invocations before loading the GUI/backend.
+if __name__ == '__main__':
+    import multiprocessing
+    multiprocessing.freeze_support()
+
 import io
 import json
 import math
