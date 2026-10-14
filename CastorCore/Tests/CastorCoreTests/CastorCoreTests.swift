@@ -2033,7 +2033,7 @@ struct CastorCoreTests {
     }
 }
 
-private final class OllamaClientURLProtocol: URLProtocol, @unchecked Sendable {
+private nonisolated final class OllamaClientURLProtocol: URLProtocol, @unchecked Sendable {
     private static let lock = NSLock()
     nonisolated(unsafe) static var requestsByHost: [String: [URLRequest]] = [:]
     nonisolated(unsafe) static var stubResponsesByHost: [String: [OllamaClientStubResponse]] = [:]
@@ -2109,7 +2109,7 @@ private final class OllamaClientURLProtocol: URLProtocol, @unchecked Sendable {
     }
 }
 
-private enum OllamaClientStubResponse {
+private nonisolated enum OllamaClientStubResponse {
     case success(String, statusCode: Int = 200)
     case failure(Error)
 }

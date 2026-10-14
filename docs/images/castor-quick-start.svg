@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="220" viewBox="0 0 1280 220" role="img" aria-labelledby="title desc">
+<title id="title">Install → Create → Enjoy</title><desc id="desc">導入GUIでアプリを取得し、イラストと顔マーカーからペットを作り、動き・会話・GIFを楽しむ3段階の案内図。</desc>
+<rect width="1280" height="220" rx="24" fill="#f6f8f5"/>
+<g fill="#fff" stroke="#d6e4dc" stroke-width="2"><rect x="24" y="25" width="386" height="170" rx="20"/><rect x="447" y="25" width="386" height="170" rx="20"/><rect x="870" y="25" width="386" height="170" rx="20"/></g>
+<g fill="#236b60"><circle cx="66" cy="67" r="22"/><circle cx="489" cy="67" r="22"/><circle cx="912" cy="67" r="22"/></g>
+<g fill="#fff" font-family="Arial,Helvetica,sans-serif" font-size="21" font-weight="700" text-anchor="middle"><text x="66" y="74">1</text><text x="489" y="74">2</text><text x="912" y="74">3</text></g>
+<g fill="#164f47" font-family="Arial,Helvetica,sans-serif" font-size="31" font-weight="700"><text x="103" y="78">Install</text><text x="526" y="78">Create</text><text x="949" y="78">Enjoy</text></g>
+<g fill="#597369" font-family="Arial,Helvetica,sans-serif" font-size="18"><text x="47" y="124">Open Setup. Get the app.</text><text x="47" y="154">No developer tools needed.</text><text x="470" y="124">Choose your illustration.</text><text x="470" y="154">Review the face markers.</text><text x="893" y="124">Motion, local chat and voice.</text><text x="893" y="154">Save a GIF. Share it yourself.</text></g>
+<g fill="none" stroke="#98b8a8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M419 110h19m-6-6 6 6-6 6m405-6h19m-6-6 6 6-6 6"/></g>
+</svg>

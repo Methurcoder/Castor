@@ -1,53 +1,102 @@
+<p align="center"><img src="docs/images/castor-banner.svg" alt="Castor：自分のイラストから、顔マーカーを確認してデスクトップの相棒へ" width="100%"></p>
+
 # Castor
 
 **自分のイラストを、デスクトップで暮らす小さな相棒に。**
 
-Castor は、画像からキャラクターを作り、呼吸・瞬き・視線・声で反応するデスクトップコンパニオンです。少しためらったり、目を逸らしたりする「不器用な生命感」を目指しています。macOS アプリを中心に開発している、研究・試作段階のプロジェクトです。
+**これは正式リリース版です。** — `v0.3.0`
 
-Castor は、[Pomegranate](https://github.com/atemoyacode-sudo/Pomegranate) の**許諾済みの後継プロジェクト**です。`Methurcoder` が管理する本リポジトリでは、Pomegranate由来の説明・著作権表示・MITライセンスを残し、新しいGit履歴で開発を続けています。ソースコードを公開しています。リリース番号と配布バイナリは未確定です。アプリ、Xcode プロジェクト、Swift Package、ペットの実行ファイルと新規保存先は `Castor` 名義へ統一しています。既存データの互換性を保つため、macOS の bundle ID `dev.pomegranate.prototype` と `Pomegranate.*` の設定キーを維持し、旧保存ファイルも読み込みます。
+呼吸、瞬き、視線、声。少しためらったり目を逸らしたりする、そんな相棒を自分の画像から作れます。
 
-## 現在できること
+[ダウンロード](https://github.com/Methurcoder/Castor/releases/tag/v0.3.0) · [導入ガイド](docs/GUI_SETUP.md) · [変更点・確認記録](docs/RELEASE_NOTES_DRAFT.md) · [機能差と今後の計画](docs/CROSS_PLATFORM_PARITY.md)
 
-macOS アプリでは、次の機能を使えます。
+Castor は [Pomegranate](https://github.com/atemoyacode-sudo/Pomegranate) の**許諾済みの後継プロジェクト**です。Pomegranate由来の著作権表示とMITライセンスを保持し、Methurcoderが開発を続けています。
 
-- 自分の画像を読み込み、**Arils** で自動リギング。正面1枚、または正面と横向きの2枚から動くキャラクターを作り、フローティングペットとして保存・呼び出せます。
-- 呼吸、瞬き、視線、口パク、撫でる反応、小さな自発動作。カメラの顔位置や顔ランドマーク、マイクの音量を任意で反映できます。
-- **LM Studio / Ollama によるローカル会話**と、macOS 標準音声または任意のローカル Neural TTS による読み上げ。
-- **Codex / Claude Code への操作依頼**。コマンド、ファイル変更、追加権限にはアプリ内の承認カードを表示します。
-- 読み込んだキャラクターの会話上の性格を編集。今回の後継版は自分の画像を使う構成で、従来の公式キャラクターと図形の Prototype は含みません。
-- ペットの上で **Option（⌥）を押している間**、ペットを薄く表示して背後をクリック。
-- AI による顔マーカーの位置提案。画像上で確認・修正し、明示的に承認してからリグを作ります。
+## ダウンロード・導入
 
-リギングの品質は元画像によって変わります。自動推定が合わない場合は、顔マーカーを補正してください。従来の矩形ベースの手動リグも `Settings > General > Advanced > Manual rigging` から有効化できます。
-
-共通機能化と簡単導入の実装を開始しました。[機能差・作業計画](docs/CROSS_PLATFORM_PARITY.md)で未実装/未検証を管理します。
-
-## 対応環境と確認状況
-
-| 環境 | 現在の範囲 | 確認の境界 |
+| お使いの環境 | ダウンロード | 展開後に開くもの |
 | --- | --- | --- |
-| macOS | SwiftUI アプリ、自動リギング、ペット、会話・音声、外部エージェント連携 | アプリのビルドとパッケージテストを確認済み。最新変更の GUI 表示、実モデルでの応答、権限付きの各機能は実機確認が必要です。 |
-| Windows | PNGから共有レイヤー処理でStandard/Qualityを作成・再生。GIF生成/プレビュー/保存/X案内を接続 | [最新のWindows/Mac CI](https://github.com/Methurcoder/Castor/actions/runs/38530641208)で26件の共通検査とWin32 Releaseビルド成功。GUI操作と実画像の品質は未確認です。WindowsのVision/Core ML代替、会話・音声・カメラ・全設定とGUI導入は未完成です。最新実装の確認記録は共通化計画へ記録します。 |
-| Linux | `CastorCore` の共有ロジック、`ArilsPortable` のモーション・変形・保存形式、ペットの CPU 描画部分 | 改名前の Linux 向けクロスビルド成功は引き継ぎ記録にあります。今回の改名後には未再確認で、デスクトップ UI は未実装です。 |
+| Mac / Apple Silicon | [Mac用の導入GUI](https://github.com/Methurcoder/Castor/releases/download/v0.3.0/CastorSetup-v0.3.0-macos_arm64.zip) | `CastorSetup.app` |
+| Windows / x64 | [Windows用の導入GUI](https://github.com/Methurcoder/Castor/releases/download/v0.3.0/CastorSetup-v0.3.0-windows_x86_64.zip) | `CastorSetup.exe` |
 
-macOS アプリの Xcode プロジェクトは現在 **macOS 26.5** を deployment target にしています。Swift Package の macOS 14 指定とは別の要件です。`CastorCore` のビルドには Swift 6.2 以降が必要です。
+Macは**macOS 26.5以上・Apple Silicon**、Windowsは**x64**が対象です。今回の配布にはIntel Mac版を含めません。
 
-ビルドや単体テストの成功は、すべての画像・実デバイス・長時間運転での品質を保証するものではありません。現在の変更点は [リリースノート下書き](docs/RELEASE_NOTES_DRAFT.md)にも記載しています。
+導入GUIで「取得・更新」を選び、取得後に「起動」を押してください。アプリ本体と必要なランタイムを配布するため、基本アプリの導入にXcode・Swift・Visual Studio・Pythonの手動導入やコマンド入力は必要ありません。会話には任意のLM Studio / Ollama、外部操作には各エージェントの導入・本人認証が別途必要です。
 
-## ダウンローダー（Release 準備中）
+### 最初の起動
 
-**現在は Release がないため、ダウンローダーでアプリを取得できません。** ソースからの実行方法は以下を参照してください。
+- **Mac**：現在は開発用ad-hoc署名で、Developer ID署名・公証は未実施です。初回に止められたら、**システム設定 → プライバシーとセキュリティ → このまま開く**で本人が許可します。導入GUI・本体・Qwen補助アプリそれぞれで確認が必要です。
+- **Windows**：コード署名は未整備です。SmartScreenに止められた場合の手順は[導入ガイド](docs/GUI_SETUP.md)を確認してください。
+- SHA-256は取得ファイルの破損を検出する照合です。配布者の真正性は保証しません。[保護と限界](docs/DOWNLOADER.md#アプリ取得時の保護と限界)
 
-Release 公開後は、macOS では `download/Castor-Download.command`、Windows では `download/Castor-Download.cmd`（同じフォルダに `Castor-Download.ps1` が必要）をダブルクリックします。OS と CPU に合う ZIP だけを取得し、SHA-256 を照合して新しいフォルダへ展開します。既存のインストールは上書きせず、アプリは自動起動しません。
+## はじめの3ステップ
 
-macOS は26.5以上、Windows 配布は現在 x64 向けです。WindowsにはPNGから作成する2D試作と保存済みStandard/Qualityの再生を実装しています。Macとの全機能共通化とGUI導入は開発中です。公開されたReleaseの取得にGitHubログインやghは不要です。配布Releaseがまだ無い場合は、ソース公開だけでアプリを取得できません。
+![導入GUIで取得 → 自分の画像と顔マーカーから作成 → 動き・会話・GIFを楽しむ](docs/images/castor-quick-start.svg)
 
-最初のダブルクリックで OS の警告が出て止まる場合があります。一方、スクリプトが取得した
-アプリでは警告が出ない場合もあり、SHA-256 の一致だけで安全性や配布者を証明できません。
-初回起動の手順、保存先、保護の限界、署名・DLL の確認範囲は
-[ダウンローダーの案内](docs/DOWNLOADER.md)を参照してください。
+1. **イラストを読み込む**：リギングで正面1枚、または正面と横向きの2枚を選びます。
+2. **顔の位置を確認する**：頭・両目・口のマーカーを直して、ペットを作成・保存します。推定の品質は元画像によって変わります。
+3. **デスクトップへ表示する**：声や会話上の性格を選び、呼吸・瞬き・視線・撫でる反応を楽しめます。
 
-## macOS で始める
+図は利用の流れを表す概念図です。Mac / Windowsの実装範囲と確認状況は下記をご覧ください。
+
+## できること・確認状況
+
+| 機能 | Mac | Windows |
+| --- | --- | --- |
+| 画像から作成・顔マーカー補正・保存・読み込み | Arilsで1枚 / 2枚Qualityを作成 | 共有レイヤー処理でStandard / Qualityを作成。ML推定の代替と品質確認は継続中 |
+| 呼吸・瞬き・視線・口パク・撫でる反応 | 実装済み | 共通モーション・CPU描画を実装。実機GUI確認待ち |
+| LM Studio / Ollamaとの会話・性格編集 | 実装済み | 実装済み。実機の会話確認待ち |
+| OS標準音声・任意Qwen 3 TTS | Qwen GUI起動・モデル準備・アプリ内試聴・停止を実機確認 | CPU用helperを梱包。実モデル生成・音声出力の実機確認待ち |
+| Codex / Claude Code・操作ごとの承認 | 実装済み。外部送信は本人の確認後 | 共有接続・承認UIを実装。実アカウント接続の確認待ち |
+| GIF作成・保存・Xへの案内 | 実装済み | 実装済み。実機確認待ち |
+| カメラ・追加ML・全Advanced設定 | 任意の権限 / helperを使用 | Macとの全機能共通化を継続中 |
+
+**Windows版は公開プレビューとして扱います。** 実機での初回導入、描画品質、音声、権限付き機能の確認が残っています。Macも、新規のQwenモデル取得・開発環境のない端末での初回導入・各OSの警告・全機能の長時間動作は未確認です。
+
+Linuxは共有ロジックとCPU描画の開発対象です。今回のデスクトップアプリ配布には含めません。
+
+## Qwen 3 TTSを使う
+
+1. Macでは **設定 → 音声 → Qwen音声を起動**。WindowsではVoiceから補助アプリの導入GUIを開きます。
+2. **モデルを取得・準備**を選びます。初回は大きなモデルの取得に時間と空き容量が必要です。
+3. 声の選択画面で音声サンプルを再生します。
+
+起動だけではモデルを取得しません。準備できるまではOS標準音声を使えます。MacはMLXのQwen 0.6B CustomVoice、WindowsはローカルPyTorchのCustomVoiceを使用します。音声をこの端末で生成し、マイクの録音や声の複製は行いません。詳細な話し方の指定には制限があります。
+
+Macでは本体の「停止」または補助アプリの画面で停止できます。本体を終了すると、本体が起動した補助アプリも終了します。既に別途起動されていたサービスは、その起動元で停止してください。
+
+## ペットのGIFをXで共有
+
+**「GIFを作ってXで共有」 → プレビュー → 保存 → Xの投稿画面**と進みます。
+
+**GIFは自動添付されません。保存したGIFを、Xで手動で添付して投稿してください。**
+
+ペットと選んだ背景だけをローカルで描画します。画面・カメラ・会話をGIFへ取り込まず、Xへの自動アップロード・自動投稿・認証情報の保存も行いません。
+
+## ローカルAIと操作依頼
+
+LM Studio / Ollamaによる通常の会話は、localhostのサービスへ送ります。ファイル・コマンド・アプリの操作を頼む場合はCodex / Claude Codeを選び、操作ごとの承認カードで承認・拒否・キャンセルします。
+
+外部エージェントは、そのアカウント・設定に従ってメッセージや作業フォルダの文脈を外部サービスへ送る可能性があります。AIの顔マーカー提案も、画像を確認し、明示的に承認してから採用します。
+
+- [AIによる顔マーカーの確認](docs/ARILS_AI_OPERATIONS.md)
+- [GUI導入・更新・修復・削除](docs/GUI_SETUP.md)
+- [任意の追加helperと配布の保護](docs/DOWNLOADER.md)
+
+## 更新・修復とデータ
+
+導入GUIから更新・修復できます。既存アプリを直接上書きせず、新しい版を取得して切り替えます。取得失敗・取消・破損の場合は既存アプリとデータを保持します。
+
+現在版と1つ前の管理済み版を残し、それ以前の指紋が一致する版だけをごみ箱へ整理します。変更されたフォルダ、個人ファイルを追加したフォルダ、指紋のない旧版は自動整理しません。
+
+Pomegranate由来の保存ファイルを読み込めるよう、旧bundle ID・設定キー・旧保存先の読み込み互換性を維持しています。旧公式キャラクターは同梱しません。
+
+## 開発者向け
+
+<details>
+<summary>ソースからのビルド・テスト</summary>
+
+### macOSでビルドする
 
 公開リポジトリを取得し、Xcode プロジェクトを開きます。
 
@@ -71,149 +120,7 @@ xcodebuild -project Castor/Castor.xcodeproj \
 4. 会話を使う場合は LM Studio または Ollama を自分で起動し、`Settings` で接続先とモデルを選びます。
 5. カメラ、マイク、音声認識を使う場合は、macOS の権限確認に従って許可します。
 
-## ペットをGIFにしてXへ共有（macOS）
-
-`Rigging` の **「GIFを作ってXで共有」** ボタン、またはフローティングペットの
-右クリックメニューから開きます。
-
-1. 動き（呼吸・瞬き / きょろきょろ）、長さ（3〜5秒）、背景色を選びます。
-2. **「プレビューを作成」** で繰り返し再生を確認します。
-3. **「GIFを保存してXを開く」** で保存先を選びます。Xの投稿画面には紹介文と `#Castor` を用意します。
-4. **GIFは自動添付されません。保存したGIFをXで手動で添付し、本人が投稿を確定してください。**
-   保存後の「GIFの場所を表示」からファイルを見つけられます。
-
-ペットと選んだ背景だけをローカルで描画します。通常のArils、2枚画像のQuality、
-従来の手動リグに対応し、GIF容量を抑えるため解像度やフレーム数を自動調整します。
-Xへの画像アップロードやAPI投稿、アカウント認証の保存は行いません。
-公開版のビルドでは、投稿画面にプロジェクトURLも用意します。
-この共有UIはmacOS版の機能です。実機のGIF生成・プレビュー・保存・手動添付の確認は別途必要です。
-
-## ローカル AI と操作の違い
-
-**内蔵モード（On-device）は会話のみです。** LM Studio / Ollama のモデルには、ファイルを変更したり、コマンドを実行したり、アプリを操作したりする手段を渡しません。操作が必要そうな依頼には Codex / Claude Code への案内を表示し、会話は続けます。
-
-モデルには操作できないことと、実行していないことを実行したと主張しないことを伝えますが、モデルが必ず従う保証はありません。モデル選択欄ではパラメータ数を表示し、API で取得できない場合は名前からの推定と明記します。約7B未満には精度への注意を表示します。サイズは選ぶ目安で、回答品質の保証ではありません。
-
-通常の会話は loopback 接続のローカルサービスへ送ります。操作を任せる場合は外部エージェントを選びます。自動ルーティングでは日常会話をローカルに残し、ファイル・コマンド・アプリ・開発に関する依頼を選択した外部エージェントへ送ります。外部 CLI は、そのアカウントや設定に従ってメッセージや作業フォルダの文脈を OpenAI / Anthropic のサービスへ送る可能性があります。
-
-Codex と Claude Code の橋渡しは、**ターミナルを開かずにアプリから起動できます。** `Settings > Brain` の `Start Codex with Castor` / `Start the Claude Code bridge with Castor` をオンにすると、Castor に同梱した小さな補助アプリ（`CastorAgentLauncher`）が、Castor を開いている間だけ裏で起動し、Castor を終了すると止めます。補助アプリはログインシェルの PATH から CLI を探し、`127.0.0.1` / `localhost` 以外では待ち受けません。状態はスイッチの下に表示します。
-
-各 CLI のインストールとサインインは、OpenAI / Anthropic の案内に従って事前に済ませてください（現在の公式手順では、CLI の導入や初回サインインにターミナルを使う場合があります）。
-
-### Codex
-
-Codex CLI のインストールと認証を済ませ、`Settings > Brain` で `Start Codex with Castor` をオンにします。自分で起動する場合は、`Copy Terminal command` でコピーしたコマンドを使えます。
-
-```sh
-codex app-server --listen ws://127.0.0.1:4500
-```
-
-アプリの `Settings > Brain`で同じ URL と作業フォルダを指定し、Codex を選びます。接続は localhost のみに制限しています。スレッドは `read-only` sandbox、`on-request` 承認、user reviewer を既定とし、操作前に承認カードを表示します。
-
-CLI 更新時には、App Server の接続と承認の動作を再確認してください。
-
-### Claude Code
-
-Claude Code CLI のインストールと認証を済ませ、`Settings > Brain` で `Start the Claude Code bridge with Castor` をオンにします。Bridge の実行には Python 3（Command Line Tools に含まれます）が必要です。自分で起動する場合は、リポジトリルートから次を実行します。
-
-```sh
-python3 scripts/claude_code_bridge.py --listen http://127.0.0.1:4510
-```
-
-`Settings > Brain` で同じ Bridge URL と作業フォルダを指定し、Claude Code を選びます。Bridge はユーザーが起動した CLI を使い、loopback のみで待ち受けます。認証情報は CLI 側で管理し、Bridge は保存しません。
-
-Bridge は `stream-json` と専用の MCP permission prompt を使用し、user / project / local の allow rule を継承しません。未解決のツール操作は承認カードへ戻し、拒否するとその操作を止めます。応答のキャンセル時には保留中の承認を解放して CLI の turn を終了します。
-
-実モデルの応答には利用可能なアカウントが必要です。Antigravity は未接続です。
-
-## Windows プレビュー
-
-Windows版は、PNGから作成する2D試作と、Standard/2枚Qualityの保存データを再生する独立Swift Packageです。Qualityの横画像・首登録・向き制限を保持します。WindowsでのQuality新規作成、会話・音声・全設定とGUI導入は未完成です。利用方法と開発者向けビルド手順は [CastorDesktop/README.md](CastorDesktop/README.md)を参照してください。
-
-Windows の PowerShell で、リポジトリルートから実行します。ペットのパスは実際の保存先に置き換えてください。ビルド生成先は `swift build --show-bin-path` で取得し、フォルダ名に空白があっても扱えるよう引用します。
-
-```powershell
-Set-Location -LiteralPath 'CastorDesktop'
-$castorBuildPath = Join-Path $env:TEMP 'Castor-preview-build'
-swift build -c release --product CastorPet --scratch-path "$castorBuildPath"
-if ($LASTEXITCODE -ne 0) { throw 'CastorPet build failed' }
-$castorBinPath = ([string](swift build -c release --show-bin-path --scratch-path "$castorBuildPath" | Select-Object -Last 1)).Trim()
-if ($LASTEXITCODE -ne 0) { throw 'Could not locate the executable' }
-& (Join-Path $castorBinPath 'CastorPet.exe') 'C:\path with spaces\CastorPet.json'
-```
-
-Arils で保存した `CastorPet.json` または単体の `.arils` アーカイブを渡します。引数を省略した場合は現在のフォルダの `CastorPet.json` を優先し、なければ旧 `PomegranatePet.json` を探します。旧保存ファイルを明示的に指定しても読み込めます。従来の手動リグには対応していません。ドラッグで移動、頭の上のポインタ操作で撫でる反応、Alt を押して背後をクリック、右クリックメニューで終了できます。これらの GUI 操作は未検証です。
-
-2026-10-13〜14 の Windows x64 / Swift 6.4.1 の報告は、改名前の Pomegranate ZIP を対象としています。元 ZIP はトップレベル変数のアクセス修飾子と `GetMessageW` の戻り値処理の2件でビルドが止まり、2行を補正した検証用コピーでは Release ビルドが成功しました。テストは7件成功扱いですが、1件はペットデータ不在で検証せず終了しており、実際にアサーションを実行したのは6件です。
-
-合成データの `pet-snapshot` は画像4枚を出力し、補正コピーの Debug アプリでは赤い図形の表示が確認されました。ドラッグ・右クリック終了・Alt の透過クリック、および実際の Mac 製ペットの動きと描画品質は未検証です。第1段階のCastorは[Windows / macOS CI](https://github.com/Methurcoder/Castor/actions/runs/38526883829)で保存データに依存しない14件の検査とWin32 Releaseビルドが成功しました。続くQuality/深度描画の変更と最新結果は[共通化の記録](docs/CROSS_PLATFORM_PARITY.md)を参照してください。ダウンローダーと配布準備はWindowsで8件（Mac専用3件は明示的に省略）、Macで11件が成功しました。CIはGUIの操作や実キャラクターの品質検査を行っていません。
-
-## 任意機能とモデル
-
-以下は必要なときだけ準備します。LLM、Neural TTS、LaMaの追加モデル重みはソースやアプリへ同梱しません。Mac配布候補には、顔検出・顔ランドマーク・切り抜きに使う4つのCore MLモデルをライセンス表記とともに同梱します。
-
-### Qwen 3 TTS（任意）
-
-配布候補では**ターミナルやPythonの手動導入なし**で、音声helperの起動とモデル準備を行えます。
-Macは「設定 → Voice → Qwen音声を起動」、WindowsはVoiceの導入GUIから音声helperを開きます。
-helperを起動してから「モデルを取得・準備」を選びます。初回は大きなモデルの取得に時間と空き容量が必要です。
-起動だけではモデルを取得しません。準備できるまではOS標準の音声を使えます。
-
-Mac Apple SiliconはMLXのQwen 0.6B CustomVoice、WindowsはローカルPyTorchのCustomVoiceを使います。
-音声はこの端末で生成し、マイクの録音や声の複製は行いません。モデル重みは同梱しません。
-0.6Bで詳細な声質指示の効果は保証しません。helperの停止はVoiceの停止ボタンまたはhelper画面から行います。
-配布Releaseと実機での読み上げの確認状況は[導入・検証記録](docs/GUI_SETUP.md)を参照してください。
-
-ソースからの開発用の起動スクリプトは残していますが、一般利用者の導入手順には使いません。
-LaMa UnderpaintとButton-aware dodgeの追加helperは、引き続き導入経路を整備中です。
-
-### LaMa Underpaint BETA
-
-```sh
-scripts/bootstrap-lama-inpainting.sh
-scripts/start-lama-inpainting.sh
-```
-
-`Settings > General` で有効にして、画像からペットを作り直します。リグ作成時だけ `127.0.0.1:8123` へ画像を送り、首振りで見える頭の背後を補修します。既定はオフで、サービスが使えない場合は非 ML の補修へ戻ります。
-
-### 顔推定・切り抜き用 Core ML モデル
-
-顔ランドマークとアニメキャラクターの切り抜きモデルを手元で書き出して使えます。モデルが無い場合も従来の推定器で動作します。導入・export コマンドは [Arils/README.md](Arils/README.md)を参照してください。
-
-### ペットの退避と広い首振り（ベータ）
-
-- **Pet Evasion**：近づくポインタを避け、元の場所へ戻ります。既定はオフです。
-- **Button-aware dodge**：背後の他アプリのボタンなどを検出して避けます。既定はオフで、下記 helper とアクセシビリティ権限が必要です。権限付きの実機動作は確認待ちです。
-- **Wider head movement**：`Settings > General > Advanced` で首振りの幅を広げます。Windows プレビューでは起動引数 `--wide-head` を使います。大きく振ると頭の背後の下塗りや継ぎ目が見える場合があります。
-
-```sh
-scripts/bootstrap-pointer-target.sh
-scripts/start-pointer-target.sh
-```
-
-Button-aware dodge の helper は `127.0.0.1:8126` で待ち受けます。macOS の `システム設定 > プライバシーとセキュリティ > アクセシビリティ` で helper の Python を許可します。返す情報はポインタ下のコントロールの種類で、タイトルや本文は返しません。
-
-### Setting with AI
-
-`Rigging` の隣の `Setting with AI` で画像構成とレビュアーを選び、既存のリグ編集画面へ進みます。`Suggest with AI` が提案する頭・目・口の位置はプレビューです。確認・修正し、`Approve AI alignment and build` を押すまで作成しません。外部レビュアーへの画像送信には確認が必要です。詳細は [Arils AI operations](docs/ARILS_AI_OPERATIONS.md)を参照してください。
-
-## Arils とリポジトリの構成
-
-Castor は利用者向けのコンパニオンアプリ、**Arils は独立して再利用できるキャラクターエンジン**です。Arils は自動リギング、モーション、Metal 描画を担当します。2枚画像の Quality は正面と横の視点を組み合わせ、小角度では深度を利用した 2.5D の動きを加えます。完全な3Dモデルの復元ではありません。
-
-| 場所 | 内容 |
-| --- | --- |
-| `Castor/` | macOS アプリ、Xcode プロジェクト、アプリのテスト |
-| `CastorCore/` | 状態、ローカル会話、ルーティング、モーション変換などの共有ロジック |
-| [Arils/](Arils/README.md) | リギング・モーション・描画。`ArilsPortable` は Windows / Linux での保存リグの再生に使う部分 |
-| [CastorDesktop/](CastorDesktop/README.md) | Windows のペットプレビューと、ウインドウなしで使える CPU 描画 |
-| [Arils-ex/](Arils-ex/README.md) | 独立実験：3方向の画像から関節付きキャラクターを作成 |
-| [ScreenshotAnswer/](ScreenshotAnswer/README.md) | 独立実験：macOS の画面・音声の質問を LM Studio へ送るメニューバーアプリ |
-| `scripts/` / `docs/` | 任意サービスの helper、運用資料、ロードマップ |
-
-ScreenshotAnswer はコンパニオン本体へ未接続です。また Arils API にあるモーションの性格プリセット、会話の態度、ためらい入力、TTS の事前解析タイムラインは、アプリへの接続がまだ完了していません。アプリは現在 `standard` のモーション設定を使います。
-
-## 開発時の確認
+### テスト
 
 macOS アプリのテスト（UI テストを除く）:
 
@@ -242,12 +149,21 @@ swift run --package-path CastorDesktop -c release \
 
 `frame-0.ppm` などの画像を書き出します。カメラ・マイク・アクセシビリティ・署名・実モデルとの接続は、パッケージのテストとは別に確認してください。
 
-## 公開・移行について
 
-ソースコードの管理先は [Methurcoder/Castor](https://github.com/Methurcoder/Castor) です。ソースコードを公開しています。アプリ配布の Release は準備中です。Pomegranateからの移行方針と互換性は [Castor 移行メモ](docs/CASTOR_MIGRATION.md)、今後の公開作業の手順は [公開ガイド](docs/PUBLISHING.md)を参照してください。
+</details>
+
+| フォルダ | 内容 |
+| --- | --- |
+| `Castor/` | macOSアプリ・Xcodeプロジェクト |
+| `CastorCore/` | 会話・状態・ルーティング・音声の共有ロジック |
+| [Arils/](Arils/README.md) | 画像リギング・モーション・描画エンジン |
+| [CastorDesktop/](CastorDesktop/README.md) | Windowsアプリ・CPU描画・GUI Setup |
+| [Arils-ex/](Arils-ex/README.md) / [ScreenshotAnswer/](ScreenshotAnswer/README.md) | 独立した実験パッケージ |
+
+Mac配布には顔・ランドマーク・切り抜きに使う4つのCore MLモデルを同梱します。LLM / Neural TTS / LaMaの追加モデル重みは別途取得します。Arils APIの性格プリセット・会話態度・TTS事前解析の一部は、アプリへの接続を継続中です。
 
 ## ライセンス
 
-本プロジェクトのソースコードは [MIT License](LICENSE) で公開します。Pomegranate から引き継いだ著作権表示とライセンスを保持します。ユーザーが読み込む画像や、別途取得するモデルの利用条件は、それぞれの権利者・配布元に従います。
+ソースコードは [MIT License](LICENSE)。Pomegranateから引き継いだ著作権表示とライセンスを保持しています。画像や追加モデルは、それぞれの権利者・配布元の条件に従います。
 
-TTS、LaMa、顔推定・切り抜きモデル、Windows プレビューの `stb_image` などの出典とライセンスは [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)を参照してください。
+各ライブラリ・モデルの出典と表記は [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)、配布物内のライセンス一覧をご覧ください。

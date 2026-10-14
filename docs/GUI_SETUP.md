@@ -1,6 +1,6 @@
 # CastorのGUI導入・更新・修復
 
-2026-10-14。GitHub Releasesを入口にする設計の実装中です。
+2026-10-15。GitHub Releasesを入口とするGUI導入方式を実装しています。
 **配布Releaseはまだなく、公開のGUIインストーラーや完成版アプリは取得できません。**
 開発用Mac GUIの起動と「配布Releaseなし」の案内を確認しました。
 Windowsの実機確認は、ダウンローダーから導入できる配布候補ができた段階でまとめます。
@@ -10,7 +10,9 @@ Windowsの実機確認は、ダウンローダーから導入できる配布候�
 ReleaseからOSに合う`CastorSetup-…zip`を取得して展開し、Macは`CastorSetup.app`、
 Windowsは`CastorSetup.exe`を開きます。Swift、Xcode、Visual Studio、Pythonの導入や
 コマンド入力は、このGUIインストーラーの使用には必要ありません。
-初回にOSの安全確認が出る場合があります。署名/公証が整うまでは正式配布しません。
+Macでは現在ad-hoc署名のため、初回は「システム設定 → プライバシーとセキュリティ → このまま開く」の本人操作が必要です。
+Windowsのコード署名、MacのDeveloper ID署名・公証は未整備です。管理者は実行レビューのため
+正式公開を先行する方針を指定しました。確認範囲と制約を掲載し、宣伝は後にします。
 
 - **取得・更新**: 対応OS/CPUの完成したアプリだけを取得、検証して配置します。
 - **起動**: 選択中のアプリをOSの通常の起動経路で開きます。
@@ -93,7 +95,7 @@ Mac Voiceに起動・停止・明示的なモデル取得/準備・取消を追�
 設定を開く、Qwenを選ぶ、通常の発話を始めるだけではモデルを取りません。
 準備できない場合は既存のOS標準音声へ戻します。
 
-Apple SiliconではMLX 0.6B CustomVoiceを使う同梱Python GUIを用意します。
+Apple Siliconではnative SwiftUI GUIから、同梱Python runtimeのMLX 0.6B CustomVoiceを使います。
 WindowsのGUI/CPU backendとHTTP・取消・サイズ制限を共有し、既存Macの言語名とstatus endpointも保持します。
 Mac配布候補はhelperをResourcesへ同梱可能です。別途導入したhelperはApplicationsの
 CastorNeuralTTS.app入口を作り、VoiceからLaunch Services経由で開きます。
@@ -129,3 +131,13 @@ helper削除は補助アプリだけを対象とし、モデルcache・ペット
 Mac Apple Siliconで梱包後の音声helperのGUI起動・停止画面、モデル準備と実モデルの日本語音声を確認しました。
 Ono_Anna / Japaneseで24kHz・3.12秒・無音でないPCM WAVを生成し、OS音声出力で再生しました。
 これは一文の生成/再生確認であり、音声の品質全般、長文・多言語・初回ネット取得・Windowsの実発声を保証しません。
+
+## Mac本体Voiceの確認（2026-10-15）
+
+同梱helperを本体から起動し、既存cacheからのQwen準備、27文字/3区間の日本語音声生成、
+アプリ内再生、停止・再起動・本体終了時の後片付けを確認しました。標準音声fallbackはありません。
+停止要求は起動ごとのcontainer control/ownerを使い、別途起動したhelperや任意PIDを停止しません。
+frozen Pythonのresource trackerを正しく分岐し、試聴後の停止で子processが残らないことも確認しました。
+
+Mac helper inventory46件にlicense本文欠落なし。4つのCore MLモデルを本体へ同梱し、
+候補のad-hoc署名と既知home path検査も成功。新規model取得/最初のOS警告/Windows実発声は未確認です。

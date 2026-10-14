@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-labelledby="title desc">
+<title id="title">Castor — Your illustration, your companion</title><desc id="desc">Castorの名前と、画像・顔マーカー・デスクトップペットを表す概念図。アプリ画面のスクリーンショットではありません。</desc>
+<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#fcfaf2"/><stop offset="1" stop-color="#e3f0e9"/></linearGradient></defs>
+<rect width="1280" height="320" rx="28" fill="url(#bg)"/>
+<path d="M987 12C1110 22 1280 103 1280 229M850 320C1084 284 1139 116 1260 90" fill="none" stroke="#bfd8cd" stroke-width="2"/>
+<circle cx="1185" cy="260" r="74" fill="#c6e1d6" opacity=".5"/>
+<g fill="#236b60"><path d="m79 66 7 18 18 7-18 7-7 18-7-18-18-7 18-7Z"/><path d="m113 51 4 10 10 4-10 4-4 10-4-10-10-4 10-4Z"/></g>
+<text x="55" y="196" fill="#164f47" font-family="Arial,Helvetica,sans-serif" font-size="91" font-weight="700" letter-spacing="-4">Castor</text>
+<text x="61" y="242" fill="#4e7369" font-family="Arial,Helvetica,sans-serif" font-size="24">Your illustration. Your companion.</text>
+<g fill="#ffffff" stroke="#b8d3c6" stroke-width="2"><rect x="650" y="96" width="151" height="143" rx="22"/><rect x="851" y="96" width="151" height="143" rx="22"/><rect x="1052" y="96" width="151" height="143" rx="22"/></g>
+<g fill="none" stroke="#236b60" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+<rect x="690" y="125" width="70" height="61" rx="6"/><circle cx="709" cy="141" r="5"/><path d="m696 177 20-18 14 10 15-20 9 28"/>
+<path d="M901 125h-12v12m64-12h12v12m-76 35v12h12m64 0h12v-12"/><ellipse cx="927" cy="154" rx="21" ry="26"/><path d="m916 150 3 0m16 0 3 0m-19 14q8 7 16 0"/>
+<rect x="1086" y="125" width="83" height="56" rx="6"/><path d="M1127 181v12m-17 0h34"/>
+<path d="m1127 135 6 12 14 2-10 10 2 14-12-7-12 7 2-14-10-10 14-2Z" fill="#e6b961" stroke="#d4a54a" stroke-width="2"/>
+<path d="M816 158h17m-6-6 6 6-6 6m189-6h17m-6-6 6 6-6 6"/>
+</g>
+<g fill="#49665d" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="700" text-anchor="middle" letter-spacing="1"><text x="725" y="217">ILLUSTRATION</text><text x="927" y="217">FACE MARKERS</text><text x="1127" y="217">DESKTOP PET</text></g>
+</svg>
