@@ -126,6 +126,24 @@ class DistributionTests(unittest.TestCase):
             release.prepare(self.output,'helper-test',{'windows_x86_64':self.windows},neural_helpers={'windows_x86_64':helper})
         self.assertFalse(self.output.exists())
 
+    def test_common_launchers_have_os_correct_newlines_and_stable_modes(self):
+        for suffix, expected, mode in [('.command', b'first\nsecond\n', 0o755),
+                                       ('.cmd', b'first\r\nsecond\r\n', 0o644),
+                                       ('.ps1', b'first\r\nsecond\r\n', 0o644)]:
+            archives = []
+            for index, newline in enumerate((b'\n', b'\r\n')):
+                source = self.base/('script-'+str(index)+suffix)
+                source.write_bytes(b'first'+newline+b'second'+newline)
+                source.chmod(0o644 if index==0 else 0o755)
+                archive = self.base/('launch-'+str(index)+suffix+'.zip')
+                name = 'Castor-Download'+suffix
+                with zipfile.ZipFile(archive,'w') as z: release.put(z,source,name)
+                with zipfile.ZipFile(archive) as z:
+                    self.assertEqual(z.read(name),expected)
+                    self.assertEqual(z.getinfo(name).external_attr >> 16 & 0o777,mode)
+                archives.append(archive.read_bytes())
+            self.assertEqual(archives[0],archives[1])
+
     def test_packages_have_matching_hashes_architectures_licenses_and_launchers(self):
         manifest = self.package()
         for platform, asset in manifest['platforms'].items():

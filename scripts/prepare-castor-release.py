@@ -37,9 +37,18 @@ def put(z, source, name):
     info = zipfile.ZipInfo(name, (2026, 1, 1, 0, 0, 0))
     info.compress_type = zipfile.ZIP_DEFLATED
     info.create_system = 3
-    mode = 0o755 if source.stat().st_mode & 0o111 or name.endswith(".command") or name == "Castor.app/Contents/MacOS/Castor" else 0o644
+    payload = source.read_bytes()
+    suffix = Path(name).suffix.lower()
+    if suffix in ('.command', '.cmd', '.ps1'):
+        # Git on Windows may check out CRLF. A Mac .command must remain LF,
+        # regardless of the OS preparing the common downloader ZIP.
+        payload = payload.replace(b'\r\n', b'\n')
+        if suffix != '.command': payload = payload.replace(b'\n', b'\r\n')
+        mode = 0o755 if suffix == '.command' else 0o644
+    else:
+        mode = 0o755 if source.stat().st_mode & 0o111 or name == "Castor.app/Contents/MacOS/Castor" else 0o644
     info.external_attr = (stat.S_IFREG | mode) << 16
-    z.writestr(info, source.read_bytes())
+    z.writestr(info, payload)
 
 
 def check_arch(binary, platform):

@@ -225,6 +225,8 @@ UI刷新は後回しとし、既存UIのままQwen 3 TTSと配布前監査への
   この既知パターン検査は包括的な個人情報・秘密情報監査ではありません。
 - Macはad-hoc署名でDeveloper ID署名・公証なし。Windowsコード署名も未整備。
   開発環境のない両OSでの初回導入・更新・修復・削除と、全機能共通化は未完了です。
+- 共通ダウンローダーZIPの改行と実行modeをOSに依存せず固定。WindowsのGit checkoutでも
+  Mac用.commandにCRLFを混入させません。
 - 現行GUI/旧scriptダウンローダーはGitHubのlatest通常Releaseを取得し、Pre-releaseを
   拒否します。候補をPre-releaseで公開する場合は、公開前にプレビュー取得経路を整える
   必要があります。候補名にbetaがあるだけではGitHubの公開区分は確定しません。
@@ -232,7 +234,7 @@ UI刷新は後回しとし、既存UIのままQwen 3 TTSと配布前監査への
 ### ローカル確認結果
 
 - CastorCore: 132件成功。Desktop: 57件成功。Mac app既存単体検査成功。
-- Python speech: 8件成功。配布/model/privacy: 19件中5件platform skip、残り成功。
+- Python speech: 8件成功。配布/model/privacy: 20件中5件platform skip、残り成功。
 - Mac候補内の4モデルをCPU Core MLで読み込み成功。顔推定精度の証明ではありません。
 - Mac候補の深い署名検証成功。ad-hoc署名であり配布者の認証・公証を意味しません。
 
