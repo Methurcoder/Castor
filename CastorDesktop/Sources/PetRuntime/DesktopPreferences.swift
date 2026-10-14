@@ -6,6 +6,10 @@ import Foundation
 public struct DesktopPreferences: Codable, Equatable, Sendable {
     public enum Provider: String, Codable, Sendable { case lmStudio, ollama }
     public enum Brain: String, Codable, Sendable { case local, codex, claudeCode }
+    public var displayLanguage: SettingsDisplayLanguage = .systemDefault
+    public var buttonDodgeEnabled = false
+    public var microphoneEnabled = false
+    public var microphoneSetupCompleted = false
     public var selectedBrain: Brain = .local
     public var automaticRouting = false
     public var externalBrain: Brain = .codex
@@ -20,6 +24,8 @@ public struct DesktopPreferences: Codable, Equatable, Sendable {
     public var personality = "穏やかで少し不器用なデスクトップの相棒。日本語で短く自然に会話する。"
     public var widerHeadMovement = false
     public var automaticTurn = true
+    public var evasionEnabled = false
+    public var evasionStyle: EvasionStyle = .calm
     public var petOpacity: Float = 1
     public var scale: Double = 1
     public var positionX: Int32?
@@ -37,6 +43,10 @@ public struct DesktopPreferences: Codable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         self.init()
         let values = try decoder.container(keyedBy: Keys.self)
+        displayLanguage = try values.decodeIfPresent(SettingsDisplayLanguage.self, forKey: .displayLanguage) ?? displayLanguage
+        buttonDodgeEnabled = try values.decodeIfPresent(Bool.self, forKey: .buttonDodgeEnabled) ?? buttonDodgeEnabled
+        microphoneEnabled = try values.decodeIfPresent(Bool.self, forKey: .microphoneEnabled) ?? microphoneEnabled
+        microphoneSetupCompleted = try values.decodeIfPresent(Bool.self, forKey: .microphoneSetupCompleted) ?? microphoneSetupCompleted
         selectedBrain = try values.decodeIfPresent(Brain.self, forKey: .selectedBrain) ?? selectedBrain
         externalBrain = try values.decodeIfPresent(Brain.self, forKey: .externalBrain) ?? externalBrain
         automaticRouting = try values.decodeIfPresent(Bool.self, forKey: .automaticRouting) ?? automaticRouting
@@ -50,6 +60,8 @@ public struct DesktopPreferences: Codable, Equatable, Sendable {
         ollamaModel = try values.decodeIfPresent(String.self, forKey: .ollamaModel) ?? ollamaModel
         personality = try values.decodeIfPresent(String.self, forKey: .personality) ?? personality
         widerHeadMovement = try values.decodeIfPresent(Bool.self, forKey: .widerHeadMovement) ?? widerHeadMovement
+        evasionEnabled = try values.decodeIfPresent(Bool.self, forKey: .evasionEnabled) ?? evasionEnabled
+        evasionStyle = try values.decodeIfPresent(EvasionStyle.self, forKey: .evasionStyle) ?? evasionStyle
         automaticTurn = try values.decodeIfPresent(Bool.self, forKey: .automaticTurn) ?? automaticTurn
         petOpacity = try values.decodeIfPresent(Float.self, forKey: .petOpacity) ?? petOpacity
         scale = try values.decodeIfPresent(Double.self, forKey: .scale) ?? scale
@@ -59,13 +71,20 @@ public struct DesktopPreferences: Codable, Equatable, Sendable {
         systemVoice = try values.decodeIfPresent(String.self, forKey: .systemVoice) ?? systemVoice
     }
     private enum Keys: String, CodingKey {
+        case displayLanguage, buttonDodgeEnabled, microphoneEnabled, microphoneSetupCompleted
         case selectedBrain, externalBrain, automaticRouting, codexEndpoint, claudeEndpoint, workspacePath
+        case evasionEnabled, evasionStyle
         case provider, lmStudioEndpoint, ollamaEndpoint, lmStudioModel, ollamaModel, personality,
              widerHeadMovement, automaticTurn, petOpacity, scale, positionX, positionY, systemTTSEnabled, systemVoice
     }
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: Keys.self)
+        try c.encode(displayLanguage, forKey: .displayLanguage)
+        try c.encode(buttonDodgeEnabled, forKey: .buttonDodgeEnabled)
+        try c.encode(microphoneEnabled, forKey: .microphoneEnabled)
+        try c.encode(microphoneSetupCompleted, forKey: .microphoneSetupCompleted)
         try c.encode(selectedBrain, forKey: .selectedBrain); try c.encode(externalBrain, forKey: .externalBrain)
+        try c.encode(evasionEnabled, forKey: .evasionEnabled); try c.encode(evasionStyle, forKey: .evasionStyle)
         try c.encode(automaticRouting, forKey: .automaticRouting)
         try c.encode(codexEndpoint, forKey: .codexEndpoint); try c.encode(claudeEndpoint, forKey: .claudeEndpoint)
         try c.encode(workspacePath, forKey: .workspacePath)

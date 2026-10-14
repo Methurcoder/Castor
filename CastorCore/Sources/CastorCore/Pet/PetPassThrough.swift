@@ -20,7 +20,7 @@ import CoreGraphics
 ///
 /// Hovering over the pet without either signal stays a pet interaction
 /// (stroking it), which is why neither path triggers on dwell alone.
-public enum PetPassThroughGeometry {
+public nonisolated enum PetPassThroughGeometry {
     /// The pet frame moved the shortest way (left, right, down or up) so that
     /// `point` lies at least `margin` outside it, staying inside `visible`.
     /// Nil when the point is not covered or no direction fits.
@@ -55,7 +55,7 @@ public enum PetPassThroughGeometry {
 /// Roles that mean "the user is probably about to click this". Accessibility
 /// role names as reported by macOS (`AXButton` …); the helper also reports
 /// whether the element offers a press action, which covers custom controls.
-public enum PointerTargetRoles {
+public nonisolated enum PointerTargetRoles {
     public static let actionable: Set<String> = [
         "AXButton", "AXCheckBox", "AXRadioButton", "AXPopUpButton", "AXMenuButton",
         "AXLink", "AXTab", "AXMenuItem", "AXMenuBarItem", "AXDisclosureTriangle",
@@ -68,7 +68,7 @@ public enum PointerTargetRoles {
     }
 }
 
-public struct PetDodgePolicy: Equatable {
+public nonisolated struct PetDodgePolicy: Equatable {
     /// How long the uncovered spot must be free of the pointer before the pet
     /// returns.
     public var returnDelay: TimeInterval = 1.6
@@ -81,8 +81,8 @@ public struct PetDodgePolicy: Equatable {
 }
 
 /// The button-aware dodge as a small state machine: settled → dodged → back.
-public struct PetDodgeStateMachine: Equatable {
-    public enum Action: Equatable {
+public nonisolated struct PetDodgeStateMachine: Equatable {
+    public nonisolated enum Action: Equatable {
         case none
         case move(to: CGRect)
         case returnTo(CGRect)

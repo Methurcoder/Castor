@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import CastorCore
 
@@ -8,6 +9,9 @@ struct ContentView: View {
     let core: HesitateCore
     let trilobite: TrilobiteEngine
 
+    @State private var incomingAIImage: NSImage?
+    @AppStorage("Castor.SettingsDisplayLanguage") private var displayLanguage: SettingsDisplayLanguage = .systemDefault
+    @Environment(\.openSettings) private var openSettings
     @State private var experienceMode: ExperienceMode = .rigging
     @State private var isDebugPanelVisible = false
     @State private var ambientLightPosition: CGPoint?
@@ -21,7 +25,7 @@ struct ContentView: View {
         VStack(spacing: 20) {
             Picker("Mode", selection: $experienceMode) {
                 ForEach(ExperienceMode.allCases) { mode in
-                    Text(mode.label).tag(mode)
+                    Text(displayLanguage == .japanese ? (mode == .aiSetup ? "AIで設定" : "リギング") : mode.label).tag(mode)
                 }
             }
             .pickerStyle(.segmented)
@@ -84,13 +88,28 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.18), value: isDebugPanelVisible)
         .tint(CastorBrand.accent)
         .preferredColorScheme(appearance.preferredColorScheme)
+        .alert(displayLanguage == .japanese ? "マイクを使うには許可が必要です" : "Allow microphone access to use audio", isPresented: Binding(
+            get: { trilobite.isMicrophoneGuidancePresented },
+            set: { trilobite.isMicrophoneGuidancePresented = $0 }
+        )) {
+            Button(displayLanguage == .japanese ? "システム設定を開く" : "Open System Settings") {
+                if let url=URL(string:"x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") { NSWorkspace.shared.open(url) }
+            }
+            Button(displayLanguage == .japanese ? "Castorの設定を開く" : "Open Castor Settings") { openSettings() }
+            Button(displayLanguage == .japanese ? "後で" : "Later",role:.cancel) {}
+        } message: {
+            Text(displayLanguage == .japanese
+                ? "拒否してもペットの作成や文字での会話は使えます。システム設定 → プライバシーとセキュリティ → マイクでCastorを許可した後、Castorの設定 → 入力でマイクをオンにできます。音量への反応は端末内で処理し、音声チャットはマイクボタンを押したときだけ認識します。"
+                : "You can still create pets and use text chat. Allow Castor in System Settings → Privacy & Security → Microphone, then turn on Microphone in Castor Settings → Input. Audio-level reactions stay on this device; voice chat listens only when you press its microphone button.")
+        }
     }
 
     @ViewBuilder
     private func stage(_ palette: CastorPalette) -> some View {
         switch experienceMode {
         case .aiSetup:
-            ArilsAISetupView(palette: palette) {
+            ArilsAISetupView(palette: palette) { image in
+                incomingAIImage = image
                 experienceMode = .rigging
             }
         case .rigging:
@@ -98,7 +117,8 @@ struct ContentView: View {
                 core: core,
                 trilobite: trilobite,
                 palette: palette,
-                animationsPaused: false
+                animationsPaused: false,
+                initialImage: incomingAIImage
             )
         }
     }

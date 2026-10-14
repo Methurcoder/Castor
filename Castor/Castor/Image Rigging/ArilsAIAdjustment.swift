@@ -1,4 +1,5 @@
 import AppKit
+import ImageIO
 import Arils
 import Foundation
 import Observation
@@ -13,7 +14,7 @@ enum ArilsAIProvider: String, CaseIterable, Codable, Identifiable, Sendable {
 
     var label: String {
         switch self {
-        case .ollama: "Ollama"
+        case .ollama: "Ollama / LM Studio"
         case .codex: "Codex"
         case .claudeCode: "Claude Code"
         }
@@ -80,7 +81,7 @@ enum ArilsAIAdjustmentError: LocalizedError, Equatable {
         case .imageEncodingFailed:
             "The source image could not be prepared for AI review."
         case .noOllamaModel:
-            "Start Ollama and select an installed vision-capable model first."
+            "LM StudioまたはOllamaで画像対応モデルを選び、ローカルサーバーを起動してください。"
         case .invalidResponse:
             "The AI did not return a readable Arils alignment proposal."
         case .wrongOperation:
@@ -329,6 +330,7 @@ final class ArilsAIAdjustmentCoordinator {
     private(set) var status = ""
     private(set) var pendingApproval: CastorAgentApprovalRequest?
 
+    private let lmStudioClient = LMStudioClient()
     private let ollamaClient: OllamaClient
     private let codex = CodexAppServerSession()
     private let claudeCode = ClaudeCodeBridgeSession()
@@ -364,7 +366,14 @@ final class ArilsAIAdjustmentCoordinator {
         let response: String
         switch provider {
         case .ollama:
-            status = "Checking the image with Ollama..."
+            status = "ローカルの画像対応モデルを確認しています…"
+            let studioModels = (try? await lmStudioClient.visionModels()) ?? []
+            try Task.checkCancellation()
+            if let model=OllamaSession.resolvedModelName(availableModels:studioModels,preferredModel:LMStudioModelSelectionStore.selectedModel) {
+                status="LM Studioで画像を確認しています…"
+                response=try await lmStudioClient.arilsFaceLayoutAdjustment(model:model,prompt:instructions,imageBase64:pngData.base64EncodedString())
+                break
+            }
             let models = try await ollamaClient.models()
             guard let model = OllamaSession.resolvedModelName(
                 availableModels: models,
@@ -422,6 +431,28 @@ final class ArilsAIAdjustmentCoordinator {
             imageSize: imageSize,
             provider: provider
         )
+    }
+
+    func generateUprightImage(image: NSImage, prompt: String) async throws -> NSImage {
+        guard let cgImage=image.cgImage(forProposedRect:nil,context:nil,hints:nil),
+              let data=NSBitmapImageRep(cgImage:cgImage).representation(using:.png,properties:[:]) else {
+            throw ArilsAIAdjustmentError.imageEncodingFailed
+        }
+        let packet=try makeReviewPacket(imageData:data,instructions:prompt)
+        defer {try? FileManager.default.removeItem(at:packet)}
+        isWorking=true;pendingApproval=nil
+        defer {isWorking=false;pendingApproval=nil}
+        let generated=try await codex.generateImage(prompt:prompt,serverURL:CastorAgentPreferenceStore.current.codexServerURL,
+            workspacePath:packet.path,localImagePath:packet.appendingPathComponent("source.png").path,
+            onStatus:{[weak self] in self?.status=$0},
+            onApproval:{[weak self] in self?.pendingApproval=$0.map(CastorAgentApprovalRequest.codex)})
+        try Task.checkCancellation()
+        guard let source=CGImageSourceCreateWithData(generated as CFData,[kCGImageSourceShouldCache:false] as CFDictionary),
+              let properties=CGImageSourceCopyPropertiesAtIndex(source,0,nil) as? [CFString:Any],
+              let width=properties[kCGImagePropertyPixelWidth] as? Int,let height=properties[kCGImagePropertyPixelHeight] as? Int,
+              width>0,height>0,width<=4096,height<=4096,
+              let pixels=CGImageSourceCreateImageAtIndex(source,0,nil) else {throw ArilsAIAdjustmentError.imageEncodingFailed}
+        return NSImage(cgImage:pixels,size:.zero)
     }
 
     func resolvePendingApproval(approved: Bool) {

@@ -1,4 +1,7 @@
 #include "CDesktopUI.h"
+static int castor_ui_japanese=1;
+void castor_set_ui_language(int japanese) {castor_ui_japanese=japanese!=0;}
+#define UI_TEXT(ja,en) (castor_ui_japanese ? (ja) : (en))
 #ifdef _WIN32
 #define UNICODE
 #define _UNICODE
@@ -12,6 +15,8 @@
 #include <string.h>
 #include <wchar.h>
 
+int castor_open_microphone_settings(void) {return (INT_PTR)ShellExecuteW(NULL,L"open",L"ms-settings:privacy-microphone",NULL,NULL,SW_SHOWNORMAL)>32 ? 1:-1;}
+
 int castor_choose_file(int save, const char *kind, char *output, size_t capacity) {
     WCHAR file[32768] = {0};
     const WCHAR *filter = save ? (strcmp(kind,"gif")==0 ? L"GIF image (*.gif)\0*.gif\0\0" : L"Arils avatar (*.arils)\0*.arils\0\0") :
@@ -19,7 +24,7 @@ int castor_choose_file(int save, const char *kind, char *output, size_t capacity
     OPENFILENAMEW dialog = {0}; dialog.lStructSize = sizeof(dialog);
     dialog.lpstrFile = file; dialog.nMaxFile = 32768; dialog.lpstrFilter = filter;
     dialog.lpstrDefExt = save ? (strcmp(kind,"gif")==0 ? L"gif" : L"arils") : NULL;
-    dialog.lpstrTitle = save ? L"Castor - リグを保存" : L"Castor - ファイルを選択";
+    dialog.lpstrTitle = save ? UI_TEXT(L"Castor - リグを保存",L"Castor - Save") : UI_TEXT(L"Castor - ファイルを選択",L"Castor - Choose a file");
     dialog.Flags = OFN_EXPLORER | OFN_NOCHANGEDIR | OFN_PATHMUSTEXIST |
         (save ? OFN_OVERWRITEPROMPT : OFN_FILEMUSTEXIST);
     BOOL ok = save ? GetSaveFileNameW(&dialog) : GetOpenFileNameW(&dialog);
@@ -130,13 +135,13 @@ int castor_review_markers(const uint8_t *rgba,int width,int height,float *rectan
     cls.lpszClassName=L"CastorMarkerEditor";cls.hCursor=LoadCursorW(NULL,IDC_ARROW);cls.hbrBackground=(HBRUSH)(COLOR_WINDOW+1);
     if(!RegisterClassW(&cls) && GetLastError()!=ERROR_CLASS_ALREADY_EXISTS){free(state.bgra);return -1;}
     HWND owner=GetActiveWindow();
-    HWND hwnd=CreateWindowExW(0,cls.lpszClassName,L"Castor - 顔マーカー補正",WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX,
+    HWND hwnd=CreateWindowExW(0,cls.lpszClassName,UI_TEXT(L"Castor - 顔マーカー補正",L"Castor - Review face markers"),WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX,
         CW_USEDEFAULT,CW_USEDEFAULT,1000,730,owner,NULL,instance,&state);
     if(!hwnd){free(state.bgra);return -1;}
     if(owner)EnableWindow(owner,FALSE);
-    CreateWindowW(L"STATIC",L"推定結果を確認・補正してください。\n部位を選び、画像上でドラッグして\n範囲を指定できます。\n\n左右は見る側基準です。",WS_CHILD|WS_VISIBLE,665,20,300,105,hwnd,NULL,instance,NULL);
-    const WCHAR *names[4]={L"頭",L"見る側の左目",L"見る側の右目",L"口"};
-    const WCHAR *labels[4]={L"X",L"Y",L"幅",L"高さ"};
+    CreateWindowW(L"STATIC",UI_TEXT(L"推定結果を確認・補正してください。\n部位を選び、画像上でドラッグして\n範囲を指定できます。\n\n左右は見る側基準です。",L"Review the suggested markers.\nChoose a part and drag on the image\nto set its rectangle.\n\nLeft and right mean the viewer's sides."),WS_CHILD|WS_VISIBLE,665,20,300,105,hwnd,NULL,instance,NULL);
+    const WCHAR *names[4]={UI_TEXT(L"頭",L"Head"),UI_TEXT(L"見る側の左目",L"Viewer-left eye"),UI_TEXT(L"見る側の右目",L"Viewer-right eye"),UI_TEXT(L"口",L"Mouth")};
+    const WCHAR *labels[4]={L"X",L"Y",UI_TEXT(L"幅",L"Width"),UI_TEXT(L"高さ",L"Height")};
     for(int row=0;row<4;++row) {
         HWND radio=CreateWindowW(L"BUTTON",names[row],WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_AUTORADIOBUTTON|(row==0?WS_GROUP:0),665,140+row*90,270,24,hwnd,(HMENU)(INT_PTR)(300+row),instance,NULL);
         if(row==0)SendMessageW(radio,BM_SETCHECK,BST_CHECKED,0);
@@ -145,8 +150,8 @@ int castor_review_markers(const uint8_t *rgba,int width,int height,float *rectan
             state.edits[row*4+c]=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"",WS_CHILD|WS_VISIBLE|WS_TABSTOP|ES_AUTOHSCROLL,665+c*72,190+row*90,65,24,hwnd,(HMENU)(INT_PTR)(400+row*4+c),instance,NULL);
         }
     }
-    CreateWindowW(L"BUTTON",L"この位置で作成",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_DEFPUSHBUTTON,665,545,170,35,hwnd,(HMENU)IDOK,instance,NULL);
-    CreateWindowW(L"BUTTON",L"キャンセル",WS_CHILD|WS_VISIBLE|WS_TABSTOP,840,545,115,35,hwnd,(HMENU)IDCANCEL,instance,NULL);
+    CreateWindowW(L"BUTTON",UI_TEXT(L"この位置で作成",L"Build with these markers"),WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_DEFPUSHBUTTON,665,545,170,35,hwnd,(HMENU)IDOK,instance,NULL);
+    CreateWindowW(L"BUTTON",UI_TEXT(L"キャンセル",L"Cancel"),WS_CHILD|WS_VISIBLE|WS_TABSTOP,840,545,115,35,hwnd,(HMENU)IDCANCEL,instance,NULL);
     update_edits(&state);ShowWindow(hwnd,SW_SHOW);UpdateWindow(hwnd);
     MSG message;
     while(IsWindow(hwnd)) {
@@ -199,8 +204,8 @@ int castor_choose_option(const char *title,const char *options) {
     WCHAR *begin=items;
     for(WCHAR *p=items;;++p)if(*p==L'\n'||*p==0){WCHAR end=*p;*p=0;SendMessageW(s.list,LB_ADDSTRING,0,(LPARAM)begin);if(!end)break;begin=p+1;}
     free(items);SendMessageW(s.list,LB_SETCURSEL,0,0);
-    CreateWindowW(L"BUTTON",L"選択",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_DEFPUSHBUTTON,435,245,120,35,hwnd,(HMENU)IDOK,instance,NULL);
-    CreateWindowW(L"BUTTON",L"キャンセル",WS_CHILD|WS_VISIBLE|WS_TABSTOP,565,245,120,35,hwnd,(HMENU)IDCANCEL,instance,NULL);
+    CreateWindowW(L"BUTTON",UI_TEXT(L"選択",L"Choose"),WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_DEFPUSHBUTTON,435,245,120,35,hwnd,(HMENU)IDOK,instance,NULL);
+    CreateWindowW(L"BUTTON",UI_TEXT(L"キャンセル",L"Cancel"),WS_CHILD|WS_VISIBLE|WS_TABSTOP,565,245,120,35,hwnd,(HMENU)IDCANCEL,instance,NULL);
     ShowWindow(hwnd,SW_SHOW);MSG message;
     while(IsWindow(hwnd)){int status=GetMessageW(&message,NULL,0,0);if(status<=0){if(status==0)PostQuitMessage((int)message.wParam);break;}
         if(!IsDialogMessageW(hwnd,&message)){TranslateMessage(&message);DispatchMessageW(&message);}}
@@ -219,11 +224,11 @@ int castor_wait_work(const char *text,int (*poll)(void*),void *context) {
     cls.lpfnWndProc=choice_proc;cls.lpszClassName=L"CastorProgress";cls.hbrBackground=(HBRUSH)(COLOR_WINDOW+1);
     if(!RegisterClassW(&cls)&&GetLastError()!=ERROR_CLASS_ALREADY_EXISTS){free(caption);return -1;}
     CastorChoice s={0};HWND owner=GetActiveWindow();
-    HWND hwnd=CreateWindowExW(0,cls.lpszClassName,L"Castor - 作成中",WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU,
+    HWND hwnd=CreateWindowExW(0,cls.lpszClassName,UI_TEXT(L"Castor - 作成中",L"Castor - Working"),WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU,
         CW_USEDEFAULT,CW_USEDEFAULT,650,190,owner,NULL,instance,&s);
     if(!hwnd){free(caption);return -1;}if(owner)EnableWindow(owner,FALSE);
     castor_work_label=CreateWindowW(L"STATIC",caption,WS_CHILD|WS_VISIBLE,20,20,600,65,hwnd,NULL,instance,NULL);free(caption);
-    CreateWindowW(L"BUTTON",L"キャンセル",WS_CHILD|WS_VISIBLE|WS_TABSTOP,470,95,140,32,hwnd,(HMENU)IDCANCEL,instance,NULL);
+    CreateWindowW(L"BUTTON",UI_TEXT(L"キャンセル",L"Cancel"),WS_CHILD|WS_VISIBLE|WS_TABSTOP,470,95,140,32,hwnd,(HMENU)IDCANCEL,instance,NULL);
     ShowWindow(hwnd,SW_SHOW);UpdateWindow(hwnd);
     while(IsWindow(hwnd)&&!poll(context)) {
         MsgWaitForMultipleObjects(0,NULL,FALSE,50,QS_ALLINPUT);MSG message;
@@ -262,13 +267,13 @@ int castor_preview_gif(const uint8_t *frames,int count,int width,int height,int 
     cls.lpszClassName=L"CastorGIFPreview";cls.hbrBackground=(HBRUSH)(COLOR_WINDOW+1);cls.hCursor=LoadCursorW(NULL,IDC_ARROW);
     if(!RegisterClassW(&cls)&&GetLastError()!=ERROR_CLASS_ALREADY_EXISTS)return -1;
     CastorGIFPreview s={frames,count,width,height,0,0};HWND owner=GetActiveWindow();
-    HWND hwnd=CreateWindowExW(0,cls.lpszClassName,L"Castor - GIFプレビュー",WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU,
+    HWND hwnd=CreateWindowExW(0,cls.lpszClassName,UI_TEXT(L"Castor - GIFプレビュー",L"Castor - GIF Preview"),WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU,
         CW_USEDEFAULT,CW_USEDEFAULT,755,465,owner,NULL,instance,&s);
     if(!hwnd)return -1;if(owner)EnableWindow(owner,FALSE);
-    CreateWindowW(L"STATIC",L"GIFは自動添付されません。\n保存したGIFをXの投稿画面で\n手動で添付してください。\n\n投稿の確定はXで行います。",WS_CHILD|WS_VISIBLE,430,35,300,135,hwnd,NULL,instance,NULL);
-    CreateWindowW(L"BUTTON",L"GIFを保存してXを開く",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_DEFPUSHBUTTON,430,190,285,38,hwnd,(HMENU)IDOK,instance,NULL);
-    CreateWindowW(L"BUTTON",L"GIFだけ保存",WS_CHILD|WS_VISIBLE|WS_TABSTOP,430,240,285,38,hwnd,(HMENU)11,instance,NULL);
-    CreateWindowW(L"BUTTON",L"キャンセル",WS_CHILD|WS_VISIBLE|WS_TABSTOP,430,290,285,38,hwnd,(HMENU)IDCANCEL,instance,NULL);
+    CreateWindowW(L"STATIC",UI_TEXT(L"GIFは自動添付されません。\n保存したGIFをXの投稿画面で\n手動で添付してください。\n\n投稿の確定はXで行います。",L"The GIF is not attached automatically.\nAttach the saved GIF manually in X.\n\nConfirm your post on X."),WS_CHILD|WS_VISIBLE,430,35,300,135,hwnd,NULL,instance,NULL);
+    CreateWindowW(L"BUTTON",UI_TEXT(L"GIFを保存してXを開く",L"Save GIF and open X"),WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_DEFPUSHBUTTON,430,190,285,38,hwnd,(HMENU)IDOK,instance,NULL);
+    CreateWindowW(L"BUTTON",UI_TEXT(L"GIFだけ保存",L"Save GIF only"),WS_CHILD|WS_VISIBLE|WS_TABSTOP,430,240,285,38,hwnd,(HMENU)11,instance,NULL);
+    CreateWindowW(L"BUTTON",UI_TEXT(L"キャンセル",L"Cancel"),WS_CHILD|WS_VISIBLE|WS_TABSTOP,430,290,285,38,hwnd,(HMENU)IDCANCEL,instance,NULL);
     ShowWindow(hwnd,SW_SHOW);SetTimer(hwnd,1,1000/fps,NULL);MSG message;
     while(IsWindow(hwnd)){int status=GetMessageW(&message,NULL,0,0);if(status<=0){if(status==0)PostQuitMessage((int)message.wParam);break;}
         if(!IsDialogMessageW(hwnd,&message)){TranslateMessage(&message);DispatchMessageW(&message);}}
@@ -303,8 +308,8 @@ int castor_edit_text(const char *title,const char *initial,int readonly,char *ou
     s.edit=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",text,WS_CHILD|WS_VISIBLE|WS_TABSTOP|WS_VSCROLL|
         ES_MULTILINE|ES_AUTOVSCROLL|ES_WANTRETURN|(readonly?ES_READONLY:0),20,20,705,310,hwnd,(HMENU)10,instance,NULL);free(text);
     SendMessageW(s.edit,EM_SETLIMITTEXT,8000,0);
-    CreateWindowW(L"BUTTON",readonly?L"閉じる":L"決定",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_DEFPUSHBUTTON,470,350,120,35,hwnd,(HMENU)IDOK,instance,NULL);
-    CreateWindowW(L"BUTTON",L"キャンセル",WS_CHILD|WS_VISIBLE|WS_TABSTOP,600,350,120,35,hwnd,(HMENU)IDCANCEL,instance,NULL);
+    CreateWindowW(L"BUTTON",readonly?UI_TEXT(L"閉じる",L"Close"):UI_TEXT(L"決定",L"OK"),WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_DEFPUSHBUTTON,470,350,120,35,hwnd,(HMENU)IDOK,instance,NULL);
+    CreateWindowW(L"BUTTON",UI_TEXT(L"キャンセル",L"Cancel"),WS_CHILD|WS_VISIBLE|WS_TABSTOP,600,350,120,35,hwnd,(HMENU)IDCANCEL,instance,NULL);
     ShowWindow(hwnd,SW_SHOW);SetFocus(s.edit);MSG message;
     while(IsWindow(hwnd)&&IsWindowVisible(hwnd)){int status=GetMessageW(&message,NULL,0,0);
         if(status<=0){if(status==0)PostQuitMessage((int)message.wParam);break;}
@@ -318,7 +323,35 @@ int castor_edit_text(const char *title,const char *initial,int readonly,char *ou
     if(IsWindow(hwnd))DestroyWindow(hwnd);if(owner&&IsWindow(owner)){EnableWindow(owner,TRUE);SetActiveWindow(owner);}return result;
 }
 
+typedef struct { CastorWindowMetadata *windows; size_t capacity,count; HWND focused; DWORD self; } CastorWindowList;
+static BOOL CALLBACK metadata_window(HWND hwnd,LPARAM param) {
+    CastorWindowList *s=(CastorWindowList*)param;
+    if(s->count>=s->capacity)return FALSE;
+    DWORD pid=0;GetWindowThreadProcessId(hwnd,&pid);
+    if(pid==s->self||!IsWindowVisible(hwnd)||IsIconic(hwnd)||GetWindowLongW(hwnd,GWL_EXSTYLE)&WS_EX_TOOLWINDOW)return TRUE;
+    RECT r;if(!GetWindowRect(hwnd,&r)||r.right-r.left<=8||r.bottom-r.top<=8)return TRUE;
+    CastorWindowMetadata m={(uint32_t)(UINT_PTR)hwnd,(int32_t)pid,r.left,r.top,r.right-r.left,r.bottom-r.top,hwnd==s->focused};
+    s->windows[s->count++]=m;return TRUE;
+}
+int castor_window_metadata(CastorWindowMetadata *windows,size_t capacity) {
+    if(!windows||capacity<1||capacity>1024)return -1;
+    CastorWindowList state={windows,capacity,0,GetForegroundWindow(),GetCurrentProcessId()};
+    EnumWindows(metadata_window,(LPARAM)&state);return (int)state.count;
+}
+int castor_monitor_bounds(int x,int y,int32_t *screen,int32_t *work) {
+    if(!screen||!work)return -1;POINT p={x,y};HMONITOR monitor=MonitorFromPoint(p,MONITOR_DEFAULTTONEAREST);
+    MONITORINFO info={0};info.cbSize=sizeof(info);if(!GetMonitorInfoW(monitor,&info))return -1;
+    screen[0]=info.rcMonitor.left;screen[1]=info.rcMonitor.top;screen[2]=info.rcMonitor.right-info.rcMonitor.left;screen[3]=info.rcMonitor.bottom-info.rcMonitor.top;
+    work[0]=info.rcWork.left;work[1]=info.rcWork.top;work[2]=info.rcWork.right-info.rcWork.left;work[3]=info.rcWork.bottom-info.rcWork.top;return 1;
+}
+
+int castor_launch_file(const char *path) {
+    WCHAR *wide=castor_wide(path);if(!wide)return -1;
+    INT_PTR result=(INT_PTR)ShellExecuteW(NULL,L"open",wide,NULL,NULL,SW_SHOWNORMAL);free(wide);return result>32?1:-1;
+}
+
 #else
+int castor_open_microphone_settings(void) {return -1;}
 int castor_choose_file(int save,const char *kind,char *output,size_t capacity){return -1;}
 int castor_review_markers(const uint8_t *rgba,int width,int height,float *rectangles){return -1;}
 int castor_choose_option(const char *title,const char *options){return -1;}
@@ -327,5 +360,10 @@ int castor_preview_gif(const uint8_t *frames,int count,int width,int height,int 
 int castor_open_url(const char *url){return -1;}
 int castor_edit_text(const char *title,const char *initial,int readonly,char *output,size_t capacity){return -1;}
 void castor_update_work_text(const char *text){}
+
+int castor_window_metadata(CastorWindowMetadata *windows,size_t capacity){return -1;}
+int castor_monitor_bounds(int x,int y,int32_t *screen,int32_t *work){return -1;}
+
+int castor_launch_file(const char *path){return -1;}
 
 #endif

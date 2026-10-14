@@ -52,7 +52,8 @@ def check_arch(binary, platform):
             raise ValueError('Expected a thin Mach-O executable matching the selected Mac CPU.')
 
 
-def prepare(output, version, apps):
+def prepare(output, version, apps, setups=None):
+    setups = setups or {}
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,63}', version):
         raise ValueError('Version must be a simple Release name.')
     if not apps:
@@ -95,10 +96,39 @@ def prepare(output, version, apps):
             files.extend((ROOT/'download'/name, name) for name in ('Start-Castor.cmd', 'Start-Castor.ps1'))
         files.extend((ROOT/name, name) for name in LICENSES)
         payloads[platform] = files
+    setup_payloads = {}
+    for platform, source in setups.items():
+        if platform not in PLATFORMS:
+            raise ValueError('Unexpected setup platform.')
+        source = source.resolve()
+        if platform.startswith('macos'):
+            if source.name != 'CastorSetup.app' or plistlib.loads((source/'Contents/Info.plist').read_bytes()).get('CFBundleExecutable') != 'CastorSetup':
+                raise ValueError('Expected the native CastorSetup.app.')
+            check_arch(source/'Contents/MacOS/CastorSetup', platform)
+            files = []
+            for p in sorted(source.rglob('*')):
+                if p.is_symlink():
+                    raise ValueError('Setup symlinks require review.')
+                if p.is_file():
+                    valid_file(p);files.append((p,'CastorSetup.app/'+p.relative_to(source).as_posix()))
+        else:
+            check_arch(source/'CastorSetup.exe', platform)
+            files = []
+            for p in sorted(source.iterdir()):
+                if p.name == 'CastorSetup.exe' or p.suffix.lower() == '.dll':
+                    valid_file(p);files.append((p,p.name))
+                elif p.name not in LICENSES:
+                    raise ValueError(f'Unexpected setup runtime file: {p.name}')
+            if not any(p.name.lower() == 'swiftcore.dll' for p,_ in files):
+                raise ValueError('The GUI setup needs its own Swift runtime DLLs.')
+        files.extend((ROOT/name,name) for name in LICENSES)
+        setup_payloads[platform] = files
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='castor-release-', dir=output.parent) as temp:
         stage = Path(temp)
         manifest = {'schema': 1, 'version': version, 'platforms': {}}
+        if setup_payloads:
+            manifest['setup'] = {}
         for platform, files in payloads.items():
             name = f'Castor-{version}-{platform}.zip'
             archive = stage/name
@@ -109,6 +139,13 @@ def prepare(output, version, apps):
                 'asset': name, 'sha256': hashlib.sha256(archive.read_bytes()).hexdigest(),
                 'bytes': archive.stat().st_size,
             }
+        for platform, files in setup_payloads.items():
+            name = f'CastorSetup-{version}-{platform}.zip'
+            archive = stage/name
+            with zipfile.ZipFile(archive, 'w') as z:
+                for source, relative in files:
+                    put(z,source,relative)
+            manifest['setup'][platform] = {'asset':name,'sha256':hashlib.sha256(archive.read_bytes()).hexdigest(),'bytes':archive.stat().st_size}
         (stage/'castor-downloads.json').write_text(json.dumps(manifest, indent=2)+'\n', encoding='utf-8')
         with zipfile.ZipFile(stage/'Castor-Downloader.zip', 'w') as z:
             for name in ('Castor-Download.command', 'Castor-Download.cmd', 'Castor-Download.ps1'):
@@ -128,9 +165,12 @@ def main():
     for p in PLATFORMS:
         parser.add_argument('--'+p.replace('_', '-'), dest=p, type=Path,
                             help='Built Castor.app (Mac) or flat executable + runtime DLL directory (Windows)')
+        parser.add_argument('--setup-'+p.replace('_','-'),dest='setup_'+p,type=Path,
+                            help='Native GUI setup app (Mac) or setup executable + DLL directory (Windows)')
     args = parser.parse_args()
     try:
-        prepare(args.output, args.version, {p: getattr(args, p) for p in PLATFORMS if getattr(args, p)})
+        prepare(args.output, args.version, {p: getattr(args, p) for p in PLATFORMS if getattr(args, p)},
+                {p: getattr(args,'setup_'+p) for p in PLATFORMS if getattr(args,'setup_'+p)})
     except (ValueError, OSError, KeyError, plistlib.InvalidFileException) as error:
         parser.exit(1, f'error: {error}\n')
 

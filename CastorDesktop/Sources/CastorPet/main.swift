@@ -12,6 +12,7 @@ import Foundation
 import CastorCore
 import Dispatch
 import ArilsPlayer
+import CDesktopUI
 import PetRuntime
 import WinSDK
 
@@ -75,6 +76,13 @@ private final class PetWindow {
     var player: PetPlayback
     var preferences: DesktopPreferences
     var chatHistory: [OllamaChatMessage] = []
+    var automaticPreferenceSaveAllowed=true
+    var microphoneErrorShown=false
+    let evasion = DesktopEvasion()
+    let buttonDodge = DesktopButtonDodge()
+    private var lastMetadataTick: Double = -1
+    private var nearbyWindows: [PetEvasionWindow] = []
+    private var focusedWindowID: UInt32?
     var currentAsset: PetAsset
     var canvas: PetCanvas
     var hwnd: HWND?
@@ -155,15 +163,77 @@ private final class PetWindow {
         var frame = RECT()
         _ = GetCursorPos(&cursor)
         _ = GetWindowRect(hwnd, &frame)
+        if preferences.evasionEnabled || preferences.buttonDodgeEnabled {
+            if time - lastMetadataTick >= 0.5 {
+                lastMetadataTick = time
+                var records = [CastorWindowMetadata](repeating: CastorWindowMetadata(), count: 512)
+                let count = records.withUnsafeMutableBufferPointer { castor_window_metadata($0.baseAddress, $0.count) }
+                if count >= 0 {
+                    nearbyWindows = records.prefix(Int(count)).map { PetEvasionWindow(id: $0.id, ownerPID: $0.pid,
+                        frame: CGRect(x: Int($0.x), y: Int($0.y), width: Int($0.width), height: Int($0.height))) }
+                    focusedWindowID = records.prefix(Int(count)).first { $0.focused != 0 }?.id
+                }
+            }
+            var monitor = [Int32](repeating: 0, count: 4), work = monitor
+            let result = monitor.withUnsafeMutableBufferPointer { m in work.withUnsafeMutableBufferPointer {
+                castor_monitor_bounds(Int32(frame.left + (frame.right-frame.left)/2), Int32(frame.top + (frame.bottom-frame.top)/2), m.baseAddress, $0.baseAddress)
+            }}
+            if result > 0 {
+                func rect(_ v: [Int32]) -> CGRect { CGRect(x: Int(v[0]), y: Int(v[1]), width: Int(v[2]), height: Int(v[3])) }
+                let current = CGRect(x: Int(frame.left), y: Int(frame.top), width: canvas.width, height: canvas.height)
+                let point=CGPoint(x:Int(cursor.x),y:Int(cursor.y))
+                let pixelX=Int(cursor.x-frame.left),pixelY=Int(cursor.y-frame.top)
+                let onPet=pixelX>=0 && pixelY>=0 && pixelX<canvas.width && pixelY<canvas.height && canvas.bgra[(pixelY*canvas.width+pixelX)*4+3]>16
+                var actionable: Bool?
+                if preferences.buttonDodgeEnabled,onPet,let target=nearbyWindows.first(where:{$0.frame.contains(point)}) {
+                    let value=castor_pointer_actionable(target.id,Int32(cursor.x),Int32(cursor.y))
+                    if value>=0 {actionable=value>0}
+                }
+                var moved=buttonDodge.update(frame:current,pointer:point,visible:rect(work),actionable:actionable,
+                    buttonsPressed:GetAsyncKeyState(1)<0 || GetAsyncKeyState(2)<0,enabled:preferences.buttonDodgeEnabled)
+                if !buttonDodge.active && preferences.evasionEnabled {
+                    moved=evasion.update(frame:current,pointer:point,screen:rect(monitor),workArea:rect(work),
+                        windows:nearbyWindows,focusedID:focusedWindowID,style:preferences.evasionStyle)
+                } else {evasion.disable()}
+                if let moved {
+                    _ = SetWindowPos(hwnd,nil,Int32(moved.minX.rounded()),Int32(moved.minY.rounded()),0,0,0x0001|0x0004|0x0010)
+                    _ = GetWindowRect(hwnd,&frame)
+                }
+            }
+        } else { evasion.disable();buttonDodge.disable() }
+        var microphoneLevel: Float=0
+        let microphoneStatus=castor_microphone_level(&microphoneLevel)
+        player.front.microphoneEnabled=preferences.microphoneEnabled && microphoneStatus==1
+        player.side?.microphoneEnabled=player.front.microphoneEnabled
+        player.front.microphoneLevel=microphoneLevel;player.side?.microphoneLevel=microphoneLevel
+        if preferences.microphoneEnabled,microphoneStatus<0,!microphoneErrorShown {
+            microphoneErrorShown=true;preferences.microphoneEnabled=false;castor_microphone_enable(0)
+            if automaticPreferenceSaveAllowed {try? DesktopPreferenceStore(root:WindowsRiggingFlow.directory).save(preferences)}
+            let japanese=preferences.displayLanguage == .japanese
+            let detail=microphoneStatus == -1
+                ? (japanese ? "マイクの使用が許可されていません。Windows設定のマイクでデスクトップアプリのアクセスを許可し、Castorの設定でマイクをオンにしてください。文字会話は使えます。":"Microphone access was denied. Allow desktop apps in Windows Microphone settings, then turn on Microphone in Castor Settings. Text chat remains available.")
+                : (japanese ? "マイクを利用できません。接続とWindowsの入力設定を確認してから、Castorの設定でマイクをオンにしてください。文字会話は使えます。":"The microphone is unavailable. Check your input device and Windows input settings, then enable it in Castor Settings. Text chat remains available.")
+            let options=japanese ? "Windowsのマイク設定を開く\n後で":"Open Windows microphone settings\nLater"
+            let choice=detail.withCString {title in options.withCString {castor_choose_option(title,$0)}}
+            if choice==1 {_ = castor_open_microphone_settings()}
+        }
         let local = SIMD2(Float(cursor.x - frame.left), Float(cursor.y - frame.top))
         let inside = local.x >= 0 && local.y >= 0 && local.x < Float(canvas.width) && local.y < Float(canvas.height)
 
         // Hold Alt over the pet to see through it and click what it covers.
         let altHeld = GetAsyncKeyState(vkMenu) < 0
-        setSeeingThrough(altHeld && inside)
+        setSeeingThrough((altHeld && inside) || evasion.ghost || evasion.hidden)
 
+        player.front.visualScale = evasion.visualScale; player.side?.visualScale = evasion.visualScale
         player.pointerMoved(to: local, canvasWidth: canvas.width, canvasHeight: canvas.height, time: time)
-        player.render(into: &canvas, time: time, opacity: preferences.petOpacity * (isSeeingThrough ? 0.22 : 1))
+        player.render(into: &canvas, time: time, opacity: preferences.petOpacity * (evasion.hidden ? 0 : evasion.ghost ? 0.15 : isSeeingThrough ? 0.22 : 1))
+        if preferences.microphoneEnabled,microphoneStatus==1 {
+            // Visible orange recording indicator; GIF rendering uses a separate canvas.
+            for y in max(0,canvas.height-17)..<max(0,canvas.height-7) {for x in max(0,canvas.width-17)..<max(0,canvas.width-7) {
+                let dx=x-(canvas.width-12),dy=y-(canvas.height-12)
+                if dx*dx+dy*dy<=16 {let i=(y*canvas.width+x)*4;canvas.bgra[i]=24;canvas.bgra[i+1]=150;canvas.bgra[i+2]=255;canvas.bgra[i+3]=255}
+            }}
+        }
         present()
     }
 
@@ -182,6 +252,9 @@ private final class PetWindow {
         if let bitmap { _ = DeleteObject(bitmap) }
         bitmap = newBitmap; bits = newBits; canvas = PetCanvas(width: width, height: height)
         preferences = updated
+        automaticPreferenceSaveAllowed=true;microphoneErrorShown=false
+        castor_microphone_enable(updated.microphoneEnabled ? 1:0)
+        castor_set_ui_language(updated.displayLanguage == .japanese ? 1 : 0)
         let mode = player.presentationMode
         player = PetPlayback(asset: currentAsset, wideHeadMovement: updated.widerHeadMovement)
         player.presentationMode = mode; player.automaticTurn = updated.automaticTurn
@@ -191,7 +264,10 @@ private final class PetWindow {
     func rememberPosition() {
         var frame = RECT()
         if GetWindowRect(hwnd, &frame) {
+            buttonDodge.manualPlacement()
+            evasion.manualPlacement(frame: CGRect(x: Int(frame.left), y: Int(frame.top), width: canvas.width, height: canvas.height))
             preferences.positionX = frame.left; preferences.positionY = frame.top
+            guard automaticPreferenceSaveAllowed else {return}
             do { try DesktopPreferenceStore(root: WindowsRiggingFlow.directory).save(preferences) }
             catch { showError("位置を保存できませんでした。既存の保存設定は保持しています。\n\n\(error.localizedDescription)") }
         }
@@ -221,18 +297,19 @@ private final class PetWindow {
 
     func showMenu() {
         guard let hwnd, let menu = CreatePopupMenu() else { return }
-        for (id, title) in [(menuNew, "1枚から新しいペットを作る"), (menuNewQuality, "2枚からQualityを作る"),
-                            (menuOpen, "保存したペットを開く"), (menuExport, "Arils形式で書き出す"), (menuGIF, "GIFを作ってXで共有"), (menuChat, "ローカル会話"), (menuSettings, "設定・モデル・性格"), (menuClearChat, "会話履歴を消す"), (menuListen, "マイクから会話する（確認して送信）")] {
+        let japanese=preferences.displayLanguage == .japanese
+        for (id, title) in [(menuNew, japanese ? "1枚から新しいペットを作る":"Create a pet from one image"), (menuNewQuality, japanese ? "2枚からQualityを作る":"Create Quality from two images"),
+                            (menuOpen, japanese ? "保存したペットを開く":"Open a saved pet"), (menuExport, japanese ? "Arils形式で書き出す":"Export Arils archive"), (menuGIF, japanese ? "GIFを作ってXで共有":"Create GIF and share on X"), (menuChat, japanese ? "ローカル会話":"Chat / Request an action"), (menuSettings, japanese ? "設定・モデル・性格":"Settings / Models / Personality"), (menuClearChat, japanese ? "会話履歴を消す":"Clear conversation"), (menuListen, japanese ? "マイクから会話する（確認して送信）":"Speak (review before sending)")] {
             let title = wide(title)
             _ = title.withUnsafeBufferPointer { AppendMenuW(menu, mfString, id, $0.baseAddress) }
         }
         if case .quality = currentAsset {
-            for (id, title) in [(menuQuality2D, "Quality: 2Dクロスフェード"), (menuQuality3D, "Quality: 3D＋横画像")] {
+            for (id, title) in [(menuQuality2D, japanese ? "Quality: 2Dクロスフェード":"Quality: 2D crossfade"), (menuQuality3D, japanese ? "Quality: 3D＋横画像":"Quality: 3D + side reference")] {
                 let label = wide(title)
                 _ = label.withUnsafeBufferPointer { AppendMenuW(menu, mfString, id, $0.baseAddress) }
             }
         }
-        let quit = wide("Quit Castor")
+        let quit = wide(CastorSettingsStrings.text("desktop.menu.close",language:preferences.displayLanguage))
         _ = quit.withUnsafeBufferPointer { AppendMenuW(menu, mfString, menuQuit, $0.baseAddress) }
         var cursor = POINT()
         _ = GetCursorPos(&cursor)
@@ -273,6 +350,10 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
                 if command == UInt16(menuChat) || command == UInt16(menuListen) {
                     var prompt = ""
                     if command == UInt16(menuListen) {
+                        castor_microphone_enable(0)
+                        defer {castor_microphone_enable(window.preferences.microphoneEnabled ? 1:0)}
+                        window.player.front.behavior = .listening;window.player.side?.behavior = .listening
+                        defer {window.player.front.behavior = .idle;window.player.side?.behavior = .idle}
                         guard let heard = try WindowsVoiceFlow.recognize() else { return 0 }
                         prompt = heard
                     }
@@ -324,6 +405,12 @@ private func runNativeApplication() {
 _ = SetProcessDPIAware()
 let arguments = CommandLine.arguments.dropFirst()
 let wideHeadMovement = arguments.contains("--wide-head")
+var preferences = DesktopPreferences()
+var preferenceSaveAllowed=true
+do { preferences = try DesktopPreferenceStore(root: WindowsRiggingFlow.directory).load() }
+catch {preferenceSaveAllowed=false; showError("設定を読み込めませんでした。元の設定ファイルは保持し、この起動では既定値を使います。\n\n\(error.localizedDescription)") }
+if wideHeadMovement { preferences.widerHeadMovement = true }
+castor_set_ui_language(preferences.displayLanguage == .japanese ? 1 : 0)
 let asset: PetAsset
 do {
     if let path = arguments.first(where: { !$0.hasPrefix("--") }) {
@@ -338,15 +425,22 @@ do {
     showError("ペットを開けませんでした。既存データは変更していません。\n\n\(error.localizedDescription)")
     exit(1)
 }
-var preferences = DesktopPreferences()
-do { preferences = try DesktopPreferenceStore(root: WindowsRiggingFlow.directory).load() }
-catch { showError("設定を読み込めませんでした。元の設定ファイルは保持し、この起動では既定値を使います。\n\n\(error.localizedDescription)") }
-if wideHeadMovement { preferences.widerHeadMovement = true }
 let player = PetPlayback(asset: asset, wideHeadMovement: preferences.widerHeadMovement)
 player.automaticTurn = preferences.automaticTurn
 
 let scale = Double(GetDpiForSystem()) / 96 * preferences.scale
 let window = PetWindow(player: player, asset: asset, preferences: preferences, width: Int(260 * scale), height: Int(340 * scale))
+window.automaticPreferenceSaveAllowed=preferenceSaveAllowed
+if !preferences.microphoneSetupCompleted && preferenceSaveAllowed {
+    let japanese=preferences.displayLanguage == .japanese
+    let text=japanese ? "マイクを有効にしますか？音量への反応は端末内だけで処理します。音声チャットはマイクボタンを押して確認してから送信します。後で設定から変更できます。":"Enable the microphone? Audio-level reactions stay on this device. Voice chat starts only when you press the microphone button and review your message. You can change this in Settings later."
+    let options=japanese ? "許可してオンにする\n今は使わない":"Allow and turn on\nNot now"
+    preferences.microphoneSetupCompleted=true
+    preferences.microphoneEnabled=text.withCString {title in options.withCString {castor_choose_option(title,$0)}}==1
+    do {try DesktopPreferenceStore(root:WindowsRiggingFlow.directory).save(preferences);window.preferences=preferences}
+    catch {showError(error.localizedDescription);window.preferences.microphoneEnabled=false}
+}
+castor_microphone_enable(window.preferences.microphoneEnabled ? 1:0)
 PetWindow.shared = window
 guard window.create() else {
     showError("Could not create the pet window.")

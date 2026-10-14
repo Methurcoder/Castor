@@ -65,6 +65,42 @@ class DistributionTests(unittest.TestCase):
             self.assertEqual(len(z.namelist()), 3)
             self.assertFalse(any(n.endswith('.exe') or n.endswith('.app') for n in z.namelist()))
 
+    def test_native_gui_setup_packages_include_their_own_runtime_and_hashes(self):
+        setup_mac = self.base/'CastorSetup.app'
+        (setup_mac/'Contents/MacOS').mkdir(parents=True)
+        (setup_mac/'Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleExecutable':'CastorSetup'}))
+        shutil.copy2(self.mac/'Contents/MacOS/Castor',setup_mac/'Contents/MacOS/CastorSetup')
+        setup_windows = self.base/'setup-windows'
+        setup_windows.mkdir()
+        shutil.copy2(self.windows/'CastorPet.exe',setup_windows/'CastorSetup.exe')
+        shutil.copy2(self.windows/'swiftCore.dll',setup_windows/'swiftCore.dll')
+        release.prepare(self.output,'local-test',{'macos_arm64':self.mac,'windows_x86_64':self.windows},
+                        {'macos_arm64':setup_mac,'windows_x86_64':setup_windows})
+        manifest=json.loads((self.output/'castor-downloads.json').read_text())
+        for platform,asset in manifest['setup'].items():
+            archive=self.output/asset['asset']
+            self.assertEqual(asset['sha256'],hashlib.sha256(archive.read_bytes()).hexdigest())
+            with zipfile.ZipFile(archive) as z:
+                self.assertIn('LICENSE',z.namelist())
+                if platform.startswith('macos'):
+                    self.assertIn('CastorSetup.app/Contents/MacOS/CastorSetup',z.namelist())
+                else:
+                    self.assertIn('CastorSetup.exe',z.namelist())
+                    self.assertIn('swiftCore.dll',z.namelist())
+                    self.assertNotIn('CastorPet.exe',z.namelist())
+
+    @unittest.skipUnless(sys.platform == 'win32' and os.environ.get('CASTOR_SETUP_EXE'), 'Native Windows setup executable is required')
+    def test_gui_setup_native_extraction_handles_spaces_unicode_and_quotes(self):
+        archive=self.base/"Castor 日本語's package.zip"
+        destination=self.base/"日本語's app folder"
+        with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as z:
+            z.writestr('CastorPet.exe',b'fixture')
+            z.writestr('swiftCore.dll',b'runtime fixture')
+        result=subprocess.run([os.environ['CASTOR_SETUP_EXE'],'--check-extract',str(archive),str(destination)],capture_output=True,text=True,timeout=30)
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertEqual((destination/'CastorPet.exe').read_bytes(),b'fixture')
+        self.assertEqual((destination/'swiftCore.dll').read_bytes(),b'runtime fixture')
+
     def test_rejects_wrong_cpu_before_output(self):
         with self.assertRaises(ValueError):
             release.prepare(self.output, 'test', {'macos_x86_64': self.mac})

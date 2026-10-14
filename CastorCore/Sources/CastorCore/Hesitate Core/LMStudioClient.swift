@@ -28,6 +28,28 @@ public nonisolated struct LMStudioClient: Sendable {
             .map { OllamaModel(name: $0.key, parameterSize: $0.parameterSize) }
     }
 
+    /// Keeps the alignment operation separate from conversation history/schema.
+    public func visionModels() async throws -> [OllamaModel] {
+        var request=URLRequest(url:endpoint.appending(path:"api/v1/models"));request.timeoutInterval=8
+        let(data,response)=try await session.data(for:request);try validate(response:response,data:data)
+        let payload=try JSONDecoder().decode(LMStudioModelsResponse.self,from:data)
+        return payload.models.filter { $0.type=="llm" && $0.capabilities?.vision==true }
+            .map { OllamaModel(name:$0.key,parameterSize:$0.parameterSize) }
+    }
+    public func arilsFaceLayoutAdjustment(model: String, prompt: String, imageBase64: String) async throws -> String {
+        var request=URLRequest(url:endpoint.appending(path:"v1/chat/completions"))
+        request.httpMethod="POST";request.timeoutInterval=180
+        request.setValue("application/json",forHTTPHeaderField:"Content-Type")
+        request.httpBody=try JSONSerialization.data(withJSONObject:["model":model,"stream":false,"messages":[[
+            "role":"user","content":[["type":"text","text":prompt],["type":"image_url","image_url":["url":"data:image/png;base64,"+imageBase64]]]
+        ]]])
+        let(data,response)=try await session.data(for:request);try validate(response:response,data:data)
+        let reply=try JSONDecoder().decode(LMStudioChatResponse.self,from:data)
+        if let error=reply.error?.message { throw LMStudioClientError.serverError(error) }
+        let content=(reply.choices.first?.message.content ?? "").trimmingCharacters(in:.whitespacesAndNewlines)
+        guard !content.isEmpty else { throw LMStudioClientError.emptyResponse };return content
+    }
+
     public func chat(model: String, messages: [OllamaChatMessage]) async throws -> String {
         do {
             return try await nonStreamingChat(
@@ -183,9 +205,11 @@ private nonisolated struct LMStudioModelsResponse: Decodable {
         let type: String
         let key: String
         let parameterSize: String?
+        struct Capabilities: Decodable { let vision: Bool? }
+        let capabilities: Capabilities?
 
         enum CodingKeys: String, CodingKey {
-            case type, key
+            case type, key, capabilities
             case parameterSize = "params_string"
         }
     }

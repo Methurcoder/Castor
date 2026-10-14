@@ -96,12 +96,15 @@ Xへの画像アップロードやAPI投稿、アカウント認証の保存は�
 
 通常の会話は loopback 接続のローカルサービスへ送ります。操作を任せる場合は外部エージェントを選びます。自動ルーティングでは日常会話をローカルに残し、ファイル・コマンド・アプリ・開発に関する依頼を選択した外部エージェントへ送ります。外部 CLI は、そのアカウントや設定に従ってメッセージや作業フォルダの文脈を OpenAI / Anthropic のサービスへ送る可能性があります。
 
+Codex と Claude Code の橋渡しは、**ターミナルを開かずにアプリから起動できます。** `Settings > Brain` の `Start Codex with Castor` / `Start the Claude Code bridge with Castor` をオンにすると、Castor に同梱した小さな補助アプリ（`CastorAgentLauncher`）が、Castor を開いている間だけ裏で起動し、Castor を終了すると止めます。補助アプリはログインシェルの PATH から CLI を探し、`127.0.0.1` / `localhost` 以外では待ち受けません。状態はスイッチの下に表示します。
+
+各 CLI のインストールとサインインは、OpenAI / Anthropic の案内に従って事前に済ませてください（現在の公式手順では、CLI の導入や初回サインインにターミナルを使う場合があります）。
+
 ### Codex
 
-Codex CLI のインストールと認証を済ませ、操作を許す作業フォルダから起動します。
+Codex CLI のインストールと認証を済ませ、`Settings > Brain` で `Start Codex with Castor` をオンにします。自分で起動する場合は、`Copy Terminal command` でコピーしたコマンドを使えます。
 
 ```sh
-cd /path/to/your/workspace
 codex app-server --listen ws://127.0.0.1:4500
 ```
 
@@ -111,7 +114,7 @@ CLI 更新時には、App Server の接続と承認の動作を再確認して�
 
 ### Claude Code
 
-Claude Code CLI のインストールと認証を済ませ、リポジトリルートからローカル Bridge を起動します。
+Claude Code CLI のインストールと認証を済ませ、`Settings > Brain` で `Start the Claude Code bridge with Castor` をオンにします。Bridge の実行には Python 3（Command Line Tools に含まれます）が必要です。自分で起動する場合は、リポジトリルートから次を実行します。
 
 ```sh
 python3 scripts/claude_code_bridge.py --listen http://127.0.0.1:4510
@@ -148,6 +151,8 @@ Arils で保存した `CastorPet.json` または単体の `.arils` アーカイ�
 ## 任意機能とモデル
 
 以下は必要なときだけ準備します。ローカル AI、TTS、画像処理のモデル重みはソースやアプリへ同梱しません。
+
+> **今後のアップデートで対応予定：** Neural TTS、LaMa Underpaint、Button-aware dodge の3つは、現在ターミナルでの準備と起動が必要です。今後のアップデートで、Codex / Claude Code と同じようにアプリの画面から導入・起動できるようにします。それまでは下記の手順を使ってください（ソースのチェックアウトが必要です）。
 
 ### Neural TTS
 

@@ -4,7 +4,7 @@ import CoreGraphics
 #endif
 import Observation
 
-public enum EvasionStyle: String, Codable, CaseIterable, Identifiable {
+public nonisolated enum EvasionStyle: String, Codable, CaseIterable, Identifiable, Sendable {
     case cute
     case calm
     case cool
@@ -24,14 +24,14 @@ public enum EvasionStyle: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-public enum EvasionPathEasing: Equatable {
+public nonisolated enum EvasionPathEasing: Equatable {
     case spring
     case easeInOut
     case linear
     case overdamped
 }
 
-public enum EvasionBodyCue: Equatable {
+public nonisolated enum EvasionBodyCue: Equatable {
     case startledHop
     case bow
     case none
@@ -39,22 +39,22 @@ public enum EvasionBodyCue: Equatable {
     case stabilized
 }
 
-public enum EvasionGazeCue: Equatable {
+public nonisolated enum EvasionGazeCue: Equatable {
     case none
     case obstructingWindow
 }
 
-public enum EvasionSoundEffect: Equatable {
+public nonisolated enum EvasionSoundEffect: Equatable {
     case systemBeep
 }
 
-public enum EvasionReturnManner: Equatable {
+public nonisolated enum EvasionReturnManner: Equatable {
     case gentle
     case confident
     case slide
 }
 
-public struct EvasionProfile: Equatable {
+public nonisolated struct EvasionProfile: Equatable {
     public var anticipationDelay: TimeInterval
     public var movementDuration: TimeInterval
     public var pathEasing: EvasionPathEasing
@@ -85,7 +85,7 @@ public struct EvasionProfile: Equatable {
     }
 }
 
-public enum EvasionProfiles {
+public nonisolated enum EvasionProfiles {
     public static func profile(for style: EvasionStyle) -> EvasionProfile {
         switch style {
         case .cute:
@@ -227,7 +227,7 @@ public enum PetEvasionStyleClassifier {
 
 /// A window that may obstruct the pet. `id` and `ownerPID` hold the platform's window number and
 /// process ID (`CGWindowID` / `pid_t` on macOS); `frame` uses the pet panel's coordinate space.
-public struct PetEvasionWindow: Equatable {
+public nonisolated struct PetEvasionWindow: Equatable {
     public var id: UInt32
     public var ownerPID: Int32
     public var frame: CGRect
@@ -243,7 +243,7 @@ public protocol PetEvasionWindowProviding {
     func onScreenWindows() -> [PetEvasionWindow]
 }
 
-public enum PetEvasionGeometry {
+public nonisolated enum PetEvasionGeometry {
     public static func isObstructed(
         petFrame: CGRect,
         by focusedWindow: CGRect,
@@ -345,7 +345,7 @@ public enum PetEvasionGeometry {
     }
 }
 
-public struct PetEvasionPolicy: Equatable {
+public nonisolated struct PetEvasionPolicy: Equatable {
     public var returnDelay: TimeInterval = 8
     public var cooldown: TimeInterval = 15
     public var manualPlacementProtection: TimeInterval = 5 * 60
@@ -364,7 +364,7 @@ public struct PetEvasionPolicy: Equatable {
     }
 }
 
-public enum PetEvasionPhase: Equatable {
+public nonisolated enum PetEvasionPhase: Equatable {
     case settled
     case anticipating
     case evading
@@ -372,7 +372,7 @@ public enum PetEvasionPhase: Equatable {
     case returning
 }
 
-public enum PetEvasionAction: Equatable {
+public nonisolated enum PetEvasionAction: Equatable {
     case none
     case move(to: CGRect)
     case returnHome
@@ -380,7 +380,7 @@ public enum PetEvasionAction: Equatable {
     case hide
 }
 
-public struct PetEvasionStateMachine {
+public nonisolated struct PetEvasionStateMachine {
     public private(set) var phase: PetEvasionPhase = .settled
     public private(set) var phaseStartedAt = Date.distantPast
     private var clearSince: Date?
@@ -489,7 +489,7 @@ public struct PetEvasionStateMachine {
     public init() {}
 }
 
-public struct EvasionMotionCue {
+public nonisolated struct EvasionMotionCue {
     public var style: EvasionStyle
     public var bodyCue: EvasionBodyCue
     public var phase: PetEvasionPhase

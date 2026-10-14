@@ -31,6 +31,9 @@ public final class PetPlayer {
     public var viewAngleXOverride: Float?
     public var viewAngleYOverride: Float?
     public let poseLimits: ValidatedPoseLimits
+    public var visualScale: Float = 1
+    public var microphoneLevel: Float = 0
+    public var microphoneEnabled = false
     public var isSpeaking = false
     public var behavior: MotionBehavior = .idle
     private var textureScaleBucket = 0
@@ -79,12 +82,18 @@ public final class PetPlayer {
     /// Image → canvas placement: aspect-fit, centred horizontally, standing
     /// on the bottom edge.
     public func placement(canvasWidth: Int, canvasHeight: Int) -> (scale: Float, offset: SIMD2<Float>) {
+        let baseScale: Float
+        let baseOffset: SIMD2<Float>
         if let frame = imageFrame {
-            return (Float(frame.width) / imageSize.x, SIMD2(Float(frame.minX), Float(frame.minY)))
+            baseScale = Float(frame.width) / imageSize.x
+            baseOffset = SIMD2(Float(frame.minX), Float(frame.minY))
+        } else {
+            baseScale = min(Float(canvasWidth) / imageSize.x, Float(canvasHeight) / imageSize.y)
+            baseOffset = SIMD2((Float(canvasWidth) - imageSize.x * baseScale) / 2, Float(canvasHeight) - imageSize.y * baseScale)
         }
-        let scale = min(Float(canvasWidth) / imageSize.x, Float(canvasHeight) / imageSize.y)
-        let offset = SIMD2((Float(canvasWidth) - imageSize.x * scale) / 2, Float(canvasHeight) - imageSize.y * scale)
-        return (scale, offset)
+        let factor = visualScale.isFinite ? min(max(visualScale, 0.5), 2) : 1
+        let center = SIMD2(Float(canvasWidth), Float(canvasHeight)) * 0.5
+        return (baseScale * factor, center + (baseOffset - center) * factor)
     }
 
     // MARK: - Input
@@ -124,6 +133,10 @@ public final class PetPlayer {
         var inputs = MotionInputs()
         inputs.isSpeaking = isSpeaking
         inputs.behavior = behavior
+        if microphoneEnabled {
+            inputs.listenerVoiceLevel=max(0,min(1,microphoneLevel))
+            if behavior == .idle && microphoneLevel>0.18 {inputs.behavior = .listening}
+        }
         if let point = lastPointer {
             inputs.pointer = Self.gazeTarget(imagePoint: point, headRect: headRect, imageSize: imageSize)
         }

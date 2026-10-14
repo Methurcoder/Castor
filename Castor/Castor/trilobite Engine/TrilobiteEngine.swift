@@ -26,9 +26,15 @@ final class TrilobiteEngine {
     private(set) var conversationAudioCaptureActive = false
 
     private(set) var snapshot = TrilobiteInputSnapshot.inactive
+    var isMicrophoneGuidancePresented = false
+    private let defaults: UserDefaults
+    private static let microphoneEnabledKey = "Castor.Input.Microphone.Enabled"
+    private static let microphoneSetupKey = "Castor.Input.Microphone.FirstRunCompleted"
+    private var microphoneStartupApplied = false
 
-    init(notificationCenter: NotificationCenter = .default) {
+    init(notificationCenter: NotificationCenter = .default, defaults: UserDefaults = .standard) {
         self.notificationCenter = notificationCenter
+        self.defaults = defaults
         videoDelegate.onSample = { [weak self] sampleBuffer in
             self?.processVideo(sampleBuffer)
         }
@@ -72,6 +78,7 @@ final class TrilobiteEngine {
     }
 
     func setMicrophoneEnabled(_ isEnabled: Bool) {
+        defaults.set(isEnabled, forKey: Self.microphoneEnabledKey)
         snapshot.microphoneEnabled = isEnabled
         guard isEnabled else {
             configureSession()
@@ -80,6 +87,17 @@ final class TrilobiteEngine {
         }
 
         requestMicrophonePermission()
+    }
+
+    /// Ask once after the first window appears, never in init or test construction.
+    /// Subsequent launches honor the user's stored off/on choice.
+    func beginFirstRunMicrophoneSetup() {
+        guard !microphoneStartupApplied else { return }
+        microphoneStartupApplied=true
+        let stored=defaults.object(forKey:Self.microphoneEnabledKey).map { _ in defaults.bool(forKey:Self.microphoneEnabledKey) }
+        let action=MicrophoneStartupPolicy.action(firstRunCompleted:defaults.bool(forKey:Self.microphoneSetupKey),storedEnabled:stored)
+        defaults.set(true,forKey:Self.microphoneSetupKey)
+        if action == .enable {setMicrophoneEnabled(true)}
     }
 
     func setAudioInputDevice(uid: String) {
@@ -155,6 +173,8 @@ final class TrilobiteEngine {
                     self.refreshPermissions()
                     if !granted {
                         self.snapshot.microphoneEnabled = false
+                        self.defaults.set(false, forKey: Self.microphoneEnabledKey)
+                        self.isMicrophoneGuidancePresented = true
                         self.updateAudioLevel(0)
                     }
                     self.configureSession()
@@ -164,6 +184,8 @@ final class TrilobiteEngine {
             refreshPermissions()
             if snapshot.microphonePermission != .granted {
                 snapshot.microphoneEnabled = false
+                defaults.set(false, forKey: Self.microphoneEnabledKey)
+                isMicrophoneGuidancePresented = true
                 updateAudioLevel(0)
             }
             configureSession()

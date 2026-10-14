@@ -18,6 +18,26 @@ prepared for a new repository under a different GitHub account.
   build. Windows GUI remains unverified. Linux cross-build success is from the
   pre-rename handoff; it has not been repeated after renaming.
 
+## Start Codex and Claude Code without Terminal (macOS)
+
+- `Settings > Brain` now has `Start Codex with Castor` and `Start the Claude
+  Code bridge with Castor`. A bundled, unsandboxed helper
+  (`CastorAgentLauncher.app` in `Contents/Library/Helpers`) runs
+  `codex app-server` and `claude_code_bridge.py` while Castor is open and
+  stops them when Castor quits. The sandboxed app cannot run them itself,
+  because child processes inherit the sandbox and cannot read the CLIs'
+  configuration or login.
+- The helper finds the CLIs through the login shell's PATH plus common
+  install folders, refuses any address other than 127.0.0.1 / localhost,
+  skips a service already listening on its port, and reports its state to
+  Castor through a status file in Castor's container. The disclosure for each
+  service is unchanged and is still required before it starts.
+- Installing and signing in to the Codex CLI and Claude Code is still done
+  with each service's own instructions. The Claude Code bridge also needs
+  Python 3 (Command Line Tools).
+- Neural TTS, LaMa Underpaint and Button-aware dodge still need Terminal; a
+  later update will start them from the app as well.
+
 ## Windows preview fixes and app downloads
 
 - Fix the private top-level PetWindow variable and Swift 6.4.1 WinSDK Bool handling
@@ -167,3 +187,14 @@ New in the Arils API, not yet driven by the app:
   triangle-edge coverage. Whole-pet opacity no longer changes depth classification.
 - CPU texture filtering and real-image CPU/Metal appearance still need parity work. GUI checks,
   Windows Quality rig construction and the remaining conversation/input/installer features are pending.
+
+## 一括作業の追加実装（配布前・未検証を含む）
+
+- GUIインストーラーの取得・更新・修復・削除と、失敗/取消時の旧版保持。
+- Mac/Windows設定の日英表示、OS言語からの初期選択とGeneralの言語変更。
+- Mac初回マイク許可と許可後の自動オン、拒否時の設定案内。明示オフを保持。
+- Windowsローカル音量反応・初回案内・入力中表示・拒否時設定案内、矩形/ボタン種類だけによる退避。
+- AI設定の任意姿勢補助: Codex接続の画像生成能力確認と本人の画像送信/採用、外部生成用prompt、
+  生成画像の再読込。元画像を保持してRiggingへ引き継ぐ。姿勢の自動判定/リグの直立化は未実装。
+- 「Ollama / LM Studio」へ案内変更し、LM Studioの画像対応モデル/提案へ接続。
+- これらは全機能parityの完成版Releaseではない。Windows実機・実生成・正式署名/公証を継続確認する。

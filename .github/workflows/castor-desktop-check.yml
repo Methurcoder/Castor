@@ -1,9 +1,9 @@
 name: CastorDesktop checks
 on:
   pull_request:
-    paths: ["CastorDesktop/**", "Arils/**", "CastorCore/**", "download/**", "scripts/prepare-castor-release.py", "scripts/tests/test_castor_distribution.py", ".github/workflows/castor-desktop-check.yml"]
+    paths: ["CastorDesktop/**", "Arils/**", "CastorCore/**", "download/**", "scripts/prepare-castor-release.py", "scripts/build-castor-setup.py", "scripts/tests/test_castor_distribution.py", ".github/workflows/castor-desktop-check.yml"]
   push:
-    paths: ["CastorDesktop/**", "Arils/**", "CastorCore/**", "download/**", "scripts/prepare-castor-release.py", "scripts/tests/test_castor_distribution.py", ".github/workflows/castor-desktop-check.yml"]
+    paths: ["CastorDesktop/**", "Arils/**", "CastorCore/**", "download/**", "scripts/prepare-castor-release.py", "scripts/build-castor-setup.py", "scripts/tests/test_castor_distribution.py", ".github/workflows/castor-desktop-check.yml"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -23,6 +23,12 @@ jobs:
         run: python scripts/tests/test_castor_distribution.py
       - name: Build the actual Win32 release executable
         run: swift build --package-path CastorDesktop --scratch-path "$env:RUNNER_TEMP/CastorDesktop" -c release --product CastorPet
+      - name: Build and collect the GUI installer runtime locally
+        run: python scripts/build-castor-setup.py --output "$env:RUNNER_TEMP/CastorSetupRuntime" --scratch "$env:RUNNER_TEMP/CastorDesktop"
+      - name: Exercise native ZIP extraction with the collected installer
+        run: |
+          $env:CASTOR_SETUP_EXE = "$env:RUNNER_TEMP/CastorSetupRuntime/CastorSetup.exe"
+          python scripts/tests/test_castor_distribution.py DistributionTests.test_gui_setup_native_extraction_handles_spaces_unicode_and_quotes
   macos:
     runs-on: macos-26
     timeout-minutes: 20
@@ -31,3 +37,5 @@ jobs:
       - run: swift test --package-path CastorDesktop
       - name: Check packaging and native Mac downloader offline
         run: python3 scripts/tests/test_castor_distribution.py
+      - name: Build a Finder-launchable GUI setup app locally
+        run: python3 scripts/build-castor-setup.py --output "$RUNNER_TEMP/CastorSetupRuntime" --scratch "$RUNNER_TEMP/CastorSetupBuild" --arch arm64

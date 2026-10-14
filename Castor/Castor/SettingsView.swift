@@ -21,6 +21,8 @@ struct CastorSettingsView: View {
     @State private var isCheckingLaMa = false
     @State private var laMaStatusText: String?
     @State private var showLaMaSetupGuidance = false
+    @AppStorage("Castor.SettingsDisplayLanguage")
+    private var language: SettingsDisplayLanguage = .systemDefault
     @AppStorage("Pomegranate.AppearanceMode")
     private var appearance: AppearanceMode = .system
     @AppStorage("Pomegranate.Agent.CodexDisclosureAccepted.v1")
@@ -41,18 +43,26 @@ struct CastorSettingsView: View {
     @AppStorage(WideHeadRangeSettingsStore.enabledKey)
     private var isWideHeadRangeEnabled = WideHeadRangeSettingsStore.defaultEnabled
 
+    private func S(_ key: String, _ arguments: [String: String] = [:]) -> String {
+        CastorSettingsStrings.text(key, language: language, arguments: arguments)
+    }
+
+    private func L(_ source: String) -> String {
+        CastorSettingsStrings.label(source, language: language)
+    }
+
     var body: some View {
         TabView {
-            Tab("General", systemImage: "gearshape") {
+            Tab(S("settings.tab.general"), systemImage: "gearshape") {
                 generalTab
             }
-            Tab("Input", systemImage: "camera") {
+            Tab(S("settings.tab.input"), systemImage: "camera") {
                 inputTab
             }
-            Tab("Voice", systemImage: "speaker.wave.2") {
+            Tab(S("settings.tab.voice"), systemImage: "speaker.wave.2") {
                 voiceTab
             }
-            Tab("Brain", systemImage: "brain") {
+            Tab(S("settings.tab.brain"), systemImage: "brain") {
                 brainTab
             }
         }
@@ -88,16 +98,24 @@ struct CastorSettingsView: View {
 
     private var generalTab: some View {
         Form {
-            Picker("Appearance", selection: $appearance) {
+            Picker(S("settings.language.label"), selection: $language) {
+                ForEach(SettingsDisplayLanguage.allCases, id: \.rawValue) { language in
+                    Text(language.nativeLabel).tag(language)
+                }
+            }
+            Text(S("settings.language.help"))
+                .font(.caption).foregroundStyle(.secondary)
+
+            Picker(S("settings.appearance.label"), selection: $appearance) {
                 ForEach(AppearanceMode.allCases) { mode in
-                    Text(mode.label).tag(mode)
+                    Text(L(mode.label)).tag(mode)
                 }
             }
 
             Section {
                 Toggle(isOn: $isPetEvasionEnabled) {
                     HStack(spacing: 7) {
-                        Text("Pet Evasion")
+                        Text(S("settings.evasion.label"))
                         Text("BETA")
                             .font(.caption2.monospaced().weight(.bold))
                             .foregroundStyle(.orange)
@@ -107,13 +125,13 @@ struct CastorSettingsView: View {
                     }
                 }
             } footer: {
-                Text("When another app covers the pet, it can move aside as your pointer approaches. Off by default while this behavior is in beta. Whatever this setting, hold Option over the pet to see through it and click what it covers.")
+                Text(S("settings.evasion.help"))
             }
 
             Section {
                 Toggle(isOn: $isLaMaInpaintingEnabled) {
                     HStack(spacing: 7) {
-                        Text("LaMa Underpaint")
+                        Text(S("settings.lama.label"))
                         Text("BETA")
                             .font(.caption2.monospaced().weight(.bold))
                             .foregroundStyle(.orange)
@@ -125,7 +143,7 @@ struct CastorSettingsView: View {
 
                 if isLaMaInpaintingEnabled {
                     HStack {
-                        Button("Check local service") {
+                        Button(S("settings.lama.check")) {
                             checkLaMaAvailability()
                         }
                         .disabled(isCheckingLaMa)
@@ -135,7 +153,7 @@ struct CastorSettingsView: View {
                                 .controlSize(.small)
                         }
                         if let laMaStatusText {
-                            Text(laMaStatusText)
+                            Text(L(laMaStatusText))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -143,15 +161,15 @@ struct CastorSettingsView: View {
 
                     if showLaMaSetupGuidance {
                         VStack(alignment: .leading, spacing: 5) {
-                            Text("The local helper may not be installed or running.")
+                            Text(S("settings.lama.missing"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                            Text("If it is not installed, run this from the repository root:")
+                            Text(S("settings.lama.install_help"))
                                 .font(.caption)
                             Text(LaMaInpaintingSetupGuidance.bootstrapCommand)
                                 .font(.caption.monospaced())
                                 .textSelection(.enabled)
-                            Text("Then start the local service:")
+                            Text(S("settings.lama.start_help"))
                                 .font(.caption)
                             Text(LaMaInpaintingSetupGuidance.startCommand)
                                 .font(.caption.monospaced())
@@ -160,13 +178,13 @@ struct CastorSettingsView: View {
                     }
                 }
             } footer: {
-                Text("Uses the optional LaMa helper only while a new Arils avatar is built. It is off by default, sends images only to 127.0.0.1, and falls back to the standard repair if the helper is unavailable.")
+                Text(S("settings.lama.help"))
             }
 
             Section {
                 Toggle(isOn: $isAnimeFaceLandmarksEnabled) {
                     HStack(spacing: 7) {
-                        Text("Anime Face Landmarks")
+                        Text(S("settings.face_landmarks.label"))
                         Text("BETA")
                             .font(.caption2.monospaced().weight(.bold))
                             .foregroundStyle(.orange)
@@ -177,26 +195,26 @@ struct CastorSettingsView: View {
                 }
 
                 if isAnimeFaceLandmarksEnabled && !AnimeFaceLandmarksSettingsStore.modelsAreInstalled {
-                    Text("The model files are not in this build. Face review uses the built-in estimator.")
+                    Text(S("settings.face_landmarks.model_missing"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             } footer: {
-                Text("Places the head, eye, and mouth markers in face review with an anime-trained landmark model that runs on this Mac. Nothing is sent anywhere; turn it off to use the built-in estimator.")
+                Text(S("settings.face_landmarks.help"))
             }
 
             Section {
-                Toggle("Manual rigging", isOn: $isManualRiggingEnabled)
+                Toggle(S("settings.manual_rigging.label"), isOn: $isManualRiggingEnabled)
             } header: {
-                Text("Advanced")
+                Text(S("settings.advanced.heading"))
             } footer: {
-                Text("Shows the legacy rectangle rig editor in Rigging, for images Arils cannot rig yet. Pets can then be saved without an Arils rig.")
+                Text(S("settings.manual_rigging.help"))
             }
 
             Section {
                 Toggle(isOn: $isButtonDodgeEnabled) {
                     HStack(spacing: 7) {
-                        Text("Button-aware dodge")
+                        Text(S("settings.button_dodge.label"))
                         Text("BETA")
                             .font(.caption2.monospaced().weight(.bold))
                             .foregroundStyle(.orange)
@@ -207,7 +225,7 @@ struct CastorSettingsView: View {
                 }
                 if isButtonDodgeEnabled {
                     HStack {
-                        Button("Check local helper") {
+                        Button(S("settings.button_dodge.check")) {
                             Task { @MainActor in
                                 switch await PointerTargetClient().health() {
                                 case "ready": pointerHelperStatus = "Ready"
@@ -218,13 +236,13 @@ struct CastorSettingsView: View {
                             }
                         }
                         if let pointerHelperStatus {
-                            Text(pointerHelperStatus)
+                            Text(L(pointerHelperStatus))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                     }
                     VStack(alignment: .leading, spacing: 5) {
-                        Text("Set up and start the helper from the repository root:")
+                        Text(S("settings.helper.setup_help"))
                             .font(.caption)
                         Text("scripts/bootstrap-pointer-target.sh")
                             .font(.caption.monospaced())
@@ -235,13 +253,13 @@ struct CastorSettingsView: View {
                     }
                 }
             } footer: {
-                Text("When your pointer moves onto the pet over a button or other control of another app, the pet slides aside so you can click it, then returns. Knowing what is underneath needs a local helper with Accessibility permission, because the sandboxed app cannot look at other apps itself. The helper reports only the kind of control, never its text, and listens on 127.0.0.1 only.")
+                Text(S("settings.button_dodge.help"))
             }
 
             Section {
                 Toggle(isOn: $isWideHeadRangeEnabled) {
                     HStack(spacing: 7) {
-                        Text("Wider head movement")
+                        Text(S("settings.wide_head.label"))
                         Text("BETA")
                             .font(.caption2.monospaced().weight(.bold))
                             .foregroundStyle(.orange)
@@ -251,7 +269,7 @@ struct CastorSettingsView: View {
                     }
                 }
             } footer: {
-                Text("Arils pets turn and tilt their head about twice as far toward what they look at, and the body follows. A single picture has nothing behind the head, so edges or a gap can show at the far end of a turn.")
+                Text(S("settings.wide_head.help"))
             }
         }
         .formStyle(.grouped)
@@ -275,9 +293,7 @@ struct CastorSettingsView: View {
                     laMaStatusText = "Service online; model loads on first use"
                 }
             } catch {
-                laMaStatusText = LaMaInpaintingSetupGuidance.unavailableStatus(
-                    errorDescription: error.localizedDescription
-                )
+                laMaStatusText = "Unavailable: \(error.localizedDescription)"
                 showLaMaSetupGuidance = true
             }
         }
@@ -288,7 +304,7 @@ struct CastorSettingsView: View {
     @ViewBuilder
     private var inputTab: some View {
         if let audioInputSettings {
-            InputSettingsPane(trilobite: trilobite, audioInputSettings: audioInputSettings)
+            InputSettingsPane(language: language, trilobite: trilobite, audioInputSettings: audioInputSettings)
         } else {
             ProgressView()
                 .frame(height: 380)
@@ -300,7 +316,7 @@ struct CastorSettingsView: View {
     @ViewBuilder
     private var voiceTab: some View {
         if let neuralSpeechSettings {
-            VoiceSettingsPane(neuralSpeechSettings: neuralSpeechSettings)
+            VoiceSettingsPane(language: language, neuralSpeechSettings: neuralSpeechSettings)
         } else {
             ProgressView()
                 .frame(height: 220)
@@ -312,123 +328,117 @@ struct CastorSettingsView: View {
     private var brainTab: some View {
         Form {
             Section {
-                Picker("Routing", selection: $agentPreferences.routingPolicy) {
+                Picker(S("settings.agent.routing"), selection: $agentPreferences.routingPolicy) {
                     ForEach(CastorAgentRoutingPolicy.allCases) { policy in
-                        Text(policy.label).tag(policy)
+                        Text(L(policy.label)).tag(policy)
                     }
                 }
                 .pickerStyle(.segmented)
 
                 if agentPreferences.routingPolicy == .manual {
-                    Picker("Brain for the next message", selection: $agentPreferences.selectedBrain) {
+                    Picker(S("settings.agent.next_brain"), selection: $agentPreferences.selectedBrain) {
                         ForEach(CastorBrain.allCases) { brain in
-                            Text(brain.isImplemented ? brain.label : "\(brain.label) · Soon")
+                            Text(L(brain.label) + (brain.isImplemented ? "" : " " + S("settings.agent.coming_soon_suffix")))
                                 .tag(brain)
                                 .disabled(!brain.isImplemented)
                         }
                     }
                 } else {
-                    Picker("External agent", selection: $agentPreferences.automaticExternalBrain) {
+                    Picker(S("settings.agent.external_brain"), selection: $agentPreferences.automaticExternalBrain) {
                         ForEach(CastorBrain.allCases.filter { $0 != .onDevice }) { brain in
-                            Text(brain.isImplemented ? brain.label : "\(brain.label) · Soon")
+                            Text(L(brain.label) + (brain.isImplemented ? "" : " " + S("settings.agent.coming_soon_suffix")))
                                 .tag(brain)
                                 .disabled(!brain.isImplemented)
                         }
                     }
                 }
             } header: {
-                Text("Castor brain")
+                Text(S("settings.agent.section"))
             } footer: {
                 if agentPreferences.routingPolicy == .manual {
-                    Text("Keep conversations local, or let an external agent act through Castor.")
+                    Text(S("settings.agent.routing.manual_help"))
                 } else {
-                    Text("Everyday chat stays on-device. Requests involving files, apps, commands, or development are sent to the selected external agent.")
+                    Text(S("settings.agent.routing.automatic_help"))
                 }
             }
 
             Section {
-                TextField("Server URL", text: $agentPreferences.codexServerURL, prompt: Text("ws://127.0.0.1:4500"))
+                TextField(S("settings.codex.url"), text: $agentPreferences.codexServerURL, prompt: Text("ws://127.0.0.1:4500"))
 
-                LabeledContent("Run Codex locally before using external mode.") {
-                    Button {
-                        if hasAcceptedCodexDisclosure {
-                            copyCodexStartCommand()
-                        } else {
-                            isCodexDisclosurePresented = true
-                        }
-                    } label: {
-                        Label("Copy start command", systemImage: "doc.on.doc")
-                    }
-                    .controlSize(.small)
-                }
+                AgentLauncherRow(
+                    language: language,
+                    service: .codex,
+                    title: S("settings.codex.start"),
+                    hasAcceptedDisclosure: hasAcceptedCodexDisclosure,
+                    requestDisclosure: { isCodexDisclosurePresented = true },
+                    copyCommand: copyCodexStartCommand
+                )
                 .alert(
-                    "Connect Castor to Codex?",
+                    S("settings.codex.disclosure.title"),
                     isPresented: $isCodexDisclosurePresented
                 ) {
-                    Button("Cancel", role: .cancel) {}
-                    Button("I Understand and Copy") {
+                    Button(S("common.cancel"), role: .cancel) {}
+                    Button(S("settings.agent.disclosure.confirm")) {
                         hasAcceptedCodexDisclosure = true
-                        copyCodexStartCommand()
+                        AgentLauncher.shared.setEnabled(true, for: .codex)
                     }
                 } message: {
                     Text(
-                        "Codex may send your messages, selected workspace context, and command or file-operation details to OpenAI services. This can use Codex plan or API tokens, and data handling follows your Codex and OpenAI settings. On-device mode does not use this Codex connection. Copying the command does not connect until you run it and choose Codex in Castor."
+                        S("settings.codex.disclosure.body")
                     )
                 }
             } header: {
-                Text("Codex App Server")
+                Text(S("settings.codex.section"))
+            } footer: {
+                Text(S("settings.codex.help"))
             }
 
             Section {
                 TextField(
-                    "Bridge URL",
+                    S("settings.claude.url"),
                     text: $agentPreferences.claudeCodeBridgeURL,
                     prompt: Text("http://127.0.0.1:4510")
                 )
 
-                LabeledContent("Run the local bridge before choosing Claude Code.") {
-                    Button {
-                        if hasAcceptedClaudeCodeDisclosure {
-                            copyClaudeCodeStartCommand()
-                        } else {
-                            isClaudeCodeDisclosurePresented = true
-                        }
-                    } label: {
-                        Label("Copy start command", systemImage: "doc.on.doc")
-                    }
-                    .controlSize(.small)
-                }
+                AgentLauncherRow(
+                    language: language,
+                    service: .claudeCode,
+                    title: S("settings.claude.start"),
+                    hasAcceptedDisclosure: hasAcceptedClaudeCodeDisclosure,
+                    requestDisclosure: { isClaudeCodeDisclosurePresented = true },
+                    copyCommand: copyClaudeCodeStartCommand
+                )
                 .alert(
-                    "Connect Castor to Claude Code?",
+                    S("settings.claude.disclosure.title"),
                     isPresented: $isClaudeCodeDisclosurePresented
                 ) {
-                    Button("Cancel", role: .cancel) {}
-                    Button("I Understand and Copy") {
+                    Button(S("common.cancel"), role: .cancel) {}
+                    Button(S("settings.agent.disclosure.confirm")) {
                         hasAcceptedClaudeCodeDisclosure = true
-                        copyClaudeCodeStartCommand()
+                        AgentLauncher.shared.setEnabled(true, for: .claudeCode)
                     }
                 } message: {
                     Text(
-                        "Claude Code may send your messages and selected workspace context to Anthropic services and can use your Claude plan or API billing. The local bridge asks Castor before unresolved commands or file operations run. On-device mode does not use this connection. Copying the command does not connect until you run it and choose Claude Code in Castor."
+                        S("settings.claude.disclosure.body")
                     )
                 }
             } header: {
-                Text("Claude Code Bridge")
+                Text(S("settings.claude.section"))
             } footer: {
-                Text("Requires an installed and authenticated Claude Code CLI. The bridge listens only on this Mac and does not store API credentials.")
+                Text(S("settings.claude.help"))
             }
 
             Section {
                 HStack {
-                    TextField("Workspace folder", text: $agentPreferences.workspacePath)
-                    Button("Choose...") {
+                    TextField(S("settings.agent.workspace"), text: $agentPreferences.workspacePath)
+                    Button(S("settings.agent.workspace.choose")) {
                         chooseAgentWorkspace()
                     }
                 }
             } header: {
-                Text("External agent workspace")
+                Text(S("settings.agent.workspace.section"))
             } footer: {
-                Text("Codex and Claude Code receive this folder as their working directory. Choose only a workspace you intend to share with the selected service.")
+                Text(S("settings.agent.workspace.help"))
             }
 
             localAISection
@@ -439,7 +449,7 @@ struct CastorSettingsView: View {
 
     private var localAISection: some View {
         Section {
-            LabeledContent("Status") {
+            LabeledContent(S("settings.local_ai.status")) {
                 HStack(spacing: 6) {
                     Circle()
                         .fill(ollamaStatusColor)
@@ -455,22 +465,22 @@ struct CastorSettingsView: View {
                     }
                 } label: {
                     Label(
-                        ollama.connectionState == .connected ? "Refresh" : "Connect",
+                        ollama.connectionState == .connected ? S("settings.local_ai.refresh") : S("settings.local_ai.connect"),
                         systemImage: "bolt.horizontal.circle"
                     )
                 }
                 .disabled(ollama.connectionState == .connecting || ollama.isLoading)
 
                 if ollama.models.isEmpty {
-                    Text("Start LM Studio or Ollama and install a model to continue.")
+                    Text(S("settings.local_ai.empty"))
                         .foregroundStyle(.secondary)
                 } else {
-                    Picker("Model", selection: $ollama.selectedModel) {
+                    Picker(S("settings.local_ai.model"), selection: $ollama.selectedModel) {
                         ForEach(ollama.models) { model in
                             Text(
                                 model.name
-                                    + (model.parameterSizeLabel.map { " • \($0)" } ?? " • Size unknown")
-                                    + (model.isSmallModel ? " — For conversation; may be inaccurate" : "")
+                                    + (model.parameterSizeLabel.map { " • \($0)" } ?? S("settings.local_ai.size_unknown_suffix"))
+                                    + (model.isSmallModel ? S("settings.local_ai.small_model_suffix") : "")
                             )
                             .tag(Optional(model.name))
                         }
@@ -481,20 +491,20 @@ struct CastorSettingsView: View {
             }
 
             if let model = ollama.models.first(where: { $0.name == ollama.selectedModel }), model.isSmallModel {
-                Label("Below about 7B parameters: suited to casual conversation; answers may be inaccurate. Size is only a rough guide.", systemImage: "exclamationmark.triangle")
+                Label(S("settings.local_ai.small_model_notice"), systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             if ollama.activeProvider == .lmStudio {
-                LabeledContent("Acceleration") {
-                    Text("Managed by LM Studio")
+                LabeledContent(S("settings.local_ai.acceleration")) {
+                    Text(S("settings.local_ai.acceleration_managed"))
                         .foregroundStyle(.secondary)
                 }
             }
 
             HStack {
-                TextField("Say something to Castor", text: $ollamaPrompt)
+                TextField(S("settings.local_ai.prompt"), text: $ollamaPrompt)
                     .onSubmit {
                         sendToLocalAI()
                     }
@@ -515,7 +525,7 @@ struct CastorSettingsView: View {
                         || ollama.selectedModel == nil
                         || ollama.isLoading
                 )
-                .accessibilityLabel("Send to local AI")
+                .accessibilityLabel(S("settings.local_ai.send"))
             }
 
             if let errorMessage = ollama.errorMessage {
@@ -528,10 +538,10 @@ struct CastorSettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         } header: {
-            Text("Local AI")
+            Text(S("settings.local_ai.section"))
         } footer: {
             Text(
-                "LM Studio at \(ollama.lmStudioEndpoint.absoluteString) • Ollama at \(ollama.ollamaEndpoint.absoluteString)\nLM Studio is preferred when both have conversational models. DFlash, DSpark, and MTP follow the model's load settings in LM Studio when supported."
+                S("settings.local_ai.help", ["ollama.lmStudioEndpoint.absoluteString": ollama.lmStudioEndpoint.absoluteString, "ollama.ollamaEndpoint.absoluteString": ollama.ollamaEndpoint.absoluteString])
             )
         }
     }
@@ -539,11 +549,11 @@ struct CastorSettingsView: View {
     private var ollamaStatusLabel: String {
         switch ollama.connectionState {
         case .disconnected:
-            "Not connected"
+            S("settings.local_ai.disconnected")
         case .connecting:
-            "Connecting"
+            S("settings.local_ai.connecting")
         case .connected:
-            ollama.activeProvider.map { "Connected — \($0.label)" } ?? "Connected"
+            ollama.activeProvider.map { S("settings.local_ai.connected_provider", ["provider": $0.label]) } ?? S("settings.local_ai.connected_plain")
         }
     }
 
@@ -592,7 +602,7 @@ struct CastorSettingsView: View {
 
     private func chooseAgentWorkspace() {
         let panel = NSOpenPanel()
-        panel.title = "Choose the workspace Castor may give to external agents"
+        panel.title = S("settings.agent.workspace.dialog_title")
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
@@ -603,27 +613,47 @@ struct CastorSettingsView: View {
 }
 
 private struct InputSettingsPane: View {
+    let language: SettingsDisplayLanguage
     let trilobite: TrilobiteEngine
     @Bindable var audioInputSettings: AudioInputSettings
+
+    private func S(_ key: String, _ arguments: [String: String] = [:]) -> String {
+        CastorSettingsStrings.text(key, language: language, arguments: arguments)
+    }
+
+    private func L(_ source: String) -> String {
+        CastorSettingsStrings.label(source, language: language)
+    }
 
     var body: some View {
         Form {
             Section {
-                Toggle("Camera input", isOn: Binding(
+                Toggle(S("settings.input.camera"), isOn: Binding(
                     get: { trilobite.snapshot.cameraEnabled },
                     set: { trilobite.setCameraEnabled($0) }
                 ))
             } footer: {
-                Text("Permission: \(trilobite.snapshot.cameraPermission.label)")
+                Text(S("settings.input.camera_permission", ["cameraPermission.label": L(trilobite.snapshot.cameraPermission.label)]))
             }
 
             Section {
-                Toggle("Ambient audio reactions", isOn: Binding(
+                Toggle(S("settings.input.ambient_audio"), isOn: Binding(
                     get: { trilobite.snapshot.microphoneEnabled },
                     set: { trilobite.setMicrophoneEnabled($0) }
                 ))
 
-                Picker("Microphone", selection: $audioInputSettings.selectedDeviceUID) {
+                if trilobite.snapshot.microphonePermission == .denied {
+                    Button(S("settings.input.microphone_open_settings")) {
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                    Text(S("settings.input.microphone_denied_help"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Picker(S("settings.input.microphone"), selection: $audioInputSettings.selectedDeviceUID) {
                     ForEach(audioInputSettings.devices) { device in
                         Text(device.name).tag(device.id)
                     }
@@ -632,7 +662,7 @@ private struct InputSettingsPane: View {
                     trilobite.setAudioInputDevice(uid: audioInputSettings.selectedDeviceUID)
                 }
 
-                LabeledContent("Level") {
+                LabeledContent(S("settings.input.level")) {
                     AudioLevelMeter(
                         level: trilobite.snapshot.audioLevel,
                         trackColor: Color.primary.opacity(0.10),
@@ -641,7 +671,7 @@ private struct InputSettingsPane: View {
                     .frame(width: 180, height: 6)
                 }
             } footer: {
-                Text("Microphone permission: \(trilobite.snapshot.microphonePermission.label)\nThis toggle controls always-on audio-level reactions. Voice chat uses the selected microphone only while the mic button is active.")
+                Text(S("settings.input.microphone_help", ["microphonePermission.label": L(trilobite.snapshot.microphonePermission.label)]))
             }
         }
         .formStyle(.grouped)
@@ -650,12 +680,21 @@ private struct InputSettingsPane: View {
 }
 
 private struct VoiceSettingsPane: View {
+    let language: SettingsDisplayLanguage
     @Bindable var neuralSpeechSettings: NeuralSpeechSettings
+
+    private func S(_ key: String, _ arguments: [String: String] = [:]) -> String {
+        CastorSettingsStrings.text(key, language: language, arguments: arguments)
+    }
+
+    private func L(_ source: String) -> String {
+        CastorSettingsStrings.label(source, language: language)
+    }
 
     var body: some View {
         Form {
             Section {
-                Picker("Neural voice", selection: $neuralSpeechSettings.voiceEngine) {
+                Picker(S("settings.voice.engine"), selection: $neuralSpeechSettings.voiceEngine) {
                     ForEach(NeuralVoiceEngine.allCases) { engine in
                         Text(engine.label).tag(engine)
                     }
@@ -665,7 +704,7 @@ private struct VoiceSettingsPane: View {
                     HStack(spacing: 8) {
                         ProgressView()
                             .controlSize(.small)
-                        Text("Preparing Qwen 0.6B...")
+                        Text(S("settings.voice.preparing"))
                             .foregroundStyle(.secondary)
                     }
                 } else if let error = neuralSpeechSettings.preparationError {
@@ -673,10 +712,66 @@ private struct VoiceSettingsPane: View {
                         .foregroundStyle(.orange)
                 }
             } footer: {
-                Text(neuralSpeechSettings.voiceEngine.detail)
+                Text(L(neuralSpeechSettings.voiceEngine.detail))
             }
         }
         .formStyle(.grouped)
         .frame(height: 220)
+    }
+}
+
+/// One switch that starts a local agent service through `AgentLauncher`,
+/// with its status. Copying the Terminal command stays available for people
+/// who prefer to run it themselves.
+private struct AgentLauncherRow: View {
+    let language: SettingsDisplayLanguage
+    let service: AgentLauncherService
+    let title: String
+    let hasAcceptedDisclosure: Bool
+    let requestDisclosure: () -> Void
+    let copyCommand: () -> Void
+    @State private var launcher = AgentLauncher.shared
+
+    private func S(_ key: String, _ arguments: [String: String] = [:]) -> String {
+        CastorSettingsStrings.text(key, language: language, arguments: arguments)
+    }
+
+    private func L(_ source: String) -> String {
+        CastorSettingsStrings.label(source, language: language)
+    }
+
+    var body: some View {
+        let summary = launcher.summary(for: service)
+        VStack(alignment: .leading, spacing: 6) {
+            Toggle(title, isOn: Binding(
+                get: { launcher.isEnabled(service) },
+                set: { enabled in
+                    if enabled && !hasAcceptedDisclosure {
+                        requestDisclosure()
+                    } else {
+                        launcher.setEnabled(enabled, for: service)
+                    }
+                }
+            ))
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(summary.isProblem ? Color.orange : (launcher.isEnabled(service) ? Color.green : Color.secondary.opacity(0.4)))
+                    .frame(width: 7, height: 7)
+                Text(L(summary.text))
+                    .font(.caption)
+                    .foregroundStyle(summary.isProblem ? .primary : .secondary)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer()
+                if launcher.isEnabled(service) {
+                    Button(S("settings.agent.restart")) { Task { await launcher.restart() } }
+                        .controlSize(.small)
+                }
+                Button(S("settings.agent.copy_command"), action: copyCommand)
+                    .controlSize(.small)
+                    .buttonStyle(.link)
+            }
+        }
+        .onAppear { launcher.startPolling() }
     }
 }

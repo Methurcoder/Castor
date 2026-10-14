@@ -209,3 +209,30 @@ Swift actor処理は主dispatcher、Win32ウインドウは専用threadに置き
 
 Mac Desktop36件、Core109件の検査成功。新規Win32/SAPI/agent GUIはWindowsコンパイル/実機検証待ち。
 カメラ/Neural TTS/MLモデル/helper梱包、手動リグ全編集、全Advanced、GUI導入などは継続作業。
+
+## 継続統合: GUI導入・入力・設定・姿勢の案内 (2026-10-14)
+
+Claudeのローカル`claude/agent-bridge-launcher`のMac agent起動を取り込み、URL検証と再起動競合を修正。
+元ブランチは保持。手動Python導入に依存するhelperの完全同梱は引き続き必要です。
+
+- GUI導入・更新・修復・削除を実装。[GUI_SETUP](GUI_SETUP.md)に配置・失敗保持・梱包・未検証を記録。
+- Windows退避/帰巣・UIAutomationによるボタン検出、標準マイク音量反応を接続。
+  文字・スクリーンショットを取得せず、入力音声は保存/送信しません。実機確認は未完了。
+- Mac初回マイク許可→許可時on、拒否時設定導線、明示offの保持を追加。
+  Windowsも初回の本人選択、音量取得時の表示、利用不可/拒否の設定導線を追加。
+- GPT-6 Lunaの設定翻訳案をGPT-6.1 Solが組込み、OS言語からの初期選択とGeneralの変更を接続。
+  Mac設定/AI設定・Windows設定/dialogが対象。すべての画面の翻訳完了ではありません。
+- AI設定で元画像→provider→任意姿勢修正→補修→Riggingへ引き継ぐ。
+  姿勢の自動判定・リグそのものの姿勢直立化は未実装で、任意質問に本人が答えます。
+  Codexは画像送信確認、capability確認、native画像生成結果のpreview→採用。
+  他provider/生成不可時は作成用promptを示し、画像生成サービスで生成→読み込み直せます。
+  LM Studioのvisionモデル/マーカー提案を接続。旧ollama保存値は保持。
+
+手元のCodex app-serverで`modelProvider/capabilities/read`の`imageGeneration: true`を読み取り確認。
+画像・会話・推論リクエストは送信していません。実際の画像生成/利用枠/生成品質は未検証です。
+通常のread-only sandbox・個別承認を維持し、任意の生成結果URLやsavedPathを読みません。
+
+Desktop46件、Core120件、Mac Universal Releaseのコンパイル成功。
+GUI setupのMac起動とReleaseなしの案内を確認。Windows CIで新しいnative入力/展開の確認を続けます。
+camera/Windows ML代替、LaMa/Neural TTS/helper完全梱包、手動リグの全編集、全Advanced、署名/公証と
+全実機検証は継続項目です。この統合単位だけで全体完成としません。

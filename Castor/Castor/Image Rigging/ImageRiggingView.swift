@@ -11,6 +11,13 @@ struct ImageRiggingView: View {
     let trilobite: TrilobiteEngine
     let palette: CastorPalette
     let animationsPaused: Bool
+    let initialImage: NSImage?
+
+    init(core: HesitateCore, trilobite: TrilobiteEngine, palette: CastorPalette,
+         animationsPaused: Bool, initialImage: NSImage? = nil) {
+        self.core=core;self.trilobite=trilobite;self.palette=palette
+        self.animationsPaused=animationsPaused;self.initialImage=initialImage
+    }
 
     @State private var image: NSImage?
     @State private var document: RigDocument?
@@ -79,6 +86,9 @@ struct ImageRiggingView: View {
             }
         }
         .frame(maxWidth: 980, maxHeight: 620)
+        .onAppear {
+            if image == nil, let initialImage { importImageData(initialImage,imageName:"AI setup reference") }
+        }
         .fileImporter(isPresented: $isRigImporterPresented, allowedContentTypes: [.json]) { result in
             importRig(result)
         }

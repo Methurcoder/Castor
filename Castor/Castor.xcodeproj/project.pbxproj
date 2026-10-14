@@ -9,6 +9,9 @@
 /* Begin PBXBuildFile section */
 		A9115AA12FC5E82A00000001 /* Arils in Frameworks */ = {isa = PBXBuildFile; productRef = A9115AA22FC5E82A00000002 /* Arils */; };
 		A9115AB12FC5E82A00000011 /* CastorCore in Frameworks */ = {isa = PBXBuildFile; productRef = A9115AB22FC5E82A00000012 /* CastorCore */; };
+		C0A57A000000000000000003 /* claude_code_bridge.py in Resources */ = {isa = PBXBuildFile; fileRef = C0A57A000000000000000002 /* claude_code_bridge.py */; };
+		C0A57A000000000000000004 /* CastorAgentLauncher.app in Embed Helpers */ = {isa = PBXBuildFile; fileRef = C0A57A000000000000000001 /* CastorAgentLauncher.app */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		C0A57A000000000000000005 /* CastorCore in Frameworks */ = {isa = PBXBuildFile; productRef = C0A57A000000000000000006 /* CastorCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -26,12 +29,35 @@
 			remoteGlobalIDString = 87F539E62FC5E828000593FE;
 			remoteInfo = Castor;
 		};
+		C0A57A00000000000000000D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 87F539DF2FC5E828000593FE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C0A57A000000000000000008;
+			remoteInfo = CastorAgentLauncher;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		C0A57A00000000000000000C /* Embed Helpers */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Contents/Library/Helpers;
+			dstSubfolderSpec = 1;
+			files = (
+				C0A57A000000000000000004 /* CastorAgentLauncher.app in Embed Helpers */,
+			);
+			name = "Embed Helpers";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		87F539E72FC5E828000593FE /* Castor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Castor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		87F539F42FC5E82A000593FE /* CastorTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CastorTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		87F539FE2FC5E82A000593FE /* CastorUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CastorUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C0A57A000000000000000001 /* CastorAgentLauncher.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CastorAgentLauncher.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C0A57A000000000000000002 /* claude_code_bridge.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = claude_code_bridge.py; path = ../scripts/claude_code_bridge.py; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -48,6 +74,11 @@
 		87F53A012FC5E82A000593FE /* CastorUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = CastorUITests;
+			sourceTree = "<group>";
+		};
+		C0A57A000000000000000007 /* CastorAgentLauncher */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = CastorAgentLauncher;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -76,6 +107,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C0A57A00000000000000000A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C0A57A000000000000000005 /* CastorCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -85,6 +124,8 @@
 				87F539E92FC5E828000593FE /* Castor */,
 				87F539F72FC5E82A000593FE /* CastorTests */,
 				87F53A012FC5E82A000593FE /* CastorUITests */,
+				C0A57A000000000000000007 /* CastorAgentLauncher */,
+				C0A57A000000000000000002 /* claude_code_bridge.py */,
 				87F539E82FC5E828000593FE /* Products */,
 			);
 			sourceTree = "<group>";
@@ -95,6 +136,7 @@
 				87F539E72FC5E828000593FE /* Castor.app */,
 				87F539F42FC5E82A000593FE /* CastorTests.xctest */,
 				87F539FE2FC5E82A000593FE /* CastorUITests.xctest */,
+				C0A57A000000000000000001 /* CastorAgentLauncher.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -109,10 +151,12 @@
 				87F539E32FC5E828000593FE /* Sources */,
 				87F539E42FC5E828000593FE /* Frameworks */,
 				87F539E52FC5E828000593FE /* Resources */,
+				C0A57A00000000000000000C /* Embed Helpers */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				C0A57A00000000000000000E /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				87F539E92FC5E828000593FE /* Castor */,
@@ -172,6 +216,29 @@
 			productReference = 87F539FE2FC5E82A000593FE /* CastorUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		C0A57A000000000000000008 /* CastorAgentLauncher */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C0A57A000000000000000011 /* Build configuration list for PBXNativeTarget "CastorAgentLauncher" */;
+			buildPhases = (
+				C0A57A000000000000000009 /* Sources */,
+				C0A57A00000000000000000A /* Frameworks */,
+				C0A57A00000000000000000B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				C0A57A000000000000000007 /* CastorAgentLauncher */,
+			);
+			name = CastorAgentLauncher;
+			packageProductDependencies = (
+				C0A57A000000000000000006 /* CastorCore */,
+			);
+			productName = CastorAgentLauncher;
+			productReference = C0A57A000000000000000001 /* CastorAgentLauncher.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -192,6 +259,9 @@
 					87F539FD2FC5E82A000593FE = {
 						CreatedOnToolsVersion = 26.5;
 						TestTargetID = 87F539E62FC5E828000593FE;
+					};
+					C0A57A000000000000000008 = {
+						CreatedOnToolsVersion = 26.5;
 					};
 				};
 			};
@@ -216,6 +286,7 @@
 				87F539E62FC5E828000593FE /* Castor */,
 				87F539F32FC5E82A000593FE /* CastorTests */,
 				87F539FD2FC5E82A000593FE /* CastorUITests */,
+				C0A57A000000000000000008 /* CastorAgentLauncher */,
 			);
 		};
 /* End PBXProject section */
@@ -239,6 +310,14 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0A57A00000000000000000B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C0A57A000000000000000003 /* claude_code_bridge.py in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -266,6 +345,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C0A57A000000000000000009 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -278,6 +364,11 @@
 			isa = PBXTargetDependency;
 			target = 87F539E62FC5E828000593FE /* Castor */;
 			targetProxy = 87F539FF2FC5E82A000593FE /* PBXContainerItemProxy */;
+		};
+		C0A57A00000000000000000E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C0A57A000000000000000008 /* CastorAgentLauncher */;
+			targetProxy = C0A57A00000000000000000D /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -556,6 +647,50 @@
 			};
 			name = Release;
 		};
+		C0A57A00000000000000000F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Castor Agent Launcher";
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.pomegranate.prototype.AgentLauncher;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		C0A57A000000000000000010 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Castor Agent Launcher";
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.pomegranate.prototype.AgentLauncher;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -595,6 +730,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		C0A57A000000000000000011 /* Build configuration list for PBXNativeTarget "CastorAgentLauncher" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C0A57A00000000000000000F /* Debug */,
+				C0A57A000000000000000010 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -614,6 +758,10 @@
 			productName = Arils;
 		};
 		A9115AB22FC5E82A00000012 /* CastorCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CastorCore;
+		};
+		C0A57A000000000000000006 /* CastorCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = CastorCore;
 		};
