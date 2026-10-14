@@ -1,6 +1,6 @@
 # Castor release notes (draft)
 
-Changes since the public `Pomegranate-release-v1.1` branch. The version name is still undecided. The source repository is
+Changes since the public `Pomegranate-release-v1.1` branch. The local candidate version is `v0.3.0-beta.1`; no app Release has been published. The source repository is
 [Methurcoder/Castor](https://github.com/Methurcoder/Castor). Castor is the successor to Pomegranate,
 prepared for a new repository under a different GitHub account.
 
@@ -35,8 +35,10 @@ prepared for a new repository under a different GitHub account.
 - Installing and signing in to the Codex CLI and Claude Code is still done
   with each service's own instructions. The Claude Code bridge also needs
   Python 3 (Command Line Tools).
-- Neural TTS, LaMa Underpaint and Button-aware dodge still need Terminal; a
-  later update will start them from the app as well.
+- Qwen 3 TTS now has a bundled GUI helper: start, stop, prepare the model and cancel
+  from Voice settings without installing Python or typing commands. Model weights
+  are downloaded only after an explicit preparation action. Other optional helper
+  installation and full Mac/Windows parity remain separate unfinished work.
 
 ## Windows preview fixes and app downloads
 
@@ -127,9 +129,10 @@ New in the Arils API, not yet driven by the app:
 - Turning the head can still show a seam beside hair ornaments or at the crown:
   the head is cut by a rectangle-like region. Part segmentation is the planned
   fix.
-- The optional Core ML models are not in the repository; see the Arils README
-  for the export commands. Without them Arils falls back to its previous
-  estimators.
+- The four compiled Core ML models are not stored in Git. The Mac distribution
+  builder and packager now require all four complete models and stop if one is
+  missing. Plain developer builds may still use older fallback estimators; that
+  fallback is not accepted for a distribution candidate.
 - Attitudes, hesitation, personality presets and speech timelines are in the
   Arils API only; wiring them into the app is next.
 
@@ -198,3 +201,36 @@ New in the Arils API, not yet driven by the app:
   生成画像の再読込。元画像を保持してRiggingへ引き継ぐ。姿勢の自動判定/リグの直立化は未実装。
 - 「Ollama / LM Studio」へ案内変更し、LM Studioの画像対応モデル/提案へ接続。
 - これらは全機能parityの完成版Releaseではない。Windows実機・実生成・正式署名/公証を継続確認する。
+
+## 配布候補の状態（2026-10-15）
+
+候補名は `v0.3.0-beta.1`。まだタグ・Draft・公開Releaseを作成していません。
+UI刷新は後回しとし、既存UIのままQwen 3 TTSと配布前監査への対応を優先しています。
+
+- Mac候補はApple Silicon向け。本体内にGUI Setup、native Qwen helper、必須4モデルを同梱。
+  Intel版のコンパイル記録はありますが、今回のQwen同梱候補にはIntel版を含めません。
+- Mac Qwen helperのGUIからモデル準備と日本語音声生成を確認し、3.12秒のWAVをOSで再生。
+  この確認では既存モデルキャッシュを使用。新規ダウンロード・長文品質・本体Voice画面は未確認。
+- Windows x64の通常CIとQwen同梱候補jobは成功（run 38599469990、commit 1a1566d）。
+  同OSで梱包し、開発用PATHを除いた依存読込も成功。実機GUI・実モデル生成・
+  スピーカー出力の確認とは区別します。macOS hosted jobはqueuedで、Macは下記ローカル確認です。
+- 両OSのinstallerは日英表示と対象別の削除確認を追加。Macのquarantineと初回の
+  「システム設定 › プライバシーとセキュリティ › このまま開く」の案内を維持。
+- 更新時はcurrentとpreviousを保持し、指紋が一致する管理済み旧版だけをごみ箱へ送る。
+  変更済み・個人ファイル追加済み・旧指紋なしのフォルダは自動整理しません。
+- Mac配布候補のdebug情報から開発者home pathを除去し、検査を追加。
+  この既知パターン検査は包括的な個人情報・秘密情報監査ではありません。
+- Macはad-hoc署名でDeveloper ID署名・公証なし。Windowsコード署名も未整備。
+  開発環境のない両OSでの初回導入・更新・修復・削除と、全機能共通化は未完了です。
+- 現行GUI/旧scriptダウンローダーはGitHubのlatest通常Releaseを取得し、Pre-releaseを
+  拒否します。候補をPre-releaseで公開する場合は、公開前にプレビュー取得経路を整える
+  必要があります。候補名にbetaがあるだけではGitHubの公開区分は確定しません。
+
+### ローカル確認結果
+
+- CastorCore: 132件成功。Desktop: 57件成功。Mac app既存単体検査成功。
+- Python speech: 8件成功。配布/model/privacy: 18件中5件platform skip、残り成功。
+- Mac候補内の4モデルをCPU Core MLで読み込み成功。顔推定精度の証明ではありません。
+- Mac候補の深い署名検証成功。ad-hoc署名であり配布者の認証・公証を意味しません。
+
+公開可否の確認はこれらの記録と未確認事項を示してから行います。
