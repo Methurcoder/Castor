@@ -101,7 +101,7 @@ public enum QualityPairInspector {
         // images appear to have impossibly wide heads and distorted pair
         // confidence when front/side resolutions differed.
         let headWidthRatio = layout.map {
-            Float($0.headRect.width / CGFloat(max(1, input.context.originalImage.width)))
+            Float($0.headRect.width / CGFloat(max(1, input.context.imageWidth)))
         } ?? 0
         return Metrics(
             faceConfidence: layout?.confidence ?? 0,
