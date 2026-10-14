@@ -9,6 +9,7 @@ let package = Package(
     products: [
         .executable(name: "CastorPet", targets: ["CastorPet"]),
         .executable(name: "pet-snapshot", targets: ["PetSnapshot"]),
+        .executable(name: "pet-rig", targets: ["PetRig"]),
     ],
     dependencies: [
         .package(path: "../Arils"),
@@ -41,6 +42,7 @@ let package = Package(
         // Renders a few frames of a pet to PPM images, for checking the
         // runtime on any platform without a window.
         .executableTarget(name: "PetSnapshot", dependencies: ["PetRuntime"]),
+        .executableTarget(name: "PetRig", dependencies: ["PetRuntime"]),
 
         .testTarget(name: "PetRuntimeTests", dependencies: ["PetRuntime", .product(name: "ArilsPortable", package: "Arils")]),
     ],

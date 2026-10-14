@@ -72,8 +72,8 @@ enum PetCharacterStore {
     }
 
     /// Accept the same saved-pet JSON on both platforms, including portable Windows rigs.
-    static func importSavedPet(from url: URL) throws {
-        let payload = try JSONDecoder().decode(SavedPetCharacter.self, from: Data(contentsOf: url))
+    static func decodedImportedPet(_ data: Data) throws -> SavedPetCharacter {
+        let payload = try JSONDecoder().decode(SavedPetCharacter.self, from: data)
         guard payload.image != nil else { throw CocoaError(.coderReadCorrupt) }
         if let qualityData = payload.qualityArchiveData {
             let quality = try QualityAvatarArchive(data: qualityData)
@@ -84,6 +84,11 @@ enum PetCharacterStore {
         } else if payload.document == nil {
             throw CocoaError(.coderValueNotFound)
         }
+        return payload
+    }
+
+    static func importSavedPet(from url: URL) throws {
+        let payload = try decodedImportedPet(Data(contentsOf: url))
         // Keep the previous current pet as a library entry before a deliberate import.
         if FileManager.default.fileExists(atPath: fileURL.path) {
             let previous = try Data(contentsOf: fileURL)

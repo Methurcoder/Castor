@@ -73,6 +73,8 @@ MacのApple backendは保持し、Windows対応のためにMac品質を落とさ
   appのversionフォルダ、TEMP、ソースcheckoutとは分ける。旧Mac/Pomegranateデータを移動しない。
 - 画像は4K以下PNG、64MiB以下。基本作成にログイン・外部モデル・画像uploadなし。
 - テンプレートはAI検出ではない。Macのレイヤー/深度、Quality、隠面補修、精密瞬きと同等ではない。
+- 開発用pet-rigはPNGと任意の補正マーカーJSONから保存データを生成し、pet-snapshotへ渡して
+  両OSの同一入力/姿勢を比較する。利用者の起動・導入にはこのコマンドを要求しない。
 - 単体検査/コンパイル確認と、Windowsでの画面/再起動/実画像確認を分けて記録する。
 
 ## 実施順と受入条件
@@ -99,3 +101,18 @@ GitHubの[現行制限](https://docs.github.com/en/repositories/releasing-projec
 1 asset 2GiB未満。取得先URLだけに信頼を置かず、署名・ハッシュ・固定版・ライセンスを記録する。
 OSのquarantine/Mark of the Webを適切に扱い、警告が出ないことを導入上の利点にしない。
 基本ペットの導入をアカウント認証や大モデルの取得で止めない。
+
+## 第1段階の検査記録
+
+- 作業ブランチ: `codex/desktop-parity`。初期実装 `5626611`。
+- [Windows/Mac CI](https://github.com/Methurcoder/Castor/actions/runs/38525296116):
+  両OSで14件のarchive/描画/PNG/マーカー/保存保持テスト成功。Windows Win32 Release EXEビルド成功。
+  配布検査はMac11件、Windows8件（Mac専用3件skip）。
+- Mac appのarm64/x86_64 Release build成功。署名無効のコンパイル確認で、配布候補ではない。
+- 1024×1536の実イラストを手動マーカーでリグ化し、Mac上の共通CPU rendererで
+  260×340の91フレームを0.85秒（平均9.4ms/frame）で描画した。単一のMac/画像/解像度の測定。
+  原画像や教師ラベルを変更せず、データセット/出力フレームをGitへ追加していない。
+- Windowsの選択画面・マーカードラッグ・保存・再起動、Macの読込画面と実機相互利用は未確認。
+  2Dの精密瞬き/隠面/品質評価は未達。2枚Qualityと残り全機能の実装へ続く。
+- Mac appの単体テスト42件成功（UIテストを除外）。Windows互換JSONを実際の
+  SavedPetCharacterで受け入れ、不完全/破損ペットを拒否する2件も含む。GUIの相互利用確認ではない。

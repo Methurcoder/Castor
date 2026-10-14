@@ -909,3 +909,27 @@ struct ArilBridgePersistenceTests {
         #expect(decoded.qualityArchiveData == Data([9, 8, 7]))
     }
 }
+
+@MainActor
+struct PortablePetImportTests {
+    @Test func acceptsWindowsSavedPetFieldsWithoutManualDocument() throws {
+        let png = try #require(Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAEklEQVR4nGP4YCTXgIwZSBcAAMORHAGxU9i3AAAAAElFTkSuQmCC"))
+        let rect = CGRect(x: 0, y: 0, width: 4, height: 4)
+        let part = AvatarPart(id: "portableSurface", kind: .body, rect: rect, zOrder: 0,
+                              mesh: .grid(rect: rect, columns: 1, rows: 1))
+        let archive = AvatarArchive(rig: AvatarRig(imageWidth: 4, imageHeight: 4,
+            parts: [part], parameters: StandardParameters.all), texturePNGs: [part.id: png])
+        struct WindowsFields: Encodable { let imageData: Data; let arilsArchiveData: Data }
+        let data = try JSONEncoder().encode(WindowsFields(imageData: png, arilsArchiveData: archive.data()))
+        let imported = try PetCharacterStore.decodedImportedPet(data)
+        #expect(imported.document == nil)
+        #expect(imported.image != nil)
+        #expect(imported.arilsArchiveData == (try archive.data()))
+    }
+
+    @Test func rejectsIncompleteOrCorruptedImportedPets() throws {
+        #expect(throws: (any Error).self) { try PetCharacterStore.decodedImportedPet(Data([1, 2, 3])) }
+        let incomplete = try JSONEncoder().encode(SavedPetCharacter())
+        #expect(throws: (any Error).self) { try PetCharacterStore.decodedImportedPet(incomplete) }
+    }
+}
