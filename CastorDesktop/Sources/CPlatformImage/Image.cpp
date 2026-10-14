@@ -10,7 +10,7 @@ struct ImageDecoder {
     ImageDecoder(const uint8_t *data,size_t length) {
         com=CoInitializeEx(nullptr,COINIT_MULTITHREADED);
         if ((FAILED(com)&&com!=RPC_E_CHANGED_MODE) || !length || length>64*1024*1024) return;
-        if (FAILED(CoCreateInstance(__uuidof(WICImagingFactory),nullptr,CLSCTX_INPROC_SERVER,__uuidof(IWICImagingFactory),(void**)&factory)))return;
+        if (FAILED(CoCreateInstance(CLSID_WICImagingFactory,nullptr,CLSCTX_INPROC_SERVER,__uuidof(IWICImagingFactory),(void**)&factory)))return;
         if (FAILED(factory->CreateStream(&stream)))return;
         if (FAILED(stream->InitializeFromMemory((BYTE*)data,(DWORD)length)))return;
         if (FAILED(factory->CreateDecoderFromStream(stream,nullptr,WICDecodeMetadataCacheOnDemand,&decoder)))return;
