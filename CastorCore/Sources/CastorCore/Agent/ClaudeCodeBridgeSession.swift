@@ -4,7 +4,7 @@ import FoundationNetworking
 #endif
 import Observation
 
-public struct ClaudeCodeApprovalRequest: Identifiable, Equatable, Sendable {
+public nonisolated struct ClaudeCodeApprovalRequest: Identifiable, Equatable, Sendable {
     public let id = UUID()
     public let approvalID: String
     public let turnID: String
@@ -27,7 +27,7 @@ public struct ClaudeCodeApprovalRequest: Identifiable, Equatable, Sendable {
     }
 }
 
-public enum ClaudeCodeBridgeError: LocalizedError, Equatable {
+public nonisolated enum ClaudeCodeBridgeError: LocalizedError, Equatable {
     case invalidBridgeURL
     case nonLoopbackBridge
     case malformedResponse
@@ -39,7 +39,7 @@ public enum ClaudeCodeBridgeError: LocalizedError, Equatable {
         case .invalidBridgeURL:
             "Enter a valid Claude Code bridge HTTP URL."
         case .nonLoopbackBridge:
-            "For safety, Castor only connects to the Claude Code bridge on this Mac."
+            "For safety, Castor only connects to the Claude Code bridge on this device."
         case .malformedResponse:
             "The Claude Code bridge returned an unreadable response."
         case .bridge(let message), .disconnected(let message):
@@ -63,7 +63,7 @@ public final class ClaudeCodeBridgeSession {
     private var statusHandler: ((String) -> Void)?
     private var approvalHandler: ((ClaudeCodeApprovalRequest?) -> Void)?
 
-    public static func isAllowedBridgeURL(_ value: String) -> Bool {
+    public nonisolated static func isAllowedBridgeURL(_ value: String) -> Bool {
         guard let components = URLComponents(string: value),
               components.scheme == "http" || components.scheme == "https",
               components.user == nil,

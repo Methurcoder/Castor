@@ -7,7 +7,7 @@ import FoundationNetworking
 /// events, NDJSON). `URLSession.bytes(for:)` does this on Apple platforms but
 /// does not exist in swift-corelibs-foundation (Linux, Windows), so there
 /// the same stream is built from data-task delegate callbacks.
-public enum HTTPLineStream {
+public nonisolated enum HTTPLineStream {
     public static func lines(
         for request: URLRequest,
         session: URLSession = .shared
@@ -29,23 +29,25 @@ public enum HTTPLineStream {
         }
         return (stream, response)
         #else
-        return try await DelegateLineReader(configuration: session.configuration).start(request)
+        return try await DelegateLineReader(configuration: session.configuration, redirectDelegate: session.delegate as? URLSessionTaskDelegate).start(request)
         #endif
     }
 }
 
 #if !canImport(Darwin)
 /// Delegate-driven reader for platforms without `URLSession.bytes`.
-private final class DelegateLineReader: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+private nonisolated final class DelegateLineReader: NSObject, URLSessionDataDelegate, @unchecked Sendable {
     private let configuration: URLSessionConfiguration
+    private let redirectDelegate: URLSessionTaskDelegate?
     private let lock = NSLock()
     private var buffer = Data()
     private var responseContinuation: CheckedContinuation<URLResponse, Error>?
     private var lineContinuation: AsyncThrowingStream<String, Error>.Continuation?
     private var session: URLSession?
 
-    init(configuration: URLSessionConfiguration) {
+    init(configuration: URLSessionConfiguration, redirectDelegate: URLSessionTaskDelegate?) {
         self.configuration = configuration
+        self.redirectDelegate = redirectDelegate
     }
 
     func start(_ request: URLRequest) async throws -> (AsyncThrowingStream<String, Error>, URLResponse) {
@@ -65,6 +67,15 @@ private final class DelegateLineReader: NSObject, URLSessionDataDelegate, @unche
             task.resume()
         }
         return (stream, response)
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask,
+                    willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest,
+                    completionHandler: @escaping (URLRequest?) -> Void) {
+        if let redirectDelegate {
+            redirectDelegate.urlSession(session, task: task, willPerformHTTPRedirection: response,
+                                        newRequest: request, completionHandler: completionHandler)
+        } else { completionHandler(request) }
     }
 
     func urlSession(

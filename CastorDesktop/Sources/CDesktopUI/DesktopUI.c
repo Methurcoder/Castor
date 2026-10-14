@@ -207,6 +207,11 @@ int castor_choose_option(const char *title,const char *options) {
     if(IsWindow(hwnd))DestroyWindow(hwnd);if(owner&&IsWindow(owner)){EnableWindow(owner,TRUE);SetActiveWindow(owner);}
     return s.accepted?s.selected+1:0;
 }
+static HWND castor_work_label=NULL;
+void castor_update_work_text(const char *text) {
+    if(!castor_work_label||!IsWindow(castor_work_label))return;
+    WCHAR *wide=castor_wide(text);if(wide){SetWindowTextW(castor_work_label,wide);free(wide);}
+}
 /* Polling only reads the host's locked completion state. Work runs off-thread. */
 int castor_wait_work(const char *text,int (*poll)(void*),void *context) {
     WCHAR *caption=castor_wide(text);if(!caption||!poll){free(caption);return -1;}
@@ -217,7 +222,7 @@ int castor_wait_work(const char *text,int (*poll)(void*),void *context) {
     HWND hwnd=CreateWindowExW(0,cls.lpszClassName,L"Castor - 作成中",WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU,
         CW_USEDEFAULT,CW_USEDEFAULT,650,190,owner,NULL,instance,&s);
     if(!hwnd){free(caption);return -1;}if(owner)EnableWindow(owner,FALSE);
-    CreateWindowW(L"STATIC",caption,WS_CHILD|WS_VISIBLE,20,20,600,65,hwnd,NULL,instance,NULL);free(caption);
+    castor_work_label=CreateWindowW(L"STATIC",caption,WS_CHILD|WS_VISIBLE,20,20,600,65,hwnd,NULL,instance,NULL);free(caption);
     CreateWindowW(L"BUTTON",L"キャンセル",WS_CHILD|WS_VISIBLE|WS_TABSTOP,470,95,140,32,hwnd,(HMENU)IDCANCEL,instance,NULL);
     ShowWindow(hwnd,SW_SHOW);UpdateWindow(hwnd);
     while(IsWindow(hwnd)&&!poll(context)) {
@@ -228,6 +233,7 @@ int castor_wait_work(const char *text,int (*poll)(void*),void *context) {
         }
     }
     int done=!s.cancelled && poll(context);if(IsWindow(hwnd))DestroyWindow(hwnd);
+    castor_work_label=NULL;
     if(owner&&IsWindow(owner)){EnableWindow(owner,TRUE);SetActiveWindow(owner);}return done?1:0;
 }
 
@@ -274,6 +280,44 @@ int castor_open_url(const char *url) {
     INT_PTR result=(INT_PTR)ShellExecuteW(NULL,L"open",wide,NULL,NULL,SW_SHOWNORMAL);free(wide);return result>32?1:-1;
 }
 
+typedef struct { HWND edit; int accepted,readonly; } CastorTextDialog;
+static LRESULT CALLBACK text_proc(HWND hwnd,UINT message,WPARAM w,LPARAM l) {
+    CastorTextDialog *s=(CastorTextDialog*)GetWindowLongPtrW(hwnd,GWLP_USERDATA);
+    if(message==WM_NCCREATE){s=(CastorTextDialog*)((CREATESTRUCTW*)l)->lpCreateParams;SetWindowLongPtrW(hwnd,GWLP_USERDATA,(LONG_PTR)s);}
+    if(!s)return DefWindowProcW(hwnd,message,w,l);
+    if(message==WM_COMMAND&&LOWORD(w)==IDOK){s->accepted=1;ShowWindow(hwnd,SW_HIDE);return 0;}
+    if(message==WM_CLOSE||(message==WM_COMMAND&&LOWORD(w)==IDCANCEL)){ShowWindow(hwnd,SW_HIDE);return 0;}
+    return DefWindowProcW(hwnd,message,w,l);
+}
+int castor_edit_text(const char *title,const char *initial,int readonly,char *output,size_t capacity) {
+    if(!output||capacity<1||capacity>131072)return -1;
+    WCHAR *caption=castor_wide(title),*text=castor_wide(initial);
+    if(!caption||!text){free(caption);free(text);return -1;}
+    HINSTANCE instance=GetModuleHandleW(NULL);WNDCLASSW cls={0};cls.hInstance=instance;cls.lpfnWndProc=text_proc;
+    cls.lpszClassName=L"CastorText";cls.hbrBackground=(HBRUSH)(COLOR_WINDOW+1);cls.hCursor=LoadCursorW(NULL,IDC_ARROW);
+    if(!RegisterClassW(&cls)&&GetLastError()!=ERROR_CLASS_ALREADY_EXISTS){free(caption);free(text);return -1;}
+    CastorTextDialog s={0};s.readonly=readonly;HWND owner=GetActiveWindow();
+    HWND hwnd=CreateWindowExW(0,cls.lpszClassName,caption,WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU,
+        CW_USEDEFAULT,CW_USEDEFAULT,760,450,owner,NULL,instance,&s);free(caption);
+    if(!hwnd){free(text);return -1;}if(owner)EnableWindow(owner,FALSE);
+    s.edit=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",text,WS_CHILD|WS_VISIBLE|WS_TABSTOP|WS_VSCROLL|
+        ES_MULTILINE|ES_AUTOVSCROLL|ES_WANTRETURN|(readonly?ES_READONLY:0),20,20,705,310,hwnd,(HMENU)10,instance,NULL);free(text);
+    SendMessageW(s.edit,EM_SETLIMITTEXT,8000,0);
+    CreateWindowW(L"BUTTON",readonly?L"閉じる":L"決定",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_DEFPUSHBUTTON,470,350,120,35,hwnd,(HMENU)IDOK,instance,NULL);
+    CreateWindowW(L"BUTTON",L"キャンセル",WS_CHILD|WS_VISIBLE|WS_TABSTOP,600,350,120,35,hwnd,(HMENU)IDCANCEL,instance,NULL);
+    ShowWindow(hwnd,SW_SHOW);SetFocus(s.edit);MSG message;
+    while(IsWindow(hwnd)&&IsWindowVisible(hwnd)){int status=GetMessageW(&message,NULL,0,0);
+        if(status<=0){if(status==0)PostQuitMessage((int)message.wParam);break;}
+        if(!IsDialogMessageW(hwnd,&message)){TranslateMessage(&message);DispatchMessageW(&message);}}
+    int result=0;
+    if(s.accepted&&IsWindow(s.edit)) {
+        int length=GetWindowTextLengthW(s.edit);WCHAR *value=calloc((size_t)length+1,sizeof(WCHAR));
+        if(value){GetWindowTextW(s.edit,value,length+1);result=WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,value,-1,output,(int)capacity,NULL,NULL)?1:-1;free(value);}
+        else result=-1;
+    }
+    if(IsWindow(hwnd))DestroyWindow(hwnd);if(owner&&IsWindow(owner)){EnableWindow(owner,TRUE);SetActiveWindow(owner);}return result;
+}
+
 #else
 int castor_choose_file(int save,const char *kind,char *output,size_t capacity){return -1;}
 int castor_review_markers(const uint8_t *rgba,int width,int height,float *rectangles){return -1;}
@@ -281,4 +325,7 @@ int castor_choose_option(const char *title,const char *options){return -1;}
 int castor_wait_work(const char *text,int (*poll)(void*),void *context){return -1;}
 int castor_preview_gif(const uint8_t *frames,int count,int width,int height,int fps){return -1;}
 int castor_open_url(const char *url){return -1;}
+int castor_edit_text(const char *title,const char *initial,int readonly,char *output,size_t capacity){return -1;}
+void castor_update_work_text(const char *text){}
+
 #endif

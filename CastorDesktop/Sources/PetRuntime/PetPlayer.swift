@@ -31,6 +31,8 @@ public final class PetPlayer {
     public var viewAngleXOverride: Float?
     public var viewAngleYOverride: Float?
     public let poseLimits: ValidatedPoseLimits
+    public var isSpeaking = false
+    public var behavior: MotionBehavior = .idle
     private var textureScaleBucket = 0
 
     // Pointer state for gaze and petting.
@@ -120,6 +122,8 @@ public final class PetPlayer {
 
     private func inputs(at time: Double) -> MotionInputs {
         var inputs = MotionInputs()
+        inputs.isSpeaking = isSpeaking
+        inputs.behavior = behavior
         if let point = lastPointer {
             inputs.pointer = Self.gazeTarget(imagePoint: point, headRect: headRect, imageSize: imageSize)
         }

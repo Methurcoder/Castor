@@ -157,3 +157,16 @@ swift run -c release pet-snapshot CastorPet.json frame 260 340   # writes frame-
   `UpdateLayeredWindow`, a 30 fps timer, drag, menu and Alt see-through.
 - `CStbImage` — [stb_image](https://github.com/nothings/stb) v2.30
   (public domain / MIT) for PNG decoding.
+
+## Windows conversation, settings and speech (implementation in progress)
+
+The native menu now exposes local chat, model/personality selection, display preferences,
+SAPI voices/reading, and microphone dictation with review before sending. Endpoints are
+loopback-only; the same CastorCore LLM clients, structured reply fallback and model metadata
+are used. Settings are kept outside executable versions and previous JSON is backed up.
+
+Brain/routing can use existing Codex/Claude Code sessions. Operation details are shown
+before per-request approval/rejection; cancelling releases pending approvals and interrupts
+the turn. Agent services may transmit content to their configured provider, explained in
+UI. Service authentication/helper GUI setup, camera and Neural TTS remain unfinished.
+Native speech, actor/Win32 interaction, approvals and dialogs still require Windows checks.

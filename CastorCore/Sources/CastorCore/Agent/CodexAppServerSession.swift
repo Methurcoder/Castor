@@ -4,7 +4,7 @@ import FoundationNetworking
 #endif
 import Observation
 
-public enum CodexJSONValue: Codable, Equatable, Sendable {
+public nonisolated enum CodexJSONValue: Codable, Equatable, Sendable {
     case string(String)
     case number(Double)
     case bool(Bool)
@@ -89,8 +89,8 @@ public enum CodexJSONValue: Codable, Equatable, Sendable {
     }
 }
 
-public struct CodexApprovalRequest: Identifiable, Equatable, Sendable {
-    public enum Kind: Equatable, Sendable {
+public nonisolated struct CodexApprovalRequest: Identifiable, Equatable, Sendable {
+    public nonisolated enum Kind: Equatable, Sendable {
         case command
         case fileChange
         case permissions
@@ -118,7 +118,7 @@ public struct CodexApprovalRequest: Identifiable, Equatable, Sendable {
     }
 }
 
-public enum CodexAppServerError: LocalizedError, Equatable {
+public nonisolated enum CodexAppServerError: LocalizedError, Equatable {
     case invalidServerURL
     case nonLoopbackServer
     case notConnected
@@ -132,7 +132,7 @@ public enum CodexAppServerError: LocalizedError, Equatable {
         case .invalidServerURL:
             "Enter a valid Codex App Server WebSocket URL."
         case .nonLoopbackServer:
-            "For safety, Castor only connects to Codex App Server on this Mac."
+            "For safety, Castor only connects to Codex App Server on this device."
         case .notConnected:
             "Codex App Server is not connected."
         case .malformedResponse:
@@ -165,7 +165,7 @@ public final class CodexAppServerSession {
     private var statusHandler: ((String) -> Void)?
     private var approvalHandler: ((CodexApprovalRequest?) -> Void)?
 
-    public static func isAllowedServerURL(_ value: String) -> Bool {
+    public nonisolated static func isAllowedServerURL(_ value: String) -> Bool {
         guard let url = URL(string: value),
               url.scheme == "ws" || url.scheme == "wss" else {
             return false

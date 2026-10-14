@@ -1,6 +1,6 @@
 import Foundation
 
-public struct OllamaModel: Codable, Equatable, Identifiable, Sendable {
+public nonisolated struct OllamaModel: Codable, Equatable, Identifiable, Sendable {
     public let name: String
     /// Parameter count reported by the provider; absent in older saved data.
     public let parameterSize: String?
@@ -48,8 +48,8 @@ public struct OllamaModel: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
-public struct OllamaChatMessage: Codable, Equatable, Sendable {
-    public enum Role: String, Codable, Sendable {
+public nonisolated struct OllamaChatMessage: Codable, Equatable, Sendable {
+    public nonisolated enum Role: String, Codable, Sendable {
         case system
         case user
         case assistant
@@ -68,7 +68,7 @@ public struct OllamaChatMessage: Codable, Equatable, Sendable {
     }
 }
 
-public struct OllamaReply: Equatable {
+public nonisolated struct OllamaReply: Equatable, Sendable {
     public let text: String
     public let motionState: MotionState
     public let speech: OllamaSpeechMetadata
@@ -80,7 +80,7 @@ public struct OllamaReply: Equatable {
     }
 }
 
-public enum OllamaSpeechEmotion: String, Codable, CaseIterable, Equatable, Sendable {
+public nonisolated enum OllamaSpeechEmotion: String, Codable, CaseIterable, Equatable, Sendable {
     case neutral
     case happy
     case sad
@@ -90,7 +90,7 @@ public enum OllamaSpeechEmotion: String, Codable, CaseIterable, Equatable, Senda
     case embarrassed
 }
 
-public struct OllamaSpeechMetadata: Equatable, Sendable {
+public nonisolated struct OllamaSpeechMetadata: Equatable, Sendable {
     public static let fallback = OllamaSpeechMetadata(
         emotion: .neutral,
         intensity: 0.5,
@@ -116,8 +116,8 @@ public struct OllamaSpeechMetadata: Equatable, Sendable {
     }
 }
 
-public enum OllamaResponseParser {
-    private struct SpeechPayload: Decodable {
+public nonisolated enum OllamaResponseParser: Sendable {
+    private nonisolated struct SpeechPayload: Decodable {
         let emotion: String?
         let intensity: Double?
         let speakingRate: Double?
@@ -139,7 +139,7 @@ public enum OllamaResponseParser {
         }
     }
 
-    private struct Payload: Decodable {
+    private nonisolated struct Payload: Decodable {
         let response: String?
         let message: String?
         let motionState: String?

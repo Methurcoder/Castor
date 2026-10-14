@@ -188,3 +188,24 @@ GIFは独自のローカルmedian-cut/LZW encoderで作成。384/320px 20fps、2
 MacのImageIOで乱数256色・2フレームのLZW幅拡張/辞書clear/色表を復号検査した。
 Mac上でDesktop32件、既存Arils270件の検査成功。Universal Releaseコンパイルも成功。
 WindowsのGUI/画像品質・動作速度、残りの会話/音声/設定/導入は引き続き未完成・未検証。
+
+## 一括実装の進行記録: Windows会話/音声/設定/agent
+
+共有リギング/GIFのWindows CIで見つかった残存CGImage参照を87a9e0dで修正。
+[CI 38536802963](https://github.com/Methurcoder/Castor/actions/runs/38536802963)で両OS32件とWin32 Releaseビルド成功。
+
+追加実装: DesktopPreferences/Store、DesktopConversation、WindowsのConversationFlow/VoiceFlow/AgentFlow。
+LM Studio/Ollamaの既存クライアントと構造化応答fallbackを再利用し、localhost以外へ転送しない。
+ネイティブ設定からモデル/性格/大きさ/不透明度/位置/首振り/自動視点/標準音声/Brain/ルーティングを編集。
+設定はdefaults overlayで旧JSONを読み、検証→旧設定backup→atomic更新。失敗/取消は既存設定を保持。
+標準SAPIの声を選択し、TTS、20秒上限のマイク認識→本人の確認/編集→送信を接続。
+音声認識/TTSはWindowsに導入済みのエンジン/音声を使い、モデル追加やPythonを要求しない。
+音声品質・認識言語/権限、実発声と口同期はWindows実機で確認する必要がある。
+
+Codex/Claude Code接続は既存MainActor sessionを再利用。通常会話を無断で外部へ送らず、
+明示Brain/auto-routing設定に従う。外部への送信情報を説明し、各操作に承認/拒否/全体取消を表示。
+取消はpending approvalの拒否・解放とturn中断へ接続。Windows側helper/本人認証のGUI導入はまだ必要。
+Swift actor処理は主dispatcher、Win32ウインドウは専用threadに置き、UIへはlock付きsnapshotを渡す。
+
+Mac Desktop36件、Core109件の検査成功。新規Win32/SAPI/agent GUIはWindowsコンパイル/実機検証待ち。
+カメラ/Neural TTS/MLモデル/helper梱包、手動リグ全編集、全Advanced、GUI導入などは継続作業。

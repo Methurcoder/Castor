@@ -3,7 +3,7 @@ import Foundation
 import FoundationNetworking
 #endif
 
-public struct LMStudioClient {
+public nonisolated struct LMStudioClient: Sendable {
     public static let defaultEndpoint = URL(string: "http://127.0.0.1:1234")!
     private static let logger = CastorLog(category: "LMStudio")
 
@@ -158,7 +158,7 @@ public struct LMStudioClient {
     }
 }
 
-public enum LMStudioClientError: LocalizedError {
+public nonisolated enum LMStudioClientError: LocalizedError {
     case invalidResponse
     case emptyResponse
     case httpError(statusCode: Int, message: String?)
@@ -178,7 +178,7 @@ public enum LMStudioClientError: LocalizedError {
     }
 }
 
-private struct LMStudioModelsResponse: Decodable {
+private nonisolated struct LMStudioModelsResponse: Decodable {
     struct Model: Decodable {
         let type: String
         let key: String
@@ -193,7 +193,7 @@ private struct LMStudioModelsResponse: Decodable {
     let models: [Model]
 }
 
-private struct LMStudioChatRequest: Encodable {
+private nonisolated struct LMStudioChatRequest: Encodable {
     let model: String
     let messages: [OllamaChatMessage]
     let stream: Bool
@@ -207,7 +207,7 @@ private struct LMStudioChatRequest: Encodable {
     }
 }
 
-private struct LMStudioResponseFormat: Encodable {
+private nonisolated struct LMStudioResponseFormat: Encodable {
     struct JSONSchema: Encodable {
         let name: String
         let strict: Bool
@@ -260,7 +260,7 @@ private struct LMStudioResponseFormat: Encodable {
     )
 }
 
-private enum LMStudioJSONValue: Encodable {
+private nonisolated enum LMStudioJSONValue: Encodable {
     case string(String)
     case number(Double)
     case bool(Bool)
@@ -279,15 +279,15 @@ private enum LMStudioJSONValue: Encodable {
     }
 }
 
-private struct LMStudioErrorPayload: Decodable {
+private nonisolated struct LMStudioErrorPayload: Decodable {
     let message: String
 }
 
-private struct LMStudioErrorEnvelope: Decodable {
+private nonisolated struct LMStudioErrorEnvelope: Decodable {
     let error: LMStudioErrorPayload
 }
 
-private struct LMStudioChatResponse: Decodable {
+private nonisolated struct LMStudioChatResponse: Decodable {
     struct Choice: Decodable {
         struct Message: Decodable { let content: String? }
         let message: Message
@@ -297,7 +297,7 @@ private struct LMStudioChatResponse: Decodable {
     let error: LMStudioErrorPayload?
 }
 
-private struct LMStudioChatStreamResponse: Decodable {
+private nonisolated struct LMStudioChatStreamResponse: Decodable {
     struct Choice: Decodable {
         struct Delta: Decodable { let content: String? }
         let delta: Delta

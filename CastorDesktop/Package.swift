@@ -13,6 +13,7 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../Arils"),
+        .package(path: "../CastorCore"),
     ],
     targets: [
         // stb_image (public domain / MIT), PNG decoding only.
@@ -23,7 +24,7 @@ let package = Package(
         // CPU rasterizer into a premultiplied BGRA canvas.
         .target(
             name: "PetRuntime",
-            dependencies: ["CStbImage", .product(name: "ArilsPortable", package: "Arils")],
+            dependencies: ["CStbImage", .product(name: "ArilsPortable", package: "Arils"), .product(name: "CastorCore", package: "CastorCore")],
             swiftSettings: [.unsafeFlags(["-Ounchecked"], .when(configuration: .debug))]
         ),
 
@@ -37,6 +38,7 @@ let package = Package(
                 .linkedLibrary("Gdi32", .when(platforms: [.windows])),
                 .linkedLibrary("Comdlg32", .when(platforms: [.windows])),
                 .linkedLibrary("Shell32", .when(platforms: [.windows])),
+                .linkedLibrary("Ole32", .when(platforms: [.windows])),
             ]
         ),
 

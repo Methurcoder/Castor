@@ -3,7 +3,7 @@ import Foundation
 import FoundationNetworking
 #endif
 
-public struct OllamaClient {
+public nonisolated struct OllamaClient: Sendable {
     public static let defaultEndpoint = URL(string: "http://127.0.0.1:11434")!
     private static let logger = CastorLog(category: "Ollama")
 
@@ -237,7 +237,7 @@ public struct OllamaClient {
     }
 }
 
-public enum OllamaClientError: LocalizedError {
+public nonisolated enum OllamaClientError: LocalizedError {
     case invalidResponse
     case emptyResponse
     case httpError(statusCode: Int, message: String?)
@@ -263,7 +263,7 @@ public enum OllamaClientError: LocalizedError {
     }
 }
 
-private struct TagsResponse: Decodable {
+private nonisolated struct TagsResponse: Decodable {
     struct Model: Decodable {
         struct Details: Decodable {
             let parameterSize: String?
@@ -280,7 +280,7 @@ private struct TagsResponse: Decodable {
     let models: [Model]
 }
 
-private struct ChatRequest: Encodable {
+private nonisolated struct ChatRequest: Encodable {
     let model: String
     let messages: [OllamaChatMessage]
     let stream: Bool
@@ -296,7 +296,7 @@ private struct ChatRequest: Encodable {
     }
 }
 
-private enum JSONValue: Encodable {
+private nonisolated enum JSONValue: Encodable {
     case string(String)
     case number(Double)
     case bool(Bool)
@@ -418,11 +418,11 @@ private enum JSONValue: Encodable {
     }
 }
 
-private struct ChatMessagePayload: Decodable {
+private nonisolated struct ChatMessagePayload: Decodable {
     let content: String?
 }
 
-private struct ChatStreamResponse: Decodable {
+private nonisolated struct ChatStreamResponse: Decodable {
     let message: ChatMessagePayload?
     let response: String?
     let done: Bool?
@@ -433,7 +433,7 @@ private struct ChatStreamResponse: Decodable {
     }
 }
 
-private struct ChatResponse: Decodable {
+private nonisolated struct ChatResponse: Decodable {
     let message: ChatMessagePayload?
     let response: String?
     let error: String?
@@ -443,6 +443,6 @@ private struct ChatResponse: Decodable {
     }
 }
 
-private struct ErrorResponse: Decodable {
+private nonisolated struct ErrorResponse: Decodable {
     let error: String
 }

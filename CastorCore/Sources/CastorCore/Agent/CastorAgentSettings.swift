@@ -55,7 +55,7 @@ public enum CastorBrain: String, CaseIterable, Identifiable {
     }
 }
 
-public enum CastorAgentApprovalRequest: Identifiable, Equatable, Sendable {
+public nonisolated enum CastorAgentApprovalRequest: Identifiable, Equatable, Sendable {
     case codex(CodexApprovalRequest)
     case claudeCode(ClaudeCodeApprovalRequest)
 
@@ -107,7 +107,7 @@ public struct CastorAgentPreferences: Equatable {
         }
     }
 
-    public static func promptNeedsExternalAgent(_ prompt: String) -> Bool {
+    public nonisolated static func promptNeedsExternalAgent(_ prompt: String) -> Bool {
         let normalized = prompt.lowercased()
         let japaneseSignals = [
             "ファイル", "フォルダ", "ターミナル", "コマンド", "実行して",

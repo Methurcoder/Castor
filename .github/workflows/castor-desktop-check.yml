@@ -1,9 +1,9 @@
 name: CastorDesktop checks
 on:
   pull_request:
-    paths: ["CastorDesktop/**", "Arils/**", "download/**", "scripts/prepare-castor-release.py", "scripts/tests/test_castor_distribution.py", ".github/workflows/castor-desktop-check.yml"]
+    paths: ["CastorDesktop/**", "Arils/**", "CastorCore/**", "download/**", "scripts/prepare-castor-release.py", "scripts/tests/test_castor_distribution.py", ".github/workflows/castor-desktop-check.yml"]
   push:
-    paths: ["CastorDesktop/**", "Arils/**", "download/**", "scripts/prepare-castor-release.py", "scripts/tests/test_castor_distribution.py", ".github/workflows/castor-desktop-check.yml"]
+    paths: ["CastorDesktop/**", "Arils/**", "CastorCore/**", "download/**", "scripts/prepare-castor-release.py", "scripts/tests/test_castor_distribution.py", ".github/workflows/castor-desktop-check.yml"]
   workflow_dispatch:
 permissions:
   contents: read

@@ -5,10 +5,11 @@ import Foundation
 import PetRuntime
 import WinSDK
 
-private class WindowsWorkCompletion {
+class WindowsWorkCompletion {
     let lock = NSLock()
     var finished = false
     var isFinished: Bool { lock.lock(); defer { lock.unlock() }; return finished }
+    func nativePoll() -> Int32 { isFinished ? 1 : 0 }
 }
 private final class WindowsWorkState<T>: WindowsWorkCompletion, @unchecked Sendable {
     private var result: Result<T, Error>?
@@ -60,6 +61,15 @@ enum WindowsRiggingFlow {
         return URL(fileURLWithPath: String(cString: path))
     }
 
+    static func text(title: String, value: String = "", readOnly: Bool = false) throws -> String? {
+        var output = [CChar](repeating: 0, count: 131072)
+        let status = title.withCString { title in value.withCString { value in output.withUnsafeMutableBufferPointer {
+            castor_edit_text(title, value, readOnly ? 1 : 0, $0.baseAddress, $0.count)
+        }}}
+        if status < 0 { throw FlowError.dialogFailed }
+        return status == 0 ? nil : String(cString: output)
+    }
+
     static func option(title: String, items: [String]) throws -> Int? {
         let result = title.withCString { title in items.joined(separator: "\n").withCString {
             castor_choose_option(title, $0)
@@ -78,7 +88,7 @@ enum WindowsRiggingFlow {
         let opaque = Unmanaged.passUnretained(state).toOpaque()
         let status = text.withCString { castor_wait_work($0, { context in
             guard let context else { return 1 }
-            return Unmanaged<WindowsWorkCompletion>.fromOpaque(context).takeUnretainedValue().isFinished ? 1 : 0
+            return Unmanaged<WindowsWorkCompletion>.fromOpaque(context).takeUnretainedValue().nativePoll()
         }, opaque) }
         if status <= 0 {
             task.cancel()

@@ -5,7 +5,7 @@ import os
 
 /// Minimal logging facade. Uses `os.Logger` on Apple platforms (every message is public, matching
 /// the previous call sites) and falls back to standard error elsewhere.
-public struct CastorLog: Sendable {
+public nonisolated struct CastorLog: Sendable {
     public static let defaultSubsystem = "dev.pomegranate.prototype"
 
     #if canImport(os)

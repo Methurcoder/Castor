@@ -9,6 +9,8 @@
 
 #if os(Windows)
 import Foundation
+import CastorCore
+import Dispatch
 import ArilsPlayer
 import PetRuntime
 import WinSDK
@@ -46,6 +48,11 @@ private let menuQuality2D: UINT_PTR = 5
 private let menuQuality3D: UINT_PTR = 6
 private let menuNewQuality: UINT_PTR = 7
 private let menuGIF: UINT_PTR = 8
+private let menuSettings: UINT_PTR = 9
+private let menuChat: UINT_PTR = 10
+private let menuClearChat: UINT_PTR = 11
+private let menuListen: UINT_PTR = 12
+private let wmExitSizeMove: UINT = 0x0232
 private let frameMilliseconds: UINT = 33
 
 private func wide(_ string: String) -> [WCHAR] {
@@ -66,6 +73,8 @@ private final class PetWindow {
     static var shared: PetWindow?
 
     var player: PetPlayback
+    var preferences: DesktopPreferences
+    var chatHistory: [OllamaChatMessage] = []
     var currentAsset: PetAsset
     var canvas: PetCanvas
     var hwnd: HWND?
@@ -76,9 +85,10 @@ private final class PetWindow {
     var isSeeingThrough = false
     let startTicks = GetTickCount64()
 
-    init(player: PetPlayback, asset: PetAsset, width: Int, height: Int) {
+    init(player: PetPlayback, asset: PetAsset, preferences: DesktopPreferences, width: Int, height: Int) {
         self.player = player
         self.currentAsset = asset
+        self.preferences = preferences
         canvas = PetCanvas(width: width, height: height)
     }
 
@@ -99,8 +109,10 @@ private final class PetWindow {
         // Bottom-right of the primary work area.
         var workArea = RECT()
         _ = SystemParametersInfoW(spiGetWorkArea, 0, &workArea, 0)
-        let x = workArea.right - Int32(canvas.width) - 28
-        let y = workArea.bottom - Int32(canvas.height) - 12
+        let virtualLeft = GetSystemMetrics(76), virtualTop = GetSystemMetrics(77)
+        let virtualRight = virtualLeft + GetSystemMetrics(78), virtualBottom = virtualTop + GetSystemMetrics(79)
+        let x = max(virtualLeft - Int32(canvas.width) + 32, min(preferences.positionX ?? (workArea.right - Int32(canvas.width) - 28), virtualRight - 32))
+        let y = max(virtualTop - Int32(canvas.height) + 32, min(preferences.positionY ?? (workArea.bottom - Int32(canvas.height) - 12), virtualBottom - 32))
 
         let title = wide("Castor")
         hwnd = className.withUnsafeBufferPointer { name in
@@ -151,8 +163,38 @@ private final class PetWindow {
         setSeeingThrough(altHeld && inside)
 
         player.pointerMoved(to: local, canvasWidth: canvas.width, canvasHeight: canvas.height, time: time)
-        player.render(into: &canvas, time: time, opacity: isSeeingThrough ? 0.22 : 1)
+        player.render(into: &canvas, time: time, opacity: preferences.petOpacity * (isSeeingThrough ? 0.22 : 1))
         present()
+    }
+
+    func applyPreferences(_ updated: DesktopPreferences) throws {
+        // Allocate before releasing the current bitmap, so failure keeps the old view.
+        let scale = Double(GetDpiForSystem()) / 96 * updated.scale
+        let width = Int(260 * scale), height = Int(340 * scale)
+        var info = BITMAPINFO(); info.bmiHeader.biSize = DWORD(MemoryLayout<BITMAPINFOHEADER>.size)
+        info.bmiHeader.biWidth = LONG(width); info.bmiHeader.biHeight = -LONG(height)
+        info.bmiHeader.biPlanes = 1; info.bmiHeader.biBitCount = 32
+        var newBits: UnsafeMutableRawPointer?
+        guard let newBitmap = CreateDIBSection(screenDC, &info, 0, &newBits, nil, 0), let newBits else { throw WindowsRiggingFlow.FlowError.dialogFailed }
+        do { try DesktopPreferenceStore(root: WindowsRiggingFlow.directory).save(updated) }
+        catch { _ = DeleteObject(newBitmap); throw error }
+        _ = SelectObject(memoryDC, newBitmap)
+        if let bitmap { _ = DeleteObject(bitmap) }
+        bitmap = newBitmap; bits = newBits; canvas = PetCanvas(width: width, height: height)
+        preferences = updated
+        let mode = player.presentationMode
+        player = PetPlayback(asset: currentAsset, wideHeadMovement: updated.widerHeadMovement)
+        player.presentationMode = mode; player.automaticTurn = updated.automaticTurn
+        _ = SetWindowPos(hwnd, nil, 0, 0, Int32(width), Int32(height), 0x0002 | 0x0004)
+        tick()
+    }
+    func rememberPosition() {
+        var frame = RECT()
+        if GetWindowRect(hwnd, &frame) {
+            preferences.positionX = frame.left; preferences.positionY = frame.top
+            do { try DesktopPreferenceStore(root: WindowsRiggingFlow.directory).save(preferences) }
+            catch { showError("位置を保存できませんでした。既存の保存設定は保持しています。\n\n\(error.localizedDescription)") }
+        }
     }
 
     func setSeeingThrough(_ on: Bool) {
@@ -180,7 +222,7 @@ private final class PetWindow {
     func showMenu() {
         guard let hwnd, let menu = CreatePopupMenu() else { return }
         for (id, title) in [(menuNew, "1枚から新しいペットを作る"), (menuNewQuality, "2枚からQualityを作る"),
-                            (menuOpen, "保存したペットを開く"), (menuExport, "Arils形式で書き出す"), (menuGIF, "GIFを作ってXで共有")] {
+                            (menuOpen, "保存したペットを開く"), (menuExport, "Arils形式で書き出す"), (menuGIF, "GIFを作ってXで共有"), (menuChat, "ローカル会話"), (menuSettings, "設定・モデル・性格"), (menuClearChat, "会話履歴を消す"), (menuListen, "マイクから会話する（確認して送信）")] {
             let title = wide(title)
             _ = title.withUnsafeBufferPointer { AppendMenuW(menu, mfString, id, $0.baseAddress) }
         }
@@ -218,8 +260,7 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
         if command == UInt16(menuQuit) { _ = DestroyWindow(hwnd) }
         else if let window = PetWindow.shared {
             // Keep the existing pet intact while dialogs are open or if creation fails.
-            _ = KillTimer(hwnd, 1)
-            defer { _ = SetTimer(hwnd, 1, frameMilliseconds, nil) }
+            // Native modal UI pumps messages; the existing pet keeps animating.
             do {
                 if command == UInt16(menuQuality2D) { window.player.presentationMode = .twoD }
                 if command == UInt16(menuQuality3D) { window.player.presentationMode = .threeD }
@@ -228,6 +269,20 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
                     if case var .quality(quality) = asset { quality.preferredPresentationMode = window.player.presentationMode; asset = .quality(quality) }
                     try WindowsRiggingFlow.shareGIF(asset: asset)
                 }
+                if command == UInt16(menuSettings), let updated = try WindowsConversationFlow.settings(window.preferences) { try window.applyPreferences(updated) }
+                if command == UInt16(menuChat) || command == UInt16(menuListen) {
+                    var prompt = ""
+                    if command == UInt16(menuListen) {
+                        guard let heard = try WindowsVoiceFlow.recognize() else { return 0 }
+                        prompt = heard
+                    }
+                    if let reply = try WindowsConversationFlow.chat(preferences: window.preferences, history: &window.chatHistory, initialPrompt: prompt), window.preferences.systemTTSEnabled {
+                        window.player.front.isSpeaking = true; window.player.side?.isSpeaking = true
+                        defer { window.player.front.isSpeaking = false; window.player.side?.isSpeaking = false }
+                        try WindowsVoiceFlow.speak(reply, voice: window.preferences.systemVoice)
+                    }
+                }
+                if command == UInt16(menuClearChat) { window.chatHistory.removeAll() }
                 var asset: PetAsset?
                 if command == UInt16(menuNew) { asset = try WindowsRiggingFlow.startNewPet(quality: false) }
                 if command == UInt16(menuNewQuality) { asset = try WindowsRiggingFlow.startNewPet(quality: true) }
@@ -245,11 +300,15 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
                 }
                 if let asset {
                     window.currentAsset = asset
-                    window.player = PetPlayback(asset: asset, wideHeadMovement: CommandLine.arguments.contains("--wide-head"))
+                    window.player = PetPlayback(asset: asset, wideHeadMovement: window.preferences.widerHeadMovement)
+                    window.player.automaticTurn = window.preferences.automaticTurn
                     window.tick()
                 }
             } catch { showError("処理を完了できませんでした。既存のペットと保存データは保持しています。\n\n\(error.localizedDescription)") }
         }
+        return 0
+    case wmExitSizeMove:
+        PetWindow.shared?.rememberPosition()
         return 0
     case wmDestroy:
         PostQuitMessage(0)
@@ -261,6 +320,7 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
 
 // MARK: - Entry
 
+private func runNativeApplication() {
 _ = SetProcessDPIAware()
 let arguments = CommandLine.arguments.dropFirst()
 let wideHeadMovement = arguments.contains("--wide-head")
@@ -278,10 +338,15 @@ do {
     showError("ペットを開けませんでした。既存データは変更していません。\n\n\(error.localizedDescription)")
     exit(1)
 }
-let player = PetPlayback(asset: asset, wideHeadMovement: wideHeadMovement)
+var preferences = DesktopPreferences()
+do { preferences = try DesktopPreferenceStore(root: WindowsRiggingFlow.directory).load() }
+catch { showError("設定を読み込めませんでした。元の設定ファイルは保持し、この起動では既定値を使います。\n\n\(error.localizedDescription)") }
+if wideHeadMovement { preferences.widerHeadMovement = true }
+let player = PetPlayback(asset: asset, wideHeadMovement: preferences.widerHeadMovement)
+player.automaticTurn = preferences.automaticTurn
 
-let scale = Double(GetDpiForSystem()) / 96
-private let window = PetWindow(player: player, asset: asset, width: Int(260 * scale), height: Int(340 * scale))
+let scale = Double(GetDpiForSystem()) / 96 * preferences.scale
+let window = PetWindow(player: player, asset: asset, preferences: preferences, width: Int(260 * scale), height: Int(340 * scale))
 PetWindow.shared = window
 guard window.create() else {
     showError("Could not create the pet window.")
@@ -293,6 +358,16 @@ while GetMessageW(&message, nil, 0, 0) {
     _ = TranslateMessage(&message)
     _ = DispatchMessageW(&message)
 }
+
+}
+
+// MainActor services use the primary dispatcher. Win32 windows and all shell
+// state stay on one dedicated native thread; callbacks never mutate it elsewhere.
+DispatchQueue.global(qos: .userInteractive).async {
+    runNativeApplication()
+    exit(0)
+}
+dispatchMain()
 
 #else
 print("CastorPet is the Windows desktop pet. On macOS use the Castor app; to check the runtime here, run pet-snapshot.")
