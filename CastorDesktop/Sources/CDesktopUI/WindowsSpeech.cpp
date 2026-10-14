@@ -84,7 +84,7 @@ int castor_system_recognize(char *output,size_t capacity,int (*cancelled)(void*)
         DWORD wait=WaitForSingleObject(reco->GetNotifyEventHandle(),100);
         if(wait==WAIT_TIMEOUT)continue;
         if(wait!=WAIT_OBJECT_0){hr=E_FAIL;break;}
-        SPEVENT event={0};ULONG fetched=0;
+        SPEVENT event={};ULONG fetched=0;
         while(reco->GetEvents(1,&event,&fetched)==S_OK&&fetched) {
             if(event.eEventId==SPEI_RECOGNITION&&event.lParam) {
                 ISpRecoResult *recognized=(ISpRecoResult*)event.lParam;WCHAR *text=nullptr;
