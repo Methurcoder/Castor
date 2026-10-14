@@ -267,3 +267,14 @@ DesktopInstallerはoptional componentsへ拡張。helperは本体と別selection
 SHA256・ZIP・Python同梱確認・OS由来属性・旧data保持を共用する。SDK/license/署名/clean-deviceの
 helper梱包、Qwen実モデル推論と品質、実音声のWindows/Mac確認は未完了。
 前段の手動rig/翻訳/画像decoderはWindows/Mac CI38573850761で成功。最新Neural差分は別途CI予定。
+
+## AI顔マーカー共有化 (2026-10-15)
+
+MacのAI提案parser/normalized geometry/promptをPetRuntimeへ移動し、Windowsの任意提案に接続。
+LM Studio/Ollamaのlocal経路と、画像ごとの送信確認があるCodex/Claudeの独立sessionを使う。
+提案後もnative marker editorで確認・補正し、本人の確定まで保存しない。失敗時は手動へ戻る。
+Mac既存AI契約の単体検査とDesktop54件成功。実サービス/VLM/外部accountとの提案品質は未検証。
+
+Neural helperのPyInstaller GUI・Python/CPU Torch等の梱包と、build環境PATHを除いた依存ロードは
+Windows CI38581333220のneural-helper jobで成功。モデル取得/実生成/実発声/実機GUIの証明ではない。
+同じrunでWindows取消固定検査の後処理順序競合が判明し修正した。最新CIを再実行する。

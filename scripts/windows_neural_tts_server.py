@@ -226,6 +226,8 @@ class SpeechHandler(BaseHTTPRequestHandler):
             self.send_header('Server-Timing', 'tts;dur=%.0f' % ((time.monotonic()-started)*1000))
             self.end_headers(); self.wfile.write(data)
         except InterruptedError:
+            if began:
+                self.server.finish(request_id); began = False
             self.json_reply(409, {'error': 'Cancelled'})
         except (ValueError, KeyError, TypeError):
             self.json_reply(400, {'error': 'Invalid request or unsupported model'})

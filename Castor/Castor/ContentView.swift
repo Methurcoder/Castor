@@ -1,3 +1,4 @@
+import PetRuntime
 import AppKit
 import SwiftUI
 import CastorCore

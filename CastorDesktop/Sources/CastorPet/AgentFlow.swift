@@ -9,7 +9,14 @@ import PetRuntime
     static let codex = CodexAppServerSession()
     static let claude = ClaudeCodeBridgeSession()
 }
-private final class WindowsAgentWork: WindowsWorkCompletion, @unchecked Sendable {
+final class WindowsAgentWork: WindowsWorkCompletion, @unchecked Sendable {
+    private let resolver:@MainActor @Sendable(CastorAgentApprovalRequest,Bool) async throws -> Void
+    init(resolver:@escaping @MainActor @Sendable(CastorAgentApprovalRequest,Bool) async throws -> Void = {request,approved in
+        switch request {
+        case let .codex(value):try await AgentSessions.codex.resolveApproval(value,approved:approved)
+        case let .claudeCode(value):try await AgentSessions.claude.resolveApproval(value,approved:approved)
+        }
+    }) {self.resolver=resolver;super.init()}
     var result: Result<String, Error>?
     var status = "接続中..."
     var approval: CastorAgentApprovalRequest?
@@ -33,10 +40,7 @@ private final class WindowsAgentWork: WindowsWorkCompletion, @unchecked Sendable
                 if decision == 2 { cancel(); return 1 }
                 Task { @MainActor in
                     do {
-                        switch request {
-                        case let .codex(value): try await AgentSessions.codex.resolveApproval(value, approved: decision == 0)
-                        case let .claudeCode(value): try await AgentSessions.claude.resolveApproval(value, approved: decision == 0)
-                        }
+                        try await self.resolver(request,decision == 0)
                     } catch { self.cancel(); self.complete(.failure(error)) }
                 }
             } catch { cancel(); complete(.failure(error)); return 1 }

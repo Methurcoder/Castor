@@ -1,4 +1,5 @@
 #if os(Windows)
+import CastorCore
 import ArilsPlayer
 import CDesktopUI
 import Foundation
@@ -131,7 +132,16 @@ enum WindowsRiggingFlow {
 
     static func review(_ prepared: PreparedPortableRig) throws -> PortableFaceLayout? {
         let image = prepared.preview
-        let layout = LayeredRigging.markers(prepared.face.layout)
+        var layout = LayeredRigging.markers(prepared.face.layout)
+        let preferences=(try? DesktopPreferenceStore(root:directory).load()) ?? DesktopPreferences()
+        do {
+            if let suggestion=try WindowsAIAlignmentFlow.suggest(prepared,preferences:preferences) {
+                _ = try text(title:preferences.displayLanguage == .japanese ? "AIの候補です。次の画像上で確認・補正してください。":"AI suggestion. Review and adjust it on the next image.",value:suggestion.explanation,readOnly:true)
+                layout=LayeredRigging.markers(suggestion.layout)
+            }
+        } catch {
+            _ = try text(title:preferences.displayLanguage == .japanese ? "AI候補を取得できませんでした。手動で補正できます。":"AI suggestion unavailable. You can adjust manually.",value:error.localizedDescription,readOnly:true)
+        }
         var rectangles = layout.rectangles.flatMap { [Float($0.minX), Float($0.minY), Float($0.width), Float($0.height)] }
         let status = image.rgba.withUnsafeBufferPointer { pixels in rectangles.withUnsafeMutableBufferPointer {
             castor_review_markers(pixels.baseAddress, Int32(image.width), Int32(image.height), $0.baseAddress)
