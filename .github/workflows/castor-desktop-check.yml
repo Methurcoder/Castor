@@ -6,6 +6,14 @@ on:
     paths: ["CastorDesktop/**", "Arils/**", "CastorCore/**", "download/**", "scripts/prepare-castor-release.py", "scripts/build-castor-setup.py", "scripts/build-castor-app.py", "scripts/windows_neural_tts_server.py", "scripts/build-castor-neural-helper.py", "scripts/tests/**", ".github/workflows/castor-desktop-check.yml"]
   workflow_dispatch:
     inputs:
+      build_release_candidate:
+        description: Build Windows app and Qwen helper candidate artifacts (no Release)
+        type: boolean
+        default: false
+      candidate_version:
+        description: Candidate version
+        type: string
+        default: v0.3.0-beta.1
       build_neural_helper:
         description: Build the optional Windows GUI helper without downloading models
         type: boolean
@@ -85,3 +93,57 @@ jobs:
           $report = Get-Content $result | ConvertFrom-Json
           if (-not $report.ready -or $report.modelsLoaded) { throw 'Invalid dependency-check result.' }
           $report | ConvertTo-Json
+
+  windows-qwen-candidate:
+    if: github.event_name == 'workflow_dispatch' && inputs.build_release_candidate
+    runs-on: windows-2022
+    timeout-minutes: 40
+    env:
+      CASTOR_CANDIDATE_VERSION: ${{ inputs.candidate_version }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: compnerd/gha-setup-swift@bbae8ce86bac5a3449f3992b3d88bc4ca25f2057
+        with:
+          swift-version: swift-6.4.1-release
+          swift-build: 6.4.1-RELEASE
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Test shared rigging and installer behavior
+        run: swift test --package-path CastorDesktop --scratch-path "$env:RUNNER_TEMP/CastorDesktop"
+      - name: Test packaging and speech contracts without model downloads
+        run: |
+          python scripts/tests/test_castor_distribution.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/tests/test_windows_neural_tts.py
+      - name: Build app and GUI setup with required runtime DLLs
+        run: python scripts/build-castor-app.py --output "$env:RUNNER_TEMP/CastorApp" --scratch "$env:RUNNER_TEMP/CastorAppBuild"
+      - name: Prepare isolated CPU speech build environment
+        run: |
+          python -m venv "$env:RUNNER_TEMP/NeuralBuild"
+          $py = "$env:RUNNER_TEMP/NeuralBuild/Scripts/python.exe"
+          & $py -m pip install --disable-pip-version-check "torch==2.9.1" "torchaudio==2.9.1" --index-url https://download.pytorch.org/whl/cpu
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $py -m pip install --disable-pip-version-check "qwen-tts==0.1.1" "pyinstaller==6.22.3"
+      - name: Bundle optional speech GUI without weights
+        run: python scripts/build-castor-neural-helper.py --python "$env:RUNNER_TEMP/NeuralBuild/Scripts/python.exe" --output "$env:RUNNER_TEMP/CastorSpeech"
+      - name: Load packaged dependencies with developer PATH removed
+        run: |
+          $env:PATH = "$env:SystemRoot/System32;$env:SystemRoot"
+          Remove-Item Env:PYTHONHOME -ErrorAction SilentlyContinue
+          Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
+          $report = "$env:RUNNER_TEMP/speech-check.json"
+          $process = Start-Process "$env:RUNNER_TEMP/CastorSpeech/CastorNeuralTTS.exe" -ArgumentList '--self-check', $report -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Packaged speech dependency check failed' }
+          $check = Get-Content $report | ConvertFrom-Json
+          if (-not $check.ready -or $check.modelsLoaded) { throw 'Invalid dependency report' }
+      - name: Prepare local candidate ZIPs and integrity manifest
+        run: |
+          python scripts/prepare-castor-release.py --version "$env:CASTOR_CANDIDATE_VERSION" --output "$env:RUNNER_TEMP/CastorCandidate" --windows-x86-64 "$env:RUNNER_TEMP/CastorApp" --setup-windows-x86-64 "$env:RUNNER_TEMP/CastorAppBuild/gui-setup-candidate" --neural-helper-windows-x86-64 "$env:RUNNER_TEMP/CastorSpeech"
+      - name: Save candidate for real device verification (not a public Release)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: windows-qwen-candidate
+          path: ${{ runner.temp }}/CastorCandidate/
+          retention-days: 7
+          if-no-files-found: error

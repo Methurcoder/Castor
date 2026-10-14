@@ -1,10 +1,13 @@
 # Third-Party Notices
 
 Castor optionally supports locally running Neural TTS and a local LaMa
-image-inpainting helper. The following software and model weights are not
-bundled with the Castor source code or application. They are installed or
-downloaded separately into the user's local environment when the optional setup
-is performed.
+image-inpainting helper. Neural speech and LaMa model weights are not bundled with the source or app.
+Mac distribution candidates include the four compiled anime face/segmentation models listed below, with their applicable license texts. Optional speech helper
+candidates bundle Python and inference libraries; their applicable license texts
+and dependency inventory are included under the helper's licenses directory.
+Other optional helpers remain separate. Models are obtained only during optional
+local preparation. The candidate's actual inventory takes precedence over a
+general list of optional integrations.
 
 ## Qwen3-TTS
 

@@ -62,6 +62,16 @@ enum WindowsRiggingFlow {
         return URL(fileURLWithPath: String(cString: path))
     }
 
+    static func startSpeechHelper() throws {
+        guard let local=ProcessInfo.processInfo.environment["LOCALAPPDATA"],!local.isEmpty else {throw FlowError.missingApplicationData}
+        let root=URL(fileURLWithPath:local).appendingPathComponent("Programs/Castor/CastorHelpers/NeuralTTS")
+        guard let app=try DesktopInstaller.selected(root:root),app.component == .neuralTTS,app.platform=="windows_x86_64" else {
+            throw FlowError.dialogFailed
+        }
+        let executable=root.appendingPathComponent(app.folder).appendingPathComponent("CastorNeuralTTS.exe")
+        guard FileManager.default.fileExists(atPath:executable.path),
+              executable.path.withCString({castor_launch_file($0)})>0 else {throw FlowError.dialogFailed}
+    }
     static func openSetup() throws {
         var buffer=[WCHAR](repeating:0,count:32768)
         let length=buffer.withUnsafeMutableBufferPointer {GetModuleFileNameW(nil,$0.baseAddress,DWORD($0.count))}

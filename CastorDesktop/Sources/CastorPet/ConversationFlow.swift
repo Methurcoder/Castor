@@ -100,8 +100,8 @@ enum WindowsConversationFlow {
             case 21:
                 let ja=language == .japanese
                 guard let action=try WindowsRiggingFlow.option(title:"Neural TTS",items:ja ?
-                    ["使用する / 使用しない","接続先（localhost）","モデルID","声ID","声の指示","言語（auto/ja/en等）","速度","モデルを準備","導入GUIを開く"] :
-                    ["Enable / Disable","Endpoint (localhost)","Model ID","Voice ID","Voice instruction","Language (auto/ja/en)","Speed","Prepare model","Open setup"]) else {continue}
+                    ["使用する / 使用しない","接続先（localhost）","モデルID","声ID","声の指示","言語（auto/ja/en等）","速度","モデルを準備","導入GUIを開く","Qwen音声helperを開く"] :
+                    ["Enable / Disable","Endpoint (localhost)","Model ID","Voice ID","Voice instruction","Language (auto/ja/en)","Speed","Prepare model","Open setup","Open Qwen speech helper"]) else {continue}
                 switch action {
                 case 0:edited.neuralTTSEnabled.toggle();if edited.neuralTTSEnabled {edited.systemTTSEnabled=true}
                 case 1:if let value=try WindowsRiggingFlow.text(title:"Neural TTS URL",value:edited.neuralEndpoint) {
@@ -117,6 +117,7 @@ enum WindowsConversationFlow {
                         try await NeuralSpeechTransport(endpoint:URL(string:settings.neuralEndpoint)!).preload(model:settings.neuralModel)
                     })
                 case 8:try WindowsRiggingFlow.openSetup()
+                case 9:try WindowsRiggingFlow.startSpeechHelper()
                 default:break
                 }
             case 22: return edited

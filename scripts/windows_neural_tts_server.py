@@ -9,6 +9,7 @@ import io
 import json
 import math
 import os
+import platform
 import threading
 import time
 import uuid
@@ -43,7 +44,9 @@ def validated_payload(value):
         raise ValueError('Invalid voice instruction')
     if not isinstance(voice, str) or not voice or len(voice) > 256:
         raise ValueError('Invalid speaker')
-    if not isinstance(language, str) or language.lower() not in LANGUAGES:
+    aliases = {name.lower(): code for code, name in LANGUAGES.items()}
+    if isinstance(language, str): language = aliases.get(language.lower(), language.lower())
+    if not isinstance(language, str) or language not in LANGUAGES:
         raise ValueError('Unsupported language code')
     if isinstance(speed, bool) or not isinstance(speed, (int, float)) or not math.isfinite(speed) or not .5 <= speed <= 2:
         raise ValueError('Speed must be 0.5–2')
@@ -133,13 +136,73 @@ class QwenBackend:
             return result
 
 
+class MLXBackend(QwenBackend):
+    """Apple Silicon backend; same bounded local HTTP/GUI contract as Windows."""
+    def _load(self, alias):
+        if alias not in (DEFAULT_MODEL, MODELS[DEFAULT_MODEL]):
+            raise ValueError('This MLX helper supports Qwen 0.6B CustomVoice')
+        if self.model is None:
+            os.environ['HF_HUB_DISABLE_IMPLICIT_TOKEN'] = '1'
+            from mlx_audio.tts.utils import load_model
+            self.loading = True
+            try:
+                self.model = load_model(DEFAULT_MODEL)
+                self.canonical = DEFAULT_MODEL
+            finally:
+                self.loading = False
+        self.alias = alias
+
+    def speech(self, payload, cancelled):
+        with self.lock:
+            import numpy as np
+            if cancelled.is_set(): raise InterruptedError('Cancelled')
+            self._load(payload['model'])
+            if cancelled.is_set(): raise InterruptedError('Cancelled')
+            chunks = []; sample_count = 0; rate = None
+            # Short streaming yields permit cancellation between generation chunks.
+            # The HTTP response remains one in-memory WAV, never a stored recording.
+            for result in self.model.generate(text=payload['input'], voice=payload['voice'],
+                    lang_code=LANGUAGES[payload['lang_code']], instruct=None,
+                    max_tokens=2048, stream=True, streaming_interval=.25, verbose=False):
+                if cancelled.is_set(): raise InterruptedError('Cancelled')
+                samples = np.asarray(result.audio, dtype=np.float32)
+                current_rate = int(result.sample_rate)
+                if samples.ndim != 1 or not np.isfinite(samples).all() or not 8000 <= current_rate <= 192000:
+                    raise ValueError('Invalid generated waveform')
+                if rate is not None and rate != current_rate: raise ValueError('Mixed sample rates')
+                rate = current_rate; sample_count += len(samples)
+                if sample_count > rate * 300: raise ValueError('Generated waveform exceeds limit')
+                chunks.append(samples)
+            if not chunks or not sample_count: raise ValueError('No generated waveform')
+            audio = np.concatenate(chunks)
+            if payload['speed'] != 1:
+                from scipy.signal import resample_poly
+                # A bounded playback-rate change, equivalent to the standard voice
+                # rate setting. Do not claim pitch-preserving time stretching.
+                audio = resample_poly(audio, 1000, round(payload['speed'] * 1000))
+            if cancelled.is_set(): raise InterruptedError('Cancelled')
+            output = io.BytesIO()
+            with wave.open(output, 'wb') as writer:
+                writer.setnchannels(1); writer.setsampwidth(2); writer.setframerate(rate)
+                writer.writeframes((np.clip(audio, -1, 1) * 32767).round().astype('<i2').tobytes())
+            value = output.getvalue()
+            if len(value) > 64 * 1024 * 1024: raise ValueError('Generated WAV exceeds limit')
+            return value
+
+
+def default_backend():
+    if platform.system() == 'Darwin' and platform.machine().lower() in ('arm64', 'aarch64'):
+        return MLXBackend()
+    return QwenBackend()
+
+
 class SpeechServer(ThreadingHTTPServer):
     daemon_threads = True
     def __init__(self, address=('127.0.0.1', 8000), backend=None):
         if address[0] != '127.0.0.1':
             raise ValueError('Only IPv4 loopback binding is supported')
         super().__init__(address, SpeechHandler)
-        self.backend = backend or QwenBackend()
+        self.backend = backend or default_backend()
         self.jobs = {}; self.jobs_lock = threading.Lock(); self.pending = {}
         self.limit = threading.BoundedSemaphore(4)
 
@@ -194,10 +257,10 @@ class SpeechHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if not self.allowed(): return
-        if self.path != '/v1/audio/status': self.send_error(404); return
+        if self.path not in ('/', '/v1/audio/status'): self.send_error(404); return
         backend = self.server.backend
         self.json_reply(200, {'status': 'loading' if backend.loading else 'ready' if backend.alias else 'idle',
-            'model': backend.alias, 'models': list(MODELS), 'instructionControl': bool(backend.canonical and '1.7B' in backend.canonical)})
+            'model': backend.alias, 'models': [DEFAULT_MODEL, MODELS[DEFAULT_MODEL]] if isinstance(backend, MLXBackend) else list(MODELS), 'instructionControl': bool(backend.canonical and '1.7B' in backend.canonical)})
 
     def do_POST(self):
         if not self.allowed(): return
@@ -245,7 +308,7 @@ class SpeechHandler(BaseHTTPRequestHandler):
         pass  # No conversation, image, local path or recording logs.
 
 
-def launch_gui():
+def launch_gui(start_on_open=False):
     import locale
     import tkinter as tk
     from tkinter import messagebox
@@ -297,7 +360,9 @@ def launch_gui():
     tk.Button(root, text=label('音声helperを起動', 'Start speech helper'), command=start, width=38).pack(pady=4)
     tk.Button(root, text=label('モデルを取得・準備（任意）', 'Download / prepare model (optional)'), command=prepare, width=38).pack(pady=4)
     tk.Button(root, text=label('停止して閉じる', 'Stop and close'), command=close, width=38).pack(pady=4)
-    root.protocol('WM_DELETE_WINDOW', close); root.mainloop()
+    root.protocol('WM_DELETE_WINDOW', close)
+    if start_on_open: root.after(0, start)
+    root.mainloop()
 
 
 def dependency_check(output):
@@ -308,10 +373,11 @@ def dependency_check(output):
     from pathlib import Path
     result = {'ready': False, 'modelsLoaded': False, 'system': platform.system()}
     try:
-        for name in ('torch','qwen_tts','numpy','librosa','soundfile','tkinter','accelerate','safetensors'):
+        modules = ('mlx','mlx_audio','scipy','numpy','tkinter','transformers') if isinstance(default_backend(), MLXBackend) else ('torch','qwen_tts','numpy','librosa','soundfile','tkinter','accelerate','safetensors')
+        for name in modules:
             importlib.import_module(name)
         result['ready'] = True
-        result['versions'] = {name: importlib.metadata.version(name) for name in ('torch','qwen-tts','numpy','transformers')}
+        result['versions'] = {name: importlib.metadata.version(name) for name in (('mlx-audio','mlx','numpy','transformers') if 'mlx' in modules else ('torch','qwen-tts','numpy','transformers'))}
     except Exception as error:
         result['errorType'] = type(error).__name__
     with Path(output).open('x', encoding='utf-8') as file: json.dump(result,file)
@@ -323,4 +389,4 @@ if __name__ == '__main__':
     if len(sys.argv) == 3 and sys.argv[1] == '--self-check':
         sys.exit(0 if dependency_check(sys.argv[2]) else 1)
     elif '--headless' in sys.argv: SpeechServer().serve_forever()
-    else: launch_gui()
+    else: launch_gui(start_on_open='--start' in sys.argv)

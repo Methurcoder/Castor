@@ -18,6 +18,7 @@ int castor_wait_work(const char *text, int (*poll)(void *), void *context);
 /* 0 cancel, 1 save, 2 save and open X; premultiplied BGRA preview frames. */
 int castor_preview_gif(const uint8_t *frames, int count, int width, int height, int fps);
 int castor_launch_file(const char *path);
+int castor_recycle_directory(const char *path);
 int castor_open_microphone_settings(void);
 int castor_open_url(const char *url);
 int castor_edit_text(const char *title, const char *initial, int readonly, char *output, size_t capacity);

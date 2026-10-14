@@ -1,3 +1,4 @@
+import ArilsPlayer
 import Foundation
 import Testing
 @testable import PetRuntime
@@ -45,4 +46,15 @@ import Testing
     let bad = Data("{\"scale\":1e100}".utf8); try bad.write(to: file)
     #expect(throws: (any Error).self) { try DesktopPreferenceStore(root: root).load() }
     #expect(try Data(contentsOf: file) == bad)
+}
+
+
+@Test func qualityModePreferenceSurvivesRestartWithoutOverridingOldArchives() throws {
+    let old = try JSONDecoder().decode(DesktopPreferences.self, from: Data("{}".utf8))
+    #expect(old.qualityPresentationMode == nil)
+    for mode in [QualityPresentationMode.twoD, .threeD] {
+        var preferences = old; preferences.qualityPresentationMode = mode
+        let encoded = try JSONEncoder().encode(preferences)
+        #expect(try JSONDecoder().decode(DesktopPreferences.self, from: encoded).qualityPresentationMode == mode)
+    }
 }

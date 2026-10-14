@@ -319,7 +319,7 @@ struct CastorSettingsView: View {
             VoiceSettingsPane(language: language, neuralSpeechSettings: neuralSpeechSettings)
         } else {
             ProgressView()
-                .frame(height: 220)
+                .frame(minHeight: 390)
         }
     }
 
@@ -682,6 +682,7 @@ private struct InputSettingsPane: View {
 private struct VoiceSettingsPane: View {
     let language: SettingsDisplayLanguage
     @Bindable var neuralSpeechSettings: NeuralSpeechSettings
+    @State private var speechLauncher = NeuralSpeechLauncher.shared
 
     private func S(_ key: String, _ arguments: [String: String] = [:]) -> String {
         CastorSettingsStrings.text(key, language: language, arguments: arguments)
@@ -700,6 +701,35 @@ private struct VoiceSettingsPane: View {
                     }
                 }
 
+                HStack {
+                    Button(language == .japanese ? "Qwen音声を起動" : "Start Qwen speech") {
+                        Task { await speechLauncher.start() }
+                    }
+                    .disabled(speechLauncher.isLaunching)
+                    Button(language == .japanese ? "停止" : "Stop") { speechLauncher.stop() }
+                        .disabled(!speechLauncher.canStop || neuralSpeechSettings.isPreparingQwen)
+                }
+                if speechLauncher.launchFailed {
+                    Label(language == .japanese
+                        ? "音声helperを開けませんでした。導入GUIで取得・修復してください。"
+                        : "Could not open the speech helper. Install or repair it using Setup.",
+                        systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                } else if speechLauncher.didOpenHelper {
+                    Text(language == .japanese
+                        ? "音声helperの画面を開きました。停止中なら、その画面で起動してください。"
+                        : "Speech helper opened. If it is stopped, start it in that window.")
+                        .foregroundStyle(.secondary)
+                }
+                Button(language == .japanese ? "Qwenモデルを取得・準備" : "Download / prepare Qwen model") {
+                    neuralSpeechSettings.prepareQwen()
+                }
+                .disabled(neuralSpeechSettings.isPreparingQwen)
+                Text(language == .japanese
+                    ? "先に音声helperを起動してください。初回は大きなモデルを取得するため、時間と空き容量が必要です。準備できるまでは標準音声を使います。"
+                    : "Start the speech helper first. The initial large model download needs time and free space. System speech remains available while it is not ready.")
+                    .font(.caption).foregroundStyle(.secondary)
+
                 Button(language == .japanese ? "Neural TTSの導入GUIを開く":"Open Neural TTS setup") {
                     if let setup=Bundle.main.url(forResource:"CastorSetup",withExtension:"app") {
                         NSWorkspace.shared.open(setup)
@@ -717,10 +747,13 @@ private struct VoiceSettingsPane: View {
                         ProgressView()
                             .controlSize(.small)
                         Text(S("settings.voice.preparing"))
+                        Button(language == .japanese ? "キャンセル" : "Cancel") { neuralSpeechSettings.cancelPreparation() }
                             .foregroundStyle(.secondary)
                     }
                 } else if let error = neuralSpeechSettings.preparationError {
-                    Label(error, systemImage: "exclamationmark.triangle")
+                    Label(language == .japanese
+                        ? "Qwenを準備できませんでした。音声helperの起動、接続、空き容量を確認して再試行してください。"
+                        : error, systemImage: "exclamationmark.triangle")
                         .foregroundStyle(.orange)
                 }
             } footer: {
@@ -728,7 +761,7 @@ private struct VoiceSettingsPane: View {
             }
         }
         .formStyle(.grouped)
-        .frame(height: 220)
+        .frame(minHeight: 390)
     }
 }
 

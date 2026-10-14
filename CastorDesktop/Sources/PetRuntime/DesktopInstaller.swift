@@ -49,8 +49,9 @@ public struct DesktopInstalledApp: Codable, Sendable {
     public let platform: String
     public let folder: String
     public let component:DesktopHelperComponent?
-    public init(version:String,platform:String,folder:String,component:DesktopHelperComponent?=nil) {
-        self.version=version;self.platform=platform;self.folder=folder;self.component=component
+    public let files:[String:String]?
+    public init(version:String,platform:String,folder:String,component:DesktopHelperComponent?=nil,files:[String:String]?=nil) {
+        self.version=version;self.platform=platform;self.folder=folder;self.component=component;self.files=files
     }
 }
 public enum DesktopInstaller {
@@ -87,13 +88,23 @@ public enum DesktopInstaller {
         try Task.checkCancellation()
         return(release,try JSONDecoder().decode(DesktopDownloadManifest.self,from:manifest))
     }
-    public static func selected(root: URL) throws -> DesktopInstalledApp? {
-        let record=root.appendingPathComponent("CurrentInstall.json")
-        guard FileManager.default.fileExists(atPath:record.path) else { return nil }
-        let app=try JSONDecoder().decode(DesktopInstalledApp.self,from:Data(contentsOf:record))
-        guard DesktopDownloadManifest.validVersion(app.version),["macos_arm64","macos_x86_64","windows_x86_64"].contains(app.platform),
-              validFolder(app),!app.folder.contains("/"),!app.folder.contains("\\"),!app.folder.contains(":"),app.folder != ".",app.folder != ".." else { throw InstallError.invalidManifest }
+    public static func metadataRoot(root:URL)->URL {root.appendingPathComponent(".CastorInstaller",isDirectory:true)}
+    public static func selectionFile(root:URL)->URL {metadataRoot(root:root).appendingPathComponent("CurrentInstall.json")}
+    private static func previousFile(root:URL)->URL {metadataRoot(root:root).appendingPathComponent("PreviousInstall.json")}
+    private static func readRecord(_ file:URL) throws -> DesktopInstalledApp? {
+        guard FileManager.default.fileExists(atPath:file.path) else {return nil}
+        guard !(try file.resourceValues(forKeys:[.isSymbolicLinkKey]).isSymbolicLink ?? false) else {throw InstallError.invalidManifest}
+        let data=try Data(contentsOf:file);guard data.count<=4_194_304 else {throw InstallError.invalidManifest}
+        let app=try JSONDecoder().decode(DesktopInstalledApp.self,from:data)
+        guard DesktopDownloadManifest.validVersion(app.version),["macos_arm64","macos_x86_64","windows_x86_64"].contains(app.platform),validFolder(app),
+              !app.folder.contains("/"),!app.folder.contains("\\"),!app.folder.contains(":"),app.folder != ".",app.folder != ".." else {throw InstallError.invalidManifest}
         return app
+    }
+    public static func selected(root:URL) throws -> DesktopInstalledApp? {
+        let file=selectionFile(root:root)
+        if FileManager.default.fileExists(atPath:file.path) {return try readRecord(file)}
+        // Old receipts remain readable and are never overwritten by migration.
+        return try readRecord(root.appendingPathComponent("CurrentInstall.json"))
     }
     /// Extract/stamp are native adapters. Stage and target share a volume; an
     /// incomplete/cancelled replacement never touches the previous installation.
@@ -103,11 +114,22 @@ public enum DesktopInstaller {
         let prefix=base+"-repair-"
         return app.folder.hasPrefix(prefix) && UUID(uuidString:String(app.folder.dropFirst(prefix.count))) != nil
     }
-    private static func lock(root: URL) throws -> UnsafeMutableRawPointer {
-        try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true)
-        let file=root.appendingPathComponent("Install.lock")
-        guard let lease=file.path.withCString({castor_install_lock($0)}) else { throw InstallError.busy }
-        return lease
+    private struct Lease {
+        let primary:UnsafeMutableRawPointer
+        let legacy:UnsafeMutableRawPointer?
+        func release() {castor_install_unlock(primary);if let legacy {castor_install_unlock(legacy)}}
+    }
+    private static func lock(root:URL) throws -> Lease {
+        let manager=FileManager.default,meta=metadataRoot(root:root)
+        try manager.createDirectory(at:meta,withIntermediateDirectories:true)
+        guard !(try meta.resourceValues(forKeys:[.isSymbolicLinkKey]).isSymbolicLink ?? false) else {throw InstallError.invalidManifest}
+        let old=root.appendingPathComponent("Install.lock")
+        let legacy=manager.fileExists(atPath:old.path) ? old.path.withCString {castor_install_lock($0)}:nil
+        if manager.fileExists(atPath:old.path),legacy==nil {throw InstallError.busy}
+        guard let primary=meta.appendingPathComponent("Install.lock").path.withCString({castor_install_lock($0)}) else {
+            if let legacy {castor_install_unlock(legacy)};throw InstallError.busy
+        }
+        return Lease(primary:primary,legacy:legacy)
     }
     public static func download(_ url: URL, to destination: URL) async throws {
         let session=URLSession(configuration:.ephemeral);defer { session.invalidateAndCancel() }
@@ -124,7 +146,8 @@ public enum DesktopInstaller {
                                download: @Sendable (URL,URL) async throws -> Void = { try await DesktopInstaller.download($0,to:$1) }) async throws -> DesktopInstalledApp {
         let(package,url)=try manifest.package(platform:platform,release:release,component:component)
         try Task.checkCancellation()
-        let lease=try lock(root:root);defer { castor_install_unlock(lease) }
+        let lease=try lock(root:root);defer { lease.release() }
+        let previous=try selected(root:root)
         let folder="\(component?.stem ?? "Castor")-\(manifest.version)-\(platform)"+(repair ? "-repair-\(UUID().uuidString)" : "")
         let target=root.appendingPathComponent(folder,isDirectory:true)
         guard !FileManager.default.fileExists(atPath:target.path) else { throw InstallError.existing }
@@ -152,7 +175,7 @@ public enum DesktopInstaller {
                   files.contains(where:{$0.lowercased().hasPrefix("python") && $0.lowercased().hasSuffix(".dll")}) else {throw InstallError.missingApp}
         }
         try stamp(unpacked)
-        let installed=DesktopInstalledApp(version:manifest.version,platform:platform,folder:folder,component:component)
+        let installed=DesktopInstalledApp(version:manifest.version,platform:platform,folder:folder,component:component,files:try fileFingerprint(unpacked))
         let metadata=try JSONEncoder().encode(installed)
         try metadata.write(to:unpacked.appendingPathComponent("CastorInstall.json"),options:.withoutOverwriting)
         try Task.checkCancellation()
@@ -160,11 +183,55 @@ public enum DesktopInstaller {
         // At this point a fully recoverable new app exists; failure to select
         // it retains the old selection and all user data.
         try Task.checkCancellation()
-        try metadata.write(to:root.appendingPathComponent("CurrentInstall.json"),options:.atomic)
+        if let previous {try JSONEncoder().encode(previous).write(to:previousFile(root:root),options:.atomic)}
+        try metadata.write(to:selectionFile(root:root),options:.atomic)
+        let legacy=root.appendingPathComponent("CurrentInstall.json")
+        if let old=try? readRecord(legacy),old.folder==previous?.folder,old.platform==previous?.platform,old.component==previous?.component {
+            // PreviousInstall now preserves this exact old receipt.
+            try? FileManager.default.removeItem(at:legacy)
+        }
         return installed
     }
+    private static func fileFingerprint(_ folder:URL) throws -> [String:String] {
+        guard let items=FileManager.default.enumerator(at:folder,includingPropertiesForKeys:[.isRegularFileKey,.isSymbolicLinkKey]) else {throw InstallError.missingApp}
+        var files=[String:String]()
+        for case let item as URL in items {
+            let flags=try item.resourceValues(forKeys:[.isRegularFileKey,.isSymbolicLinkKey])
+            guard flags.isSymbolicLink != true else {throw InstallError.invalidManifest}
+            if flags.isRegularFile == true {
+                let base=folder.standardizedFileURL.resolvingSymlinksInPath().pathComponents
+                let full=item.standardizedFileURL.resolvingSymlinksInPath().pathComponents
+                guard Array(full.prefix(base.count))==base else {throw InstallError.invalidManifest}
+                let relative=full.dropFirst(base.count).joined(separator:"/")
+                if relative=="CastorInstall.json" || relative==".DS_Store" {continue}
+                guard files.count<20_000 else {throw InstallError.invalidManifest}
+                files[relative]=try PackageIntegrity.sha256(file:item)
+            }
+        }
+        return files
+    }
+    /// Recycle only unchanged, inventoried managed versions. Unknown/modified
+    /// folders, active selection and the previous selection remain untouched.
+    public static func pruneOldVersions(root:URL,trash:(URL)throws->Void) throws -> Int {
+        let lease=try lock(root:root);defer {lease.release()}
+        guard let current=try selected(root:root) else {return 0}
+        let previous=try readRecord(previousFile(root:root))
+        let keep=Set([current.folder,previous?.folder].compactMap {$0})
+        var count=0
+        for folder in try FileManager.default.contentsOfDirectory(at:root,includingPropertiesForKeys:[.isDirectoryKey,.isSymbolicLinkKey]) {
+            guard !keep.contains(folder.lastPathComponent),folder.lastPathComponent.hasPrefix((current.component?.stem ?? "Castor")+"-") else {continue}
+            let flags=try folder.resourceValues(forKeys:[.isDirectoryKey,.isSymbolicLinkKey])
+            guard flags.isDirectory==true,flags.isSymbolicLink != true,
+                  let old=try? readRecord(folder.appendingPathComponent("CastorInstall.json")),
+                  old.folder==folder.lastPathComponent,old.platform==current.platform,old.component==current.component,
+                  let inventory=old.files,!inventory.isEmpty,
+                  let actual=try? fileFingerprint(folder),actual==inventory else {continue}
+            try trash(folder);if !FileManager.default.fileExists(atPath:folder.path) {count+=1}
+        }
+        return count
+    }
     public static func uninstall(root: URL) throws {
-        let lease=try lock(root:root);defer { castor_install_unlock(lease) }
+        let lease=try lock(root:root);defer { lease.release() }
         guard let app=try selected(root:root) else { return }
         let folder=root.appendingPathComponent(app.folder,isDirectory:true)
         let marker=folder.appendingPathComponent("CastorInstall.json")
@@ -172,6 +239,7 @@ public enum DesktopInstaller {
         guard own.folder==app.folder,own.platform==app.platform,own.version==app.version,own.component==app.component,
               !((try folder.resourceValues(forKeys:[.isSymbolicLinkKey])).isSymbolicLink ?? false) else { throw InstallError.invalidManifest }
         try FileManager.default.removeItem(at:folder)
-        try FileManager.default.removeItem(at:root.appendingPathComponent("CurrentInstall.json"))
+        let record=selectionFile(root:root)
+        try FileManager.default.removeItem(at:FileManager.default.fileExists(atPath:record.path) ? record:root.appendingPathComponent("CurrentInstall.json"))
     }
 }

@@ -224,7 +224,11 @@ private final class LauncherDelegate: NSObject, NSApplicationDelegate {
     /// Claude Code installer). GUI apps start with a minimal PATH.
     private static func loginShellPath() -> String? {
         let shell = getpwuid(getuid()).flatMap { String(validatingCString: $0.pointee.pw_shell) } ?? "/bin/zsh"
-        guard let output = run(shell, ["-l", "-i", "-c", "printf 'PATH=%s\\n' \"$PATH\""], timeout: 8)?.output else {
+        // fish exposes PATH as a list; joining explicitly preserves colons.
+        let command = URL(fileURLWithPath: shell).lastPathComponent == "fish"
+            ? #"printf 'PATH=%s\n' (string join : $PATH)"#
+            : #"printf 'PATH=%s\n' "$PATH""#
+        guard let output = run(shell, ["-l", "-i", "-c", command], timeout: 8)?.output else {
             return nil
         }
         return AgentLauncherSupport.path(fromEnvironmentOutput: output)

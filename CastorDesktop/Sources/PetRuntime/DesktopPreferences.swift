@@ -1,3 +1,4 @@
+import ArilsPlayer
 import CastorCore
 import Foundation
 
@@ -24,6 +25,7 @@ public struct DesktopPreferences: Codable, Equatable, Sendable {
     public var personality = "穏やかで少し不器用なデスクトップの相棒。日本語で短く自然に会話する。"
     public var widerHeadMovement = false
     public var automaticTurn = true
+    public var qualityPresentationMode:QualityPresentationMode?
     public var evasionEnabled = false
     public var evasionStyle: EvasionStyle = .calm
     public var petOpacity: Float = 1
@@ -70,6 +72,7 @@ public struct DesktopPreferences: Codable, Equatable, Sendable {
         evasionEnabled = try values.decodeIfPresent(Bool.self, forKey: .evasionEnabled) ?? evasionEnabled
         evasionStyle = try values.decodeIfPresent(EvasionStyle.self, forKey: .evasionStyle) ?? evasionStyle
         automaticTurn = try values.decodeIfPresent(Bool.self, forKey: .automaticTurn) ?? automaticTurn
+        qualityPresentationMode = try values.decodeIfPresent(QualityPresentationMode.self,forKey:.qualityPresentationMode)
         petOpacity = try values.decodeIfPresent(Float.self, forKey: .petOpacity) ?? petOpacity
         scale = try values.decodeIfPresent(Double.self, forKey: .scale) ?? scale
         positionX = try values.decodeIfPresent(Int32.self, forKey: .positionX)
@@ -85,6 +88,7 @@ public struct DesktopPreferences: Codable, Equatable, Sendable {
         neuralSpeed = try values.decodeIfPresent(Double.self,forKey:.neuralSpeed) ?? neuralSpeed
     }
     private enum Keys: String, CodingKey {
+        case qualityPresentationMode
         case neuralTTSEnabled,neuralEndpoint,neuralModel,neuralVoice,neuralInstruction,neuralLanguage,neuralSpeed
         case displayLanguage, buttonDodgeEnabled, microphoneEnabled, microphoneSetupCompleted
         case selectedBrain, externalBrain, automaticRouting, codexEndpoint, claudeEndpoint, workspacePath
@@ -94,6 +98,7 @@ public struct DesktopPreferences: Codable, Equatable, Sendable {
     }
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: Keys.self)
+        try c.encodeIfPresent(qualityPresentationMode,forKey:.qualityPresentationMode)
         try c.encode(neuralTTSEnabled,forKey:.neuralTTSEnabled);try c.encode(neuralEndpoint,forKey:.neuralEndpoint)
         try c.encode(neuralModel,forKey:.neuralModel);try c.encode(neuralVoice,forKey:.neuralVoice)
         try c.encode(neuralInstruction,forKey:.neuralInstruction);try c.encode(neuralLanguage,forKey:.neuralLanguage)

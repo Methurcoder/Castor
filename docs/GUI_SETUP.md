@@ -84,3 +84,48 @@ Macの既存MLX helperは維持します。新しいQwen backendの0.6Bは指示
 loopbackのWAVを検査してWindows標準の音声deviceへ再生し、取消で停止します。
 Qwen backendの実モデル生成・速度・声の品質・依存DLL/license・開発環境なしのGUI起動は未検証です。
 GUI/helper builderと固定データ検査だけで、全機能parityを完成したとは扱いません。
+
+
+## Qwen GUI起動の配布候補 (2026-10-15)
+
+今回の公開準備ではUI刷新を保留し、Qwen 3 TTSを優先します。
+Mac Voiceに起動・停止・明示的なモデル取得/準備・取消を追加しました。
+設定を開く、Qwenを選ぶ、通常の発話を始めるだけではモデルを取りません。
+準備できない場合は既存のOS標準音声へ戻します。
+
+Apple SiliconではMLX 0.6B CustomVoiceを使う同梱Python GUIを用意します。
+WindowsのGUI/CPU backendとHTTP・取消・サイズ制限を共有し、既存Macの言語名とstatus endpointも保持します。
+Mac配布候補はhelperをResourcesへ同梱可能です。別途導入したhelperはApplicationsの
+CastorNeuralTTS.app入口を作り、VoiceからLaunch Services経由で開きます。
+同名の無関係なappは上書きせず、OSのquarantine・安全確認は解除しません。
+
+モデル取得の取消は取得/読込の処理が返るまで停止完了しない場合があります。
+音声生成は短いchunk間で取消を確認し、音声はWAVをメモリで渡します。
+MLX版の速度変更は再生速度変更であり、音程を維持する声質加工とは扱いません。
+モデルの実読み上げ・GUI・梱包後の依存ロード結果は検査後に追記します。
+現在、正式なDeveloper ID署名・公証用の証明書は未確認で、ローカル候補は開発署名です。
+
+
+## 配布監査への対応 (2026-10-15)
+
+Mac本体のビルドとZIP梱包は、AnimeFaceFeatures / AnimeFaceBoxHead / AnimeFaceLandmarks /
+AnimeSegmentationの4つのcompiled modelを必須にします。無い、空、必要なweight/MILファイルが欠ける候補は停止します。
+開発用ビルドのfallbackと配布の条件を分けます。モデルの存在検査だけを顔マーカーの精度保証とは扱いません。
+Windows向けCore ML代替の品質検証は別途未完了です。
+
+導入GUIはOSの優先言語から日本語/Englishを選び、確認・状態・完了・失敗を両言語で表示します。
+helper削除は補助アプリだけを対象とし、モデルcache・ペット・会話設定を保持します。
+未署名/開発署名のMac候補はquarantineが付くため初回にブロックされます。
+導入GUI自身、本体、helperそれぞれを開いた後、システム設定 → プライバシーとセキュリティ →
+このまま開く（System Settings → Privacy & Security → Open Anyway）で本人が許可します。
+ランチャーが安全確認を解除する方式ではありません。正式署名/公証は未完了です。
+
+管理メタデータは配置先の隠しフォルダ .CastorInstaller に保存します。旧selection recordは読込互換を持ち、
+更新成功時だけ隠しfolderへ移します。旧lockは同時操作防止を保ったままFinderで非表示にします。
+旧版整理は現在版と1つ前を保持し、receiptとファイル指紋が一致するそれ以前だけをOSごみ箱へ送ります。
+指紋のない旧版、変更されたfolder、未知のfolder、Macで起動中の版は保持します。
+整理に失敗しても新しい導入とペット・設定は保持します。OSのごみ箱動作の実機確認は継続中です。
+
+Mac Apple Siliconで梱包後の音声helperのGUI起動・停止画面、モデル準備と実モデルの日本語音声を確認しました。
+Ono_Anna / Japaneseで24kHz・3.12秒・無音でないPCM WAVを生成し、OS音声出力で再生しました。
+これは一文の生成/再生確認であり、音声の品質全般、長文・多言語・初回ネット取得・Windowsの実発声を保証しません。

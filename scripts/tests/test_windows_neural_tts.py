@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import threading
 import unittest
+from unittest.mock import patch
 import urllib.error
 import urllib.request
 import uuid
@@ -64,6 +65,19 @@ class NeuralServerTests(unittest.TestCase):
                         {'input':'ok','lang_code':'invalid'},{'input':'ok','response_format':'mp3'}]:
             with self.assertRaises(ValueError): TTS.validated_payload(payload)
         self.assertEqual(TTS.validated_payload({'input':'hello','lang_code':'JA'})['lang_code'],'ja')
+    def test_mac_status_and_language_names_remain_compatible(self):
+        with urllib.request.urlopen(self.base+'/') as response:
+            self.assertEqual(json.load(response)['status'],'idle')
+        for name, code in [('Japanese','ja'),('English','en'),('Auto','auto')]:
+            self.assertEqual(TTS.validated_payload({'input':'hello','lang_code':name})['lang_code'], code)
+    def test_backend_selection_has_no_model_download(self):
+        with patch.object(TTS.platform,'system',return_value='Darwin'), patch.object(TTS.platform,'machine',return_value='arm64'):
+            backend = TTS.default_backend()
+            self.assertIsInstance(backend,TTS.MLXBackend); self.assertIsNone(backend.model)
+        with patch.object(TTS.platform,'system',return_value='Windows'):
+            self.assertNotIsInstance(TTS.default_backend(),TTS.MLXBackend)
+        with self.assertRaises(ValueError): TTS.MLXBackend()._load('arbitrary/model')
+
     def test_server_cannot_bind_external_interface(self):
         with self.assertRaises(ValueError): TTS.SpeechServer(('0.0.0.0',0),FakeBackend())
 

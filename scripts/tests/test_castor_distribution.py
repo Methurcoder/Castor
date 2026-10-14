@@ -30,6 +30,11 @@ class DistributionTests(unittest.TestCase):
         executable = self.mac/'Contents/MacOS/Castor'
         executable.write_bytes(struct.pack('<II', 0xfeedfacf, 0x0100000c))
         executable.chmod(0o755)
+        from castor_model_contract import required_app_models
+        for model in required_app_models(self.mac):
+            (model/'weights').mkdir(parents=True)
+            for name in ('coremldata.bin','model.mil','weights/weight.bin'):
+                (model/name).write_bytes(b'compiled-model fixture; structural check only')
         self.windows = self.base/'windows'
         self.windows.mkdir()
         data = bytearray(128)
@@ -47,6 +52,28 @@ class DistributionTests(unittest.TestCase):
     def package(self):
         release.prepare(self.output, 'local-test', {'macos_arm64': self.mac, 'windows_x86_64': self.windows})
         return json.loads((self.output/'castor-downloads.json').read_text())
+
+    def test_mac_distribution_requires_all_four_complete_models(self):
+        from castor_model_contract import required_app_models
+        models=required_app_models(self.mac)
+        for missing in models:
+            backup=missing.with_name(missing.name+".backup")
+            missing.rename(backup)
+            try:
+                with self.assertRaises(ValueError):
+                    release.prepare(self.output,'missing-model',{'macos_arm64':self.mac})
+                self.assertFalse(self.output.exists())
+            finally:
+                backup.rename(missing)
+        models[0].joinpath('weights/weight.bin').write_bytes(b'')
+        with self.assertRaises(ValueError):
+            release.prepare(self.output,'empty-model',{'macos_arm64':self.mac})
+        self.assertFalse(self.output.exists())
+
+    def test_source_model_preflight_rejects_fresh_checkout(self):
+        from castor_model_contract import require_source_models
+        with self.assertRaisesRegex(ValueError,'Required compiled model'):
+            require_source_models(self.base/'fresh-checkout')
 
     def test_optional_neural_helper_has_separate_manifest_hash_and_payload(self):
         helper=self.base/'helper';helper.mkdir()

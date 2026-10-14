@@ -12,6 +12,10 @@ import struct
 import tempfile
 import zipfile
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from castor_model_contract import require_source_models, require_app_models
+
 ROOT = Path(__file__).resolve().parents[1]
 PLATFORMS = ('macos_arm64', 'macos_x86_64', 'windows_x86_64')
 LICENSES = ('LICENSE', 'THIRD_PARTY_NOTICES.md')
@@ -71,6 +75,7 @@ def prepare(output, version, apps, setups=None, neural_helpers=None):
         if platform.startswith('macos'):
             if source.name != 'Castor.app':
                 raise ValueError('Expected Castor.app.')
+            require_app_models(source)
             info = plistlib.loads((source/'Contents/Info.plist').read_bytes())
             if info.get('CFBundleExecutable') != 'Castor':
                 raise ValueError('Unexpected macOS app executable.')

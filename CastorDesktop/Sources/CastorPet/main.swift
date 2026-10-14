@@ -242,6 +242,11 @@ private final class PetWindow {
         present()
     }
 
+    func setQualityMode(_ mode:QualityPresentationMode) throws {
+        var updated=preferences;updated.qualityPresentationMode=mode
+        if automaticPreferenceSaveAllowed {try DesktopPreferenceStore(root:WindowsRiggingFlow.directory).save(updated)}
+        preferences=updated;player.presentationMode=mode
+    }
     func applyPreferences(_ updated: DesktopPreferences) throws {
         // Allocate before releasing the current bitmap, so failure keeps the old view.
         let scale = Double(GetDpiForSystem()) / 96 * updated.scale
@@ -262,7 +267,7 @@ private final class PetWindow {
         castor_set_ui_language(updated.displayLanguage == .japanese ? 1 : 0)
         let mode = player.presentationMode
         player = PetPlayback(asset: currentAsset, wideHeadMovement: updated.widerHeadMovement)
-        player.presentationMode = mode; player.automaticTurn = updated.automaticTurn
+        player.presentationMode = updated.qualityPresentationMode ?? mode; player.automaticTurn = updated.automaticTurn
         _ = SetWindowPos(hwnd, nil, 0, 0, Int32(width), Int32(height), 0x0002 | 0x0004)
         tick()
     }
@@ -348,8 +353,8 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
             // Keep the existing pet intact while dialogs are open or if creation fails.
             // Native modal UI pumps messages; the existing pet keeps animating.
             do {
-                if command == UInt16(menuQuality2D) { window.player.presentationMode = .twoD }
-                if command == UInt16(menuQuality3D) { window.player.presentationMode = .threeD }
+                if command == UInt16(menuQuality2D) { try window.setQualityMode(.twoD) }
+                if command == UInt16(menuQuality3D) { try window.setQualityMode(.threeD) }
                 if command == UInt16(menuGIF) {
                     var asset = window.currentAsset
                     if case var .quality(quality) = asset { quality.preferredPresentationMode = window.player.presentationMode; asset = .quality(quality) }
@@ -398,6 +403,7 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
                     window.currentAsset = asset
                     window.player = PetPlayback(asset: asset, wideHeadMovement: window.preferences.widerHeadMovement)
                     window.player.automaticTurn = window.preferences.automaticTurn
+                    window.player.presentationMode = window.preferences.qualityPresentationMode ?? window.player.presentationMode
                     window.tick()
                 }
             } catch { showError("処理を完了できませんでした。既存のペットと保存データは保持しています。\n\n\(error.localizedDescription)") }
@@ -442,6 +448,7 @@ do {
 }
 let player = PetPlayback(asset: asset, wideHeadMovement: preferences.widerHeadMovement)
 player.automaticTurn = preferences.automaticTurn
+player.presentationMode = preferences.qualityPresentationMode ?? player.presentationMode
 
 let scale = Double(GetDpiForSystem()) / 96 * preferences.scale
 let window = PetWindow(player: player, asset: asset, preferences: preferences, width: Int(260 * scale), height: Int(340 * scale))

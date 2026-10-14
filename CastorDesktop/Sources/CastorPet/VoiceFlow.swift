@@ -30,6 +30,7 @@ enum WindowsVoiceFlow {
             _ = try WindowsRiggingFlow.work(text:preferences.displayLanguage == .japanese ?
                 "Neural TTSで生成・再生しています。キャンセルで停止します。":"Generating and playing Neural TTS. Cancel to stop.",operation:{
                 let transport=try NeuralSpeechTransport(endpoint:URL(string:preferences.neuralEndpoint)!)
+                guard try await transport.isModelReady(model:preferences.neuralModel) else {throw VoiceError.unavailable}
                 let payload=NeuralSpeechPayload(model:preferences.neuralModel,input:text,instruct:preferences.neuralInstruction,
                     voice:preferences.neuralVoice,speed:preferences.neuralSpeed,langCode:preferences.neuralLanguage)
                 let wav=try WavePCM(data:await transport.audio(for:payload))

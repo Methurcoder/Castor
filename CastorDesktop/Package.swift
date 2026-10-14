@@ -10,6 +10,7 @@ let package = Package(
         .library(name: "CastorDesktopRuntime", targets: ["PetRuntime"]),
         .executable(name: "CastorPet", targets: ["CastorPet"]),
         .executable(name: "CastorSetup", targets: ["CastorSetup"]),
+        .executable(name: "CastorNeuralTTS", targets: ["CastorNeuralTTS"]),
         .executable(name: "pet-snapshot", targets: ["PetSnapshot"]),
         .executable(name: "pet-rig", targets: ["PetRig"]),
     ],
@@ -58,6 +59,8 @@ let package = Package(
                 .linkedLibrary("Comdlg32", .when(platforms: [.windows])),
                 .linkedLibrary("Shell32", .when(platforms: [.windows])),
                 .linkedLibrary("Ole32", .when(platforms: [.windows]))]),
+
+        .executableTarget(name: "CastorNeuralTTS", dependencies: [.product(name: "CastorCore", package: "CastorCore")]),
 
         // Renders a few frames of a pet to PPM images, for checking the
         // runtime on any platform without a window.

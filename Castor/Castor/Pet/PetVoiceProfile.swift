@@ -332,43 +332,34 @@ enum NeuralVoiceEngineStore {
 @Observable
 final class NeuralSpeechSettings {
     var voiceEngine: NeuralVoiceEngine {
-        didSet {
-            NeuralVoiceEngineStore.selected = voiceEngine
-            if voiceEngine == .qwen {
-                preloadQwen()
-            }
-        }
+        didSet { NeuralVoiceEngineStore.selected = voiceEngine }
     }
     private(set) var isPreparingQwen = false
     private(set) var preparationError: String?
+    @ObservationIgnored private var preparationTask: Task<Void, Never>?
 
-    init() {
-        voiceEngine = NeuralVoiceEngineStore.selected
-        if voiceEngine == .qwen {
-            preloadQwen()
-        }
-    }
+    init() { voiceEngine = NeuralVoiceEngineStore.selected }
+    func refresh() { voiceEngine = NeuralVoiceEngineStore.selected }
 
-    func refresh() {
-        voiceEngine = NeuralVoiceEngineStore.selected
-    }
-
-    private func preloadQwen() {
-        guard !isPreparingQwen else {
-            return
-        }
+    /// Model acquisition is explicitly requested in Voice, never by opening Settings.
+    func prepareQwen() {
+        guard !isPreparingQwen else { return }
         isPreparingQwen = true
         preparationError = nil
-
-        Task {
+        preparationTask = Task {
+            defer { isPreparingQwen = false; preparationTask = nil }
             do {
                 try await NeuralSpeechClient.preloadQwen()
+                voiceEngine = .qwen
+            } catch is CancellationError {
+                preparationError = nil
             } catch {
-                preparationError = "Could not prepare Qwen: \(error.localizedDescription)"
+                if !Task.isCancelled { preparationError = "Could not prepare Qwen. Start the speech helper, then check your connection and free space." }
             }
-            isPreparingQwen = false
         }
     }
+    func cancelPreparation() { preparationTask?.cancel() }
+
 }
 
 typealias NeuralSpeechRequest = NeuralSpeechPayload
@@ -402,7 +393,6 @@ struct NeuralSpeechClient {
         }
         let startedAt = Date()
         guard try await isModelReady(model) else {
-            preload(model: model)
             Self.logger.notice(
                 "Neural voice model not ready; falling back. model=\(model, privacy: .public) chars=\(text.count)"
             )
@@ -467,50 +457,14 @@ struct NeuralSpeechClient {
         return components?.url ?? endpoint
     }
 
-    /// Fire-and-forget warmup for the start of a voice conversation (called when listening
-    /// begins), so the neural TTS model is already loaded by the time the first reply is ready
-    /// to speak. Safe to call even if the local TTS server isn't running: the request simply
-    /// fails silently and the existing `AVSpeechSynthesizer` fallback in `PetSpeechOutput` is
-    /// unaffected either way. Warms up whichever model the current engine selection would
-    /// actually route to (Qwen, since Irodori is no longer selected by default); no-ops when
-    /// `.system` is selected, since there is no neural model to warm up in that case.
+    /// Keeps the existing call site without implicitly acquiring optional models.
     func warmUp() {
-        guard let model = Self.modelName(engine: NeuralVoiceEngineStore.selected) else {
-            return
-        }
-        preload(model: model)
-    }
-
-    private func preload(model: String) {
-        let endpoint = preloadEndpoint
-        let session = session
-        Task {
-            do {
-                var request = URLRequest(url: endpoint)
-                request.httpMethod = "POST"
-                request.timeoutInterval = 600
-                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                request.httpBody = try JSONEncoder().encode(["model": model])
-                _ = try await session.data(for: request)
-            } catch {
-                Self.logger.debug("Background voice preload failed: \(error.localizedDescription, privacy: .public)")
-            }
-        }
+        // Optional models are prepared explicitly in Settings. Speaking may use
+        // an already prepared model or the standard system-voice fallback.
     }
 
     static func preloadQwen(session: URLSession = .shared) async throws {
-        let endpoint = URL(string: "http://127.0.0.1:8000/v1/audio/preload")!
-        var request = URLRequest(url: endpoint)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 600
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(["model": qwenEnglishModel])
-
-        let (_, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200..<300).contains(httpResponse.statusCode) else {
-            throw NeuralSpeechError.invalidResponse
-        }
+        try await NeuralSpeechTransport(session: session).preload(model: qwenEnglishModel)
     }
 
     /// Routes every language to a single model chosen by the user's global engine preference:

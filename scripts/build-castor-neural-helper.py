@@ -2,13 +2,14 @@
 """Developer-only bundle builder. End users receive a GUI, never pip commands.
 
 Builds locally with an explicitly selected, prepared Python environment. Models
-are not downloaded or embedded. No signing, Release, upload or account change.
+are not downloaded or embedded. No production signing, Release, upload or account change.
 """
 import argparse
 import json
 import os
 from pathlib import Path
 import platform
+import plistlib
 import shutil
 import subprocess
 import tempfile
@@ -25,9 +26,11 @@ def main():
     output = args.output.resolve()
     if output.exists() or output == ROOT or ROOT in output.parents:
         raise ValueError('Choose a new output folder outside the checkout')
-    python = str(args.python.resolve())
+    python = str(args.python.absolute())  # Preserve a venv's Python symlink path.
+    modules = ('mlx_audio','mlx','mlx_lm','transformers','numpy','scipy','safetensors','huggingface_hub','tokenizers') if platform.system() == 'Darwin' and platform.machine().lower() in ('arm64','aarch64') else MODULES
     metadata_code = '''
-import importlib.util, importlib.metadata as m, json, platform, sys
+import importlib.util, importlib.metadata as m, json, platform, sys, sysconfig
+from pathlib import Path
 required = %r
 missing = [name for name in required if importlib.util.find_spec(name) is None]
 items = []
@@ -37,8 +40,9 @@ for dist in m.distributions():
                     ('.dist-info/' in str(f).lower() and f.name.lower().startswith(('license','copying','notice'))))
                 and dist.locate_file(f).is_file()]
     items.append({'name':dist.metadata.get('Name','unknown'), 'version':dist.version, 'files':licenses})
-print(json.dumps({'missing':missing,'system':platform.system(),'machine':platform.machine(), 'packages':items}))
-''' % (MODULES + ('PyInstaller', 'tkinter'),)
+runtime = [str(p) for p in (Path(sysconfig.get_path('stdlib'))/'LICENSE.txt',Path(sys.base_prefix)/'LICENSE.txt') if p.is_file()]
+print(json.dumps({'missing':missing,'system':platform.system(),'machine':platform.machine(), 'packages':items,'runtimeLicenses':runtime}))
+''' % (modules + ('PyInstaller', 'tkinter'),)
     inventory = json.loads(subprocess.check_output([python, '-c', metadata_code], text=True))
     if inventory['missing']:
         raise ValueError('Build environment lacks: ' + ', '.join(inventory['missing']))
@@ -49,21 +53,33 @@ print(json.dumps({'missing':missing,'system':platform.system(),'machine':platfor
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='castor-neural-build-', dir=output.parent) as temp:
         stage = Path(temp)
-        command = [python, '-m', 'PyInstaller', '--noconfirm', '--clean', '--onedir', '--windowed',
-            '--name', 'CastorNeuralTTS', '--distpath', str(stage/'dist'), '--workpath', str(stage/'work'),
+        mac = inventory['system'] == 'Darwin'
+        command = [python, '-m', 'PyInstaller', '--noconfirm', '--clean', '--onefile' if mac else '--onedir', '--console' if mac else '--windowed',
+            '--name', 'CastorSpeechRuntime' if mac else 'CastorNeuralTTS', '--distpath', str(stage/'dist'), '--workpath', str(stage/'work'),
             '--specpath', str(stage/'spec')]
-        for module in MODULES:
+        for module in modules:
             command += ['--collect-all', module]
         command += [str(ROOT/'scripts/windows_neural_tts_server.py')]
         subprocess.run(command, check=True)
-        mac = inventory['system'] == 'Darwin'
-        built = stage/'dist'/('CastorNeuralTTS.app' if mac else 'CastorNeuralTTS')
-        if not built.is_dir(): raise ValueError('Helper output was not generated')
         final = stage/'candidate'; final.mkdir()
         payload = final/'CastorNeuralTTS.app' if mac else final
-        # Freeze symlink resources as regular files before signature/ZIP checks.
-        if mac: shutil.copytree(built, payload, symlinks=False)
-        else: shutil.copytree(built, final, dirs_exist_ok=True, symlinks=False)
+        if mac:
+            scratch = stage/'swift'
+            subprocess.run(['swift','build','--package-path',str(ROOT/'CastorDesktop'),'--scratch-path',str(scratch),'-c','release','--product','CastorNeuralTTS',
+                '-Xswiftc','-debug-prefix-map','-Xswiftc',str(ROOT)+'=/Castor',
+                '-Xswiftc','-file-prefix-map','-Xswiftc',str(ROOT)+'=/Castor'],check=True)
+            binary = Path(subprocess.check_output(['swift','build','--package-path',str(ROOT/'CastorDesktop'),'--scratch-path',str(scratch),'-c','release','--show-bin-path'],text=True).strip())/'CastorNeuralTTS'
+            contents = payload/'Contents'; (contents/'MacOS').mkdir(parents=True); (contents/'Resources').mkdir()
+            shutil.copy2(binary, contents/'MacOS/CastorNeuralTTS')
+            subprocess.run(['/usr/bin/strip','-S','-x',str(contents/'MacOS/CastorNeuralTTS')],check=True)
+            shutil.copy2(stage/'dist/CastorSpeechRuntime', contents/'Resources/CastorSpeechRuntime')
+            info={'CFBundleExecutable':'CastorNeuralTTS','CFBundleIdentifier':'dev.castor.neuraltts','CFBundleName':'Castor Neural TTS',
+                  'CFBundlePackageType':'APPL','CFBundleVersion':'1','CFBundleShortVersionString':'0.1.0','LSMinimumSystemVersion':'26.5'}
+            (contents/'Info.plist').write_bytes(plistlib.dumps(info))
+        else:
+            built = stage/'dist/CastorNeuralTTS'
+            if not built.is_dir(): raise ValueError('Helper output was not generated')
+            shutil.copytree(built, final, dirs_exist_ok=True, symlinks=False)
         licenses = (payload/'Contents/Resources/licenses' if mac else final/'licenses')
         licenses.mkdir(parents=True, exist_ok=True)
         records = []
@@ -72,19 +88,29 @@ print(json.dumps({'missing':missing,'system':platform.system(),'machine':platfor
             if not name or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-' for c in name):
                 raise ValueError('Unexpected distribution name')
             files = []
-            for index, original in enumerate(item['files']):
+            originals = item['files']
+            if not originals:
+                supplement = ROOT/'scripts/neural_helper_licenses'/('%s-%s-LICENSE.txt' % (name,item['version']))
+                if supplement.is_file(): originals = [str(supplement)]
+            for index, original in enumerate(originals):
                 source = Path(original)
                 relative = Path(name)/('%03d-%s' % (index, source.name))
                 destination = licenses/relative; destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source, destination); files.append(relative.as_posix())
             records.append({'name':name,'version':item['version'],'licenseFiles':files,'reviewRequired':not bool(files)})
+        if not inventory['runtimeLicenses']:
+            raise ValueError('The bundled Python runtime requires its license text')
+        for index, original in enumerate(inventory['runtimeLicenses']):
+            shutil.copy2(original,licenses/('Python-%d-LICENSE.txt' % index))
         (licenses/'inventory.json').write_text(json.dumps(records, indent=2)+'\n', encoding='utf-8')
         shutil.copy2(ROOT/'LICENSE', final/'LICENSE'); shutil.copy2(ROOT/'THIRD_PARTY_NOTICES.md', final/'THIRD_PARTY_NOTICES.md')
         expected = payload/'Contents/MacOS/CastorNeuralTTS' if mac else final/'CastorNeuralTTS.exe'
         if not expected.is_file(): raise ValueError('GUI helper executable is missing')
+        if mac:
+            subprocess.run(['/usr/bin/codesign','--force','--sign','-',str(payload)],check=True)
         shutil.move(str(final), output)
     print('Prepared local GUI helper:', output)
-    print('No models, signing or Release. Review license inventory and verify on a clean device before distribution.')
+    print('No models or public Release. Mac helper uses PyInstaller ad-hoc development signature. Review license inventory and verify on a clean device before distribution.')
 
 
 if __name__ == '__main__': main()

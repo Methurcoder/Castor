@@ -129,7 +129,9 @@ def main():
     try:
         command = ['swift', 'build', '--package-path', str(ROOT/'CastorDesktop'), '--scratch-path', str(args.scratch), '-c', 'release', '--product', 'CastorSetup']
         if sys.platform == 'darwin':
-            command += ['--arch', args.arch]
+            command += ['--arch', args.arch,
+                '-Xswiftc','-debug-prefix-map','-Xswiftc',str(ROOT)+'=/Castor',
+                '-Xswiftc','-file-prefix-map','-Xswiftc',str(ROOT)+'=/Castor']
         subprocess.run(command, check=True)
         bin_command = ['swift', 'build', '--package-path', str(ROOT/'CastorDesktop'), '--scratch-path', str(args.scratch), '-c', 'release', '--show-bin-path']
         if sys.platform == 'darwin':
@@ -140,6 +142,7 @@ def main():
             app = output/'CastorSetup.app'/'Contents'
             (app/'MacOS').mkdir(parents=True)
             shutil.copy2(bin_path/'CastorSetup', app/'MacOS'/'CastorSetup')
+            subprocess.run(['/usr/bin/strip','-S','-x',str(app/'MacOS'/'CastorSetup')],check=True)
             info = {'CFBundleExecutable':'CastorSetup', 'CFBundleIdentifier':'dev.castor.setup', 'CFBundleName':'Castor Setup',
                     'CFBundlePackageType':'APPL', 'CFBundleVersion':'1', 'CFBundleShortVersionString':'0.1.0', 'LSMinimumSystemVersion':'26.5', 'NSHighResolutionCapable':True}
             (app/'Info.plist').write_bytes(plistlib.dumps(info))

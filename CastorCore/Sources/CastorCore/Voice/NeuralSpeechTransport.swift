@@ -60,6 +60,17 @@ public nonisolated struct NeuralSpeechTransport: Sendable {
         _ = try WavePCM(data:data)
         try Task.checkCancellation();return (data,http)
     }
+    /// A status probe never prepares/downloads an optional model.
+    public func isModelReady(model:String) async throws -> Bool {
+        var components=URLComponents(url:endpoint,resolvingAgainstBaseURL:false)!
+        components.path="/v1/audio/status"
+        var request=URLRequest(url:components.url!);request.timeoutInterval=1
+        let local=localSession();defer {local.finishTasksAndInvalidate()}
+        let(data,response)=try await local.data(for:request)
+        guard let http=response as? HTTPURLResponse,http.statusCode==200,data.count<=131072,
+              let object=try JSONSerialization.jsonObject(with:data) as? [String:Any] else {return false}
+        return object["model"] as? String == model && object["status"] as? String == "ready"
+    }
     public func preload(model:String) async throws {
         guard !model.isEmpty,model.count<=1024 else {throw TransportError.invalidRequest}
         var c=URLComponents(url:endpoint,resolvingAgainstBaseURL:false)!;c.path="/v1/audio/preload"

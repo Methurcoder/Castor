@@ -40,7 +40,7 @@ macOS アプリの Xcode プロジェクトは現在 **macOS 26.5** を deployme
 
 Release 公開後は、macOS では `download/Castor-Download.command`、Windows では `download/Castor-Download.cmd`（同じフォルダに `Castor-Download.ps1` が必要）をダブルクリックします。OS と CPU に合う ZIP だけを取得し、SHA-256 を照合して新しいフォルダへ展開します。既存のインストールは上書きせず、アプリは自動起動しません。
 
-macOS は26.5以上、Windows 配布は現在 x64 向けです。WindowsにはPNGから作成する2D試作と保存済みStandard/Qualityの再生を実装しています。Macとの全機能共通化とGUI導入は開発中です。非公開 Release の取得には、アクセス権のあるアカウントで手元の `gh auth login` が必要です。ダウンローダーがアカウントを切り替えることはありません。公開 Release の取得には `gh` は不要です。
+macOS は26.5以上、Windows 配布は現在 x64 向けです。WindowsにはPNGから作成する2D試作と保存済みStandard/Qualityの再生を実装しています。Macとの全機能共通化とGUI導入は開発中です。公開されたReleaseの取得にGitHubログインやghは不要です。配布Releaseがまだ無い場合は、ソース公開だけでアプリを取得できません。
 
 最初のダブルクリックで OS の警告が出て止まる場合があります。一方、スクリプトが取得した
 アプリでは警告が出ない場合もあり、SHA-256 の一致だけで安全性や配布者を証明できません。
@@ -150,18 +150,22 @@ Arils で保存した `CastorPet.json` または単体の `.arils` アーカイ�
 
 ## 任意機能とモデル
 
-以下は必要なときだけ準備します。ローカル AI、TTS、画像処理のモデル重みはソースやアプリへ同梱しません。
+以下は必要なときだけ準備します。LLM、Neural TTS、LaMaの追加モデル重みはソースやアプリへ同梱しません。Mac配布候補には、顔検出・顔ランドマーク・切り抜きに使う4つのCore MLモデルをライセンス表記とともに同梱します。
 
-> **今後のアップデートで対応予定：** Neural TTS、LaMa Underpaint、Button-aware dodge の3つは、現在ターミナルでの準備と起動が必要です。今後のアップデートで、Codex / Claude Code と同じようにアプリの画面から導入・起動できるようにします。それまでは下記の手順を使ってください（ソースのチェックアウトが必要です）。
+### Qwen 3 TTS（任意）
 
-### Neural TTS
+配布候補では**ターミナルやPythonの手動導入なし**で、音声helperの起動とモデル準備を行えます。
+Macは「設定 → Voice → Qwen音声を起動」、WindowsはVoiceの導入GUIから音声helperを開きます。
+helperを起動してから「モデルを取得・準備」を選びます。初回は大きなモデルの取得に時間と空き容量が必要です。
+起動だけではモデルを取得しません。準備できるまではOS標準の音声を使えます。
 
-```sh
-scripts/bootstrap-neural-tts.sh
-scripts/start-neural-tts.sh
-```
+Mac Apple SiliconはMLXのQwen 0.6B CustomVoice、WindowsはローカルPyTorchのCustomVoiceを使います。
+音声はこの端末で生成し、マイクの録音や声の複製は行いません。モデル重みは同梱しません。
+0.6Bで詳細な声質指示の効果は保証しません。helperの停止はVoiceの停止ボタンまたはhelper画面から行います。
+配布Releaseと実機での読み上げの確認状況は[導入・検証記録](docs/GUI_SETUP.md)を参照してください。
 
-Qwen3-TTS / Irodori-TTS / mlx-audio を別途導入するローカル読み上げです。使えない場合は macOS 標準の `AVSpeechSynthesizer` へ戻ります。
+ソースからの開発用の起動スクリプトは残していますが、一般利用者の導入手順には使いません。
+LaMa UnderpaintとButton-aware dodgeの追加helperは、引き続き導入経路を整備中です。
 
 ### LaMa Underpaint BETA
 
