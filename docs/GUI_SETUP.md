@@ -1,7 +1,7 @@
 # CastorのGUI導入・更新・修復
 
 2026-10-15。GitHub Releasesを入口とするGUI導入方式を実装しています。
-**配布Releaseはまだなく、公開のGUIインストーラーや完成版アプリは取得できません。**
+**[正式リリース v0.3.0](https://github.com/Methurcoder/Castor/releases/tag/v0.3.0)からGUI導入パッケージを取得できます。**
 開発用Mac GUIの起動と「配布Releaseなし」の案内を確認しました。
 Windowsの実機確認は、ダウンローダーから導入できる配布候補ができた段階でまとめます。
 
@@ -63,14 +63,14 @@ Windowsの初回GUI、実機のOS警告・マイク、開発環境のないPCで
 選択中の版を起動する入口を作ります。バージョン付き実体とユーザーデータは別に保持します。
 同名の無関係なファイル/ショートカットがある場合は上書きせず、その旨を表示します。
 この場合もGUIの「起動」から実体を開けます。削除時は自分の管理対象への入口だけを除去します。
-本番Releaseがまだ無いため、配布済み実体による実機の直接起動は未検証です。
+配布後の新規端末での実機の直接起動は未検証です。
 
 ## 任意のNeural TTS helper
 
 導入GUIでNeural TTS helperの取得/更新・起動・修復・削除を選べます。本体とは別の
 `CastorHelpers/NeuralTTS`領域へ導入し、失敗・取消でも旧本体/旧helper/ペット/設定を保持します。
 配布manifestの`components.NeuralTTS`にそのOS/CPU用のassetがある場合だけ取得します。
-helperを消してもモデルcacheは削除しません。正式なhelper assetはまだ公開していません。
+helperを消してもモデルcacheは削除しません。v0.3.0にOS別のhelper assetを用意しています。
 
 Voice設定から導入GUIを開きます。`build-castor-app.py`の候補はMac ResourcesへCastorSetup.app、
 WindowsはCastorPet.exeの隣へCastorSetup.exeを同梱します。開発用ビルドにはGUIが無いことがあり、

@@ -1,7 +1,7 @@
 # Castor ダウンローダー
 
 OS と CPU を判別し、対応する Castor の配布 ZIP を取得するローカルランチャーです。
-**現在は GitHub Release が存在しないため、アプリの取得はまだできません。**
+**[正式リリース v0.3.0](https://github.com/Methurcoder/Castor/releases/tag/v0.3.0)のGUI導入パッケージを使ってください。**
 リポジトリのソースからビルドする手順は [README](../README.md)を参照してください。
 
 ## 利用者向けの手順
@@ -83,12 +83,12 @@ Windows版は全機能共通化の途中です。現在のソースには、PNG�
 2D変形の試作作成があり、`CastorPet.exe` / `Start-Castor.cmd` の初回案内で作成できます。
 Macの自動リギング/Qualityと同等の品質、会話・音声・カメラはまだ未実装です。
 Macから保存ペットを読み込むこともできます。GUI導入・全機能共通化の目標と残課題は
-[実装計画](CROSS_PLATFORM_PARITY.md)を参照してください。配布Release自体はまだありません。
+[実装計画](CROSS_PLATFORM_PARITY.md)を参照してください。対応範囲と未確認事項は正式Releaseにも記載します。
 
 ## 非公開 Release の認証
 
 現在の `Methurcoder/Castor` はソース公開済みで、公開 Release の取得に認証は不要です。
-Release 自体はまだ準備中です。将来、非公開リポジトリでランチャーを使う場合は、
+公開Releaseの取得にはログイン不要です。将来、非公開リポジトリでランチャーを使う場合は、
 GitHub CLI (`gh`) を用意し、アクセス権のあるアカウントで手元のターミナルからログインします。
 
 ```sh

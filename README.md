@@ -8,7 +8,7 @@
 
 呼吸、瞬き、視線、声。少しためらったり目を逸らしたりする、そんな相棒を自分の画像から作れます。
 
-[ダウンロード](https://github.com/Methurcoder/Castor/releases/tag/v0.3.0) · [導入ガイド](docs/GUI_SETUP.md) · [変更点・確認記録](docs/RELEASE_NOTES_DRAFT.md) · [機能差と今後の計画](docs/CROSS_PLATFORM_PARITY.md)
+[ダウンロード](https://github.com/Methurcoder/Castor/releases/tag/v0.3.0) · [導入ガイド](docs/GUI_SETUP.md) · [変更点・確認記録](docs/RELEASE_v0.3.0.md) · [機能差と今後の計画](docs/CROSS_PLATFORM_PARITY.md)
 
 Castor は [Pomegranate](https://github.com/atemoyacode-sudo/Pomegranate) の**許諾済みの後継プロジェクト**です。Pomegranate由来の著作権表示とMITライセンスを保持し、Methurcoderが開発を続けています。
 
