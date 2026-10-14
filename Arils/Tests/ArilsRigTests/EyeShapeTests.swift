@@ -4,6 +4,7 @@ import simd
 import Testing
 
 @testable import ArilsRig
+@testable import ArilsRigPortable
 
 /// Upper lid (left, top, right) then lower lid (left, bottom, right), as the
 /// anime landmark model places them on a 60 px wide eye.

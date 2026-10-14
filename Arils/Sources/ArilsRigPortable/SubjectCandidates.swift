@@ -1,4 +1,6 @@
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 import Foundation
 
 /// One disconnected foreground region that can be independently auto-rigged.
@@ -17,7 +19,7 @@ public struct RiggingSubjectCandidate: Identifiable, Equatable, Sendable {
 /// Connected-component analysis for masks. This deliberately separates only
 /// regions that are already disconnected in the foreground mask; overlapping
 /// or touching people remain one candidate rather than being guessed apart.
-enum SubjectCandidates {
+public enum SubjectCandidates {
     private struct Component {
         var id: Int
         var pixelCount: Int
@@ -77,7 +79,7 @@ enum SubjectCandidates {
         return components
     }
 
-    static func candidates(in mask: FloatPlane) -> [RiggingSubjectCandidate] {
+    public static func candidates(in mask: FloatPlane) -> [RiggingSubjectCandidate] {
         let components = detect(in: mask)
         let minimumArea = max(16, mask.width * mask.height / 250)
         let retained = components.filter { $0.pixelCount >= minimumArea }
@@ -101,7 +103,7 @@ enum SubjectCandidates {
         }
     }
 
-    static func mask(in source: FloatPlane, selecting candidateID: Int) -> FloatPlane? {
+    public static func mask(in source: FloatPlane, selecting candidateID: Int) -> FloatPlane? {
         let components = detect(in: source)
         guard components.contains(where: { $0.id == candidateID }) else { return nil }
         let width = source.width
@@ -139,6 +141,50 @@ enum SubjectCandidates {
         var result = FloatPlane(width: source.width, height: source.height)
         for index in source.values.indices where labels[index] == candidateID {
             result.values[index] = source.values[index]
+        }
+        return result
+    }
+}
+
+public extension SubjectCandidates {
+    static func extractionMask(
+        _ extraction: FloatPlane,
+        supportedBy selectedAnalysis: FloatPlane
+    ) -> FloatPlane {
+        guard extraction.width > 0, extraction.height > 0,
+              selectedAnalysis.width > 0, selectedAnalysis.height > 0 else {
+            return FloatPlane(width: extraction.width, height: extraction.height)
+        }
+
+        var support = FloatPlane(
+            width: selectedAnalysis.width,
+            height: selectedAnalysis.height
+        )
+        for y in 0..<selectedAnalysis.height {
+            for x in 0..<selectedAnalysis.width where selectedAnalysis[x, y] > 0.001 {
+                for offsetY in -1...1 {
+                    for offsetX in -1...1 {
+                        support[x + offsetX, y + offsetY] = 1
+                    }
+                }
+            }
+        }
+
+        var result = FloatPlane(width: extraction.width, height: extraction.height)
+        for y in 0..<extraction.height {
+            let v = extraction.height > 1 ? Float(y) / Float(extraction.height - 1) : 0
+            let supportY = Int(
+                (v * Float(selectedAnalysis.height - 1)).rounded()
+            )
+            for x in 0..<extraction.width {
+                let u = extraction.width > 1 ? Float(x) / Float(extraction.width - 1) : 0
+                let supportX = Int(
+                    (u * Float(selectedAnalysis.width - 1)).rounded()
+                )
+                if support[supportX, supportY] > 0 {
+                    result[x, y] = extraction[x, y]
+                }
+            }
         }
         return result
     }

@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(simd)
 import simd
+#endif
 
 /// Fuses an estimated (Vision) subject mask with the image's own colors to
 /// recover the true silhouette at the boundary.

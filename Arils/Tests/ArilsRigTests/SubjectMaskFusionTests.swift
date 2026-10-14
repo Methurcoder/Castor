@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import ArilsRig
+@testable import ArilsRigPortable
 
 private let side = 400
 

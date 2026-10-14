@@ -3,6 +3,7 @@ import Foundation
 import simd
 
 @testable import ArilsRig
+@testable import ArilsRigPortable
 
 /// Draws a minimal anime-ish character on a transparent background: a round
 /// skin-colored head with a neck pinch, wider shoulders, two dark eyes, and a

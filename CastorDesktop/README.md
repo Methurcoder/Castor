@@ -4,7 +4,8 @@ The Castor pet on Windows: a saved pet lives in a transparent, always-on-top win
 pointer, and reacts when you move the pointer over its head.
 
 Full Mac/Windows feature parity is in progress. A native PNG → marker review →
-2D-warp creation prototype is included. Windows creation of Mac-quality automatic depth/Quality rigs,
+layered Standard/Quality creation flow is included, using the same extraction,
+non-ML backing repair and depth construction as Mac. Windows replacements for Vision/Core ML,
 conversation, voice, camera and the full settings UI remain unfinished. See the
 [feature inventory and plan](../docs/CROSS_PLATFORM_PARITY.md).
 
@@ -41,23 +42,26 @@ Dragging, right-click Quit and Alt click-through were not tested. No real pet
 exported from a Mac was available, so breathing, blinking, gaze, petting and
 `--wide-head` appearance remain unverified. The fixed Castor checkout now passes [Windows/macOS CI](https://github.com/Methurcoder/Castor/actions/runs/38424052817): seven runtime tests on both platforms and a Windows Win32 Release build. The old silent return has been replaced with a deterministic synthetic archive. Distribution checks pass 11 tests on macOS and eight on Windows; the three Mac-only launcher checks are explicitly skipped on Windows. A real-pet GUI check is still pending.
 
-## Create a pet locally (prototype)
+## Create a pet locally (in development)
 
-With a built app, run `CastorPet.exe` or `Start-Castor.cmd` without arguments.
-On first launch choose a PNG, review the template head/eye/mouth rectangles by
-selecting a part and dragging on the image or editing its numbers, then create.
-No model, Python, login or Mac export is used by this initial flow.
+Launch the built app without arguments. Choose one-image or front/profile Quality,
+select PNG files, choose a subject when disconnected characters are detected, and
+review the head/eye/mouth markers for each image. Creation uses the shared Mac
+layer extraction, backing repair, motion bindings and Quality depth/pose sweep.
+Progress windows support cancellation; saving starts only after a successful build.
+Created pets use unique history files under `%LOCALAPPDATA%\Castor\Library`.
 
-Right-click the pet to create another pet, open a saved JSON/Arils file, or export
-an Arils archive. Created pets remain in `%LOCALAPPDATA%\Castor\Library` with
-unique filenames; the last selected pet reloads on the next launch. App version
-folders and existing library pets are not replaced. Cancellation preserves the
-current pet. On Mac, Rigging's “保存ペットを読み込む” imports the saved JSON.
+Face estimates use the shared illustration heuristic, with an explicitly unconfirmed
+manual template fallback. Alpha or a uniform background can be separated; Windows
+Vision/Core ML replacements and LaMa are not connected yet. Model-free construction
+does not establish full automatic-rig quality on arbitrary images. Native UI, restart
+and cross-platform GUI interaction remain unverified.
 
-The markers are a template, not an AI face detection result. This is a single
-2D warp surface, not Mac depth/Quality/eye-layer rendering. Use transparent PNG
-for best results; only uniform edge-connected backgrounds can be removed.
-The native UI and restart/import interactions still need Windows/Mac GUI checks.
+Right-click to create another Standard/Quality pet, open/export a pet, switch Quality
+playback, or make a GIF. GIF creation offers motion, 3–5 seconds and background,
+shows an animated preview, then saves and optionally opens X. Attach the saved GIF
+manually in X; it is not uploaded/attached automatically. Desktop/camera/chat are
+never captured. Real-image GIF quality and the Windows UI still need checking.
 
 ## Optional: import an existing Mac pet
 
@@ -87,8 +91,8 @@ Right-click a Quality pet to switch between 2D and 3D-plus-profile playback.
 Export writes both views and the chosen mode; changing the mode alone currently
 lasts for the session. Existing input files are not changed.
 
-This adds playback of existing Quality rigs, not native Windows Quality rig
-creation. CPU texture reduction still differs from Metal's texture filtering.
+The native creation path now builds both views with the shared rigging backend.
+Vision/Core ML replacements are still absent; arbitrary-image rig quality is unfinished. CPU texture reduction still differs from Metal's texture filtering.
 Real-image CPU/Metal visual matching, performance, Windows menu/GUI and full
 parity remain unverified. The Mac import UI accepts saved JSON; the bare Quality
 export does not yet have a Mac import UI. Keep the original saved JSON for exchange.

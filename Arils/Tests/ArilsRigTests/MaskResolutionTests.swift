@@ -4,6 +4,7 @@ import Foundation
 import Testing
 
 @testable import ArilsRig
+@testable import ArilsRigPortable
 
 @Test func alphaProviderKeepsOriginalResolutionAndExactCoverage() async throws {
     var source = Bitmap(width: 64, height: 64)

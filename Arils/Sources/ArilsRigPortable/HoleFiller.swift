@@ -1,6 +1,10 @@
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 import Foundation
+#if canImport(simd)
 import simd
+#endif
 
 /// Diffusion-based inpainting: fills a hole by iteratively averaging inward
 /// from the surrounding known pixels (Jacobi relaxation on the color field).

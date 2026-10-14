@@ -4,6 +4,7 @@ import simd
 import Testing
 
 @testable import ArilsRig
+@testable import ArilsRigPortable
 
 @Test func compositeUsesCalibratedConfidenceWithoutDiscardingNativeReadability() async throws {
     let bitmap = SyntheticCharacter.bitmap()

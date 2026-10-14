@@ -153,6 +153,7 @@ import ArilsCore
     #expect(String(decoding: map.debugPGMData().prefix(2), as: UTF8.self) == "P5")
 }
 @testable import ArilsRig
+@testable import ArilsRigPortable
 
 // MARK: - Bitmap & planes
 

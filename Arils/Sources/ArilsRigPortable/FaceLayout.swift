@@ -1,4 +1,6 @@
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 import Foundation
 
 /// Where the face lives in the source image, in original-image pixels.
@@ -63,6 +65,7 @@ public struct FaceLayout: Sendable, Equatable {
 /// One face-layout algorithm. The pipeline runs several and arbitrates, so new
 /// detectors (an ML anime-face model, say) drop in without touching anything else.
 public protocol FaceLayoutEstimating: Sendable {
+    var estimatorSourceLabel: String { get }
     /// Layout in *original-image* pixels, or nil if this algorithm found nothing.
     func estimateLayout(context: AnalysisContext, subjectMask: FloatPlane) async -> FaceLayout?
 
@@ -74,6 +77,7 @@ public protocol FaceLayoutEstimating: Sendable {
 }
 
 public extension FaceLayoutEstimating {
+    var estimatorSourceLabel: String { String(describing: type(of: self)) }
     func calibratedConfidence(for layout: FaceLayout) -> Float {
         layout.confidence
     }
@@ -195,17 +199,6 @@ public struct CompositeFaceEstimator: FaceLayoutCandidatesEstimating {
     }
 
     private static func sourceLabel(for estimator: any FaceLayoutEstimating) -> String {
-        switch estimator {
-        case is AnimeFaceEstimator:
-            return "Illustration heuristic"
-        case is VisionFaceEstimator:
-            return "Apple Vision"
-        case is AnimeFaceCoreMLEstimator:
-            return AnimeFaceCoreMLEstimator.sourceLabel
-        case is AnimeFaceServiceEstimator:
-            return AnimeFaceServiceEstimator.sourceLabel
-        default:
-            return String(describing: type(of: estimator))
-        }
+        estimator.estimatorSourceLabel
     }
 }

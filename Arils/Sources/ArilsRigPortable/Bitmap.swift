@@ -1,6 +1,10 @@
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 import Foundation
+#if canImport(simd)
 import simd
+#endif
 
 /// CPU-side RGBA8 pixel buffer (premultiplied alpha, sRGB, row-major).
 ///
@@ -12,56 +16,20 @@ public struct Bitmap: Sendable {
     /// 4 bytes per pixel: R, G, B, A — premultiplied.
     public var pixels: [UInt8]
 
+    public init(width: Int, height: Int, pixels: [UInt8]) {
+        precondition(width >= 0 && height >= 0 && pixels.count == width * height * 4)
+        self.width = width; self.height = height; self.pixels = pixels
+    }
+
     public init(width: Int, height: Int) {
         self.width = max(0, width)
         self.height = max(0, height)
         self.pixels = [UInt8](repeating: 0, count: self.width * self.height * 4)
     }
 
-    public init?(image: CGImage) {
-        let width = image.width
-        let height = image.height
-        guard width > 0, height > 0 else { return nil }
-        var pixels = [UInt8](repeating: 0, count: width * height * 4)
-        let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
-        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
-            guard let context = CGContext(
-                data: buffer.baseAddress,
-                width: width,
-                height: height,
-                bitsPerComponent: 8,
-                bytesPerRow: width * 4,
-                space: colorSpace,
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-            ) else { return false }
-            context.interpolationQuality = .high
-            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
-            return true
-        }
-        guard drawn else { return nil }
-        self.width = width
-        self.height = height
-        self.pixels = pixels
-    }
 
-    public func cgImage() -> CGImage? {
-        guard width > 0, height > 0 else { return nil }
-        let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
-        guard let provider = CGDataProvider(data: Data(pixels) as CFData) else { return nil }
-        return CGImage(
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bitsPerPixel: 32,
-            bytesPerRow: width * 4,
-            space: colorSpace,
-            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
-            provider: provider,
-            decode: nil,
-            shouldInterpolate: true,
-            intent: .defaultIntent
-        )
-    }
+
+
 
     @inlinable
     public func index(x: Int, y: Int) -> Int {

@@ -103,3 +103,9 @@ unmodified. Only its PNG decoder is compiled.
 - Project: <https://github.com/nothings/stb>
 - License: public domain (Unlicense) or MIT, at your choice; the full text is
   at the end of the header
+
+## Graphics Interchange Format
+
+The portable GIF writer is Castor code; it does not embed another GIF library.
+Its format reference is the [GIF89a specification](https://www.w3.org/Graphics/GIF/spec-gif89a.txt).
+Graphics Interchange Format and the GIF service mark are attributed to CompuServe Incorporated.

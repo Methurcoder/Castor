@@ -44,6 +44,8 @@ private let menuOpen: UINT_PTR = 3
 private let menuExport: UINT_PTR = 4
 private let menuQuality2D: UINT_PTR = 5
 private let menuQuality3D: UINT_PTR = 6
+private let menuNewQuality: UINT_PTR = 7
+private let menuGIF: UINT_PTR = 8
 private let frameMilliseconds: UINT = 33
 
 private func wide(_ string: String) -> [WCHAR] {
@@ -177,8 +179,8 @@ private final class PetWindow {
 
     func showMenu() {
         guard let hwnd, let menu = CreatePopupMenu() else { return }
-        for (id, title) in [(menuNew, "画像から新しいペットを作る（2D試作）"),
-                            (menuOpen, "保存したペットを開く"), (menuExport, "Arils形式で書き出す")] {
+        for (id, title) in [(menuNew, "1枚から新しいペットを作る"), (menuNewQuality, "2枚からQualityを作る"),
+                            (menuOpen, "保存したペットを開く"), (menuExport, "Arils形式で書き出す"), (menuGIF, "GIFを作ってXで共有")] {
             let title = wide(title)
             _ = title.withUnsafeBufferPointer { AppendMenuW(menu, mfString, id, $0.baseAddress) }
         }
@@ -221,8 +223,14 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
             do {
                 if command == UInt16(menuQuality2D) { window.player.presentationMode = .twoD }
                 if command == UInt16(menuQuality3D) { window.player.presentationMode = .threeD }
+                if command == UInt16(menuGIF) {
+                    var asset = window.currentAsset
+                    if case var .quality(quality) = asset { quality.preferredPresentationMode = window.player.presentationMode; asset = .quality(quality) }
+                    try WindowsRiggingFlow.shareGIF(asset: asset)
+                }
                 var asset: PetAsset?
-                if command == UInt16(menuNew) { asset = try WindowsRiggingFlow.startNewPet().map { .standard($0) } }
+                if command == UInt16(menuNew) { asset = try WindowsRiggingFlow.startNewPet(quality: false) }
+                if command == UInt16(menuNewQuality) { asset = try WindowsRiggingFlow.startNewPet(quality: true) }
                 if command == UInt16(menuOpen), let url = try WindowsRiggingFlow.choose(kind: "pet") {
                     asset = try PetSource.loadAsset(contentsOf: url)
                     try WindowsRiggingFlow.remember(url)

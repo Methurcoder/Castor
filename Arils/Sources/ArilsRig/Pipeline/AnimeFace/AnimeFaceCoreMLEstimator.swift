@@ -11,6 +11,7 @@ import Foundation
 /// through to the heuristic (roadmap 7.1: no ML element without a non-ML
 /// fallback).
 public struct AnimeFaceCoreMLEstimator: FaceLayoutEstimating {
+    public var estimatorSourceLabel: String { Self.sourceLabel }
     public static let sourceLabel = "Anime landmark model"
 
     /// Whether the compiled models are present in this build.

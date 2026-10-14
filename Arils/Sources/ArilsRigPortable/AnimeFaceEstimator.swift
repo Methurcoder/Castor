@@ -1,4 +1,6 @@
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 import Foundation
 
 import ArilsCore
@@ -20,6 +22,7 @@ import ArilsCore
 /// 4. Anything that scores too weak falls back to classic anime proportions,
 ///    lowering `confidence` so the composite can prefer another algorithm.
 public struct AnimeFaceEstimator: FaceLayoutEstimating {
+    public var estimatorSourceLabel: String { "Illustration heuristic" }
     public init() {}
 
     public func estimateLayout(context: AnalysisContext, subjectMask: FloatPlane) async -> FaceLayout? {

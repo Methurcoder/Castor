@@ -27,7 +27,7 @@ macOS アプリでは、次の機能を使えます。
 | 環境 | 現在の範囲 | 確認の境界 |
 | --- | --- | --- |
 | macOS | SwiftUI アプリ、自動リギング、ペット、会話・音声、外部エージェント連携 | アプリのビルドとパッケージテストを確認済み。最新変更の GUI 表示、実モデルでの応答、権限付きの各機能は実機確認が必要です。 |
-| Windows | PNGからの2D作成試作と、Standard/2枚Qualityの保存データ再生。透過ウインドウで表示 | [最新のWindows/Mac CI](https://github.com/Methurcoder/Castor/actions/runs/38530641208)で26件の共通検査とWin32 Releaseビルド成功。GUI操作と実画像の品質は未確認です。WindowsでのQuality新規作成、会話・音声・カメラ・全設定とGUI導入は未完成です。 |
+| Windows | PNGから共有レイヤー処理でStandard/Qualityを作成・再生。GIF生成/プレビュー/保存/X案内を接続 | [最新のWindows/Mac CI](https://github.com/Methurcoder/Castor/actions/runs/38530641208)で26件の共通検査とWin32 Releaseビルド成功。GUI操作と実画像の品質は未確認です。WindowsのVision/Core ML代替、会話・音声・カメラ・全設定とGUI導入は未完成です。最新実装の確認記録は共通化計画へ記録します。 |
 | Linux | `CastorCore` の共有ロジック、`ArilsPortable` のモーション・変形・保存形式、ペットの CPU 描画部分 | 改名前の Linux 向けクロスビルド成功は引き継ぎ記録にあります。今回の改名後には未再確認で、デスクトップ UI は未実装です。 |
 
 macOS アプリの Xcode プロジェクトは現在 **macOS 26.5** を deployment target にしています。Swift Package の macOS 14 指定とは別の要件です。`CastorCore` のビルドには Swift 6.2 以降が必要です。

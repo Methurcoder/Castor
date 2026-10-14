@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import ArilsRig
+@testable import ArilsRigPortable
 
 /// A response shaped like the service's, with landmarks laid out on a
 /// plausible face so the conversion can be checked without a running server.

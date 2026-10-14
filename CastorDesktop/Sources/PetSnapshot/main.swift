@@ -31,6 +31,14 @@ func writePPM(_ canvas: PetCanvas, to path: String) throws {
 
 do {
     let asset = try PetSource.loadAsset(contentsOf: URL(fileURLWithPath: arguments[1]))
+    if arguments.contains("--gif") {
+        var options = PetGIFClipOptions()
+        options.motion = arguments.contains("--look-around") ? .lookAround : .idle
+        let result = try await PetGIFClip.make(asset: asset, options: options)
+        try result.data.write(to: URL(fileURLWithPath: "\(arguments[2]).gif"), options: .withoutOverwriting)
+        print("GIF: \(result.dimension)px, \(result.fps)fps, \(result.data.count) bytes")
+        exit(0)
+    }
     let player = PetPlayback(asset: asset, wideHeadMovement: arguments.contains("--wide-head"))
     var canvas = PetCanvas(width: width, height: height)
 

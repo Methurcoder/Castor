@@ -3,6 +3,7 @@ import simd
 import Testing
 
 @testable import ArilsRig
+@testable import ArilsRigPortable
 
 /// Synthetic scenes for `SubjectMaskBoundaryRefinement`: each fixes one way
 /// the Vision blob is wrong (or must be left alone).

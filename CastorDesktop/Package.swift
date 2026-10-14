@@ -36,6 +36,7 @@ let package = Package(
                 .linkedLibrary("User32", .when(platforms: [.windows])),
                 .linkedLibrary("Gdi32", .when(platforms: [.windows])),
                 .linkedLibrary("Comdlg32", .when(platforms: [.windows])),
+                .linkedLibrary("Shell32", .when(platforms: [.windows])),
             ]
         ),
 

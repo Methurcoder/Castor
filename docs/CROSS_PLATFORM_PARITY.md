@@ -23,8 +23,8 @@ Macの機能を削って合わせない。旧公式キャラクターは戻さ�
 
 |機能|Macの実装・根拠|Windowsの現状と不足|
 |---|---|---|
-|1枚自動リグ・マスク・顔候補|ArilsRig/AutoRigPipeline、SubjectMask、FaceLayoutReview|Apple依存。今回、PNG/テンプレート補正/2Dワープの初期試作を追加。推定品質は未達|
-|2枚Quality・向き・登録・深度|QualityCharacterEngine、QualityHybridTurnModel、QualityPair、MetalAvatarRenderer|保存済み両ビュー/首登録/方向制限/深度passを接続。Windows新規作成・視覚parityは未達|
+|1枚自動リグ・マスク・顔候補|ArilsRig/AutoRigPipeline、SubjectMask、FaceLayoutReview|共有マスク/イラスト推定/レイヤー構築に接続。Windows Vision/CoreML代替は未接続|
+|2枚Quality・向き・登録・深度|QualityCharacterEngine、QualityHybridTurnModel、QualityPair、MetalAvatarRenderer|Windowsで両画像の補正→共有Quality深度構築を接続。実画像/GUIの品質検証が必要|
 |顔マーカー・手動リグ・保存読込|ImageRiggingView、RigDocument、PetCharacterStore|今回Win32補正画面と互換保存を追加。Mac全編集項目/手動パーツ編集が不足|
 |呼吸・瞬き・視線・口パク・撫で・自発動作|ArilsMotion、CherryConnection|共有モーションと変形はあり。入力/会話接続・同品質描画が不足|
 |移動・透過・背後クリック|CastorPetController、PetPassThrough|ドラッグ/Alt透過あり。透明部分hit-test、位置保持、OS間設定統一を整備する|
@@ -36,7 +36,7 @@ Macの機能を削って合わせない。旧公式キャラクターは戻さ�
 |Codex/Claude Code・承認・拒否・取消|CastorCore/Agent、PetVoiceConversation、承認カード|クライアント再利用。Windows表示・helper管理・キャンセルの実経路が必要|
 |AIマーカー提案・顔推定・切り抜き|ArilsAIAdjustment、AnimeFaceModels、AnimeSegmentationModel|ONNX等のWindows代替と同じモデル/前処理/座標/出力の一致検査が必要|
 |LaMa|LaMaInpainting、ArilsRig/OcclusionInpainting、localhost helper|Macもbootstrap/startコマンド案内あり。両OSでGUI導入へ変える|
-|GIF・X共有|PetGIFExporter、PetGIFShareWindow|Windows未実装。GIFは保存→投稿画面→本人が手動添付/確定の契約を保持|
+|GIF・X共有|PetGIFExporter、PetGIFShareWindow|生成/容量調整/native preview/保存/X案内を接続。実機GUIと画質を確認する|
 |外観/Input/Voice/Brain/Advanced|SettingsViewの全タブ・保存キー|Windows設定画面なし。UI項目単位で完了管理する|
 |簡単導入・更新・修復・削除|download/、prepare-castor-release.py|現状はスクリプト式。GUI installerと自動起動、更新/修復/削除は未実装|
 
@@ -172,3 +172,19 @@ source書出し301ファイルとScreenshotAnswer公開対象24ファイルの�
 包括的セキュリティ監査やGUI/実画像のQuality検証とは扱わない。
 Windows GUIと同品質の新規Quality構築、会話・入力・音声・全設定・GUI導入は継続課題。
 mainへのmerge、配布Releaseの作成は行っていない。
+
+## 一括実装の進行記録: 共通リギングとWindows作成/GIF
+
+ArilsRigPortableに既存MacのOS非依存処理を移動し、RigLayerBuilderをMac AutoRigPipelineと
+Windows LayeredRiggingの両方から利用する。単一surface試作から、頭/体/目/口/首のレイヤー、
+非MLの隠面補修、Quality厚み/深度と安全な姿勢上限の構築へ進んだ。
+Windowsの1枚/2枚選択、被写体選択、顔補正、進行表示/取消、互換JSON保存をnative UIへ接続。
+基本経路にモデル/Python/ログインは不要。イラストheuristicとalpha/単色背景fallbackを使い、
+確認は必須。WindowsのVision/CoreML代替、LaMa、任意の画像での推定品質は未達。
+
+GIFは独自のローカルmedian-cut/LZW encoderで作成。384/320px 20fps、256px 10fpsの順に
+5MB以内へ調整し、量子化済みの実GIF色でnative animation previewを表示する。
+保存したGIFをXへ手動添付する案内を保存前/保存後に表示し、Web Intentだけを開く。
+MacのImageIOで乱数256色・2フレームのLZW幅拡張/辞書clear/色表を復号検査した。
+Mac上でDesktop32件、既存Arils270件の検査成功。Universal Releaseコンパイルも成功。
+WindowsのGUI/画像品質・動作速度、残りの会話/音声/設定/導入は引き続き未完成・未検証。

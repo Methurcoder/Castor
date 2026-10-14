@@ -1,4 +1,6 @@
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 import Foundation
 
 /// A soft, eye-shaped outline for the eye unit (lid line, lashes, iris),

@@ -1,8 +1,12 @@
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 import Foundation
+#if canImport(simd)
 import simd
+#endif
 
-struct QualityPairInspector {
+public enum QualityPairInspector {
     /// Per-axis bin count for the quantized RGB color histogram (4x4x4 = 64
     /// bins total). Coarse on purpose: this is an advisory same-character
     /// heuristic, not a precise color-matching tool.
@@ -18,7 +22,7 @@ struct QualityPairInspector {
         var colorHistogram: [Float]
     }
 
-    static func assess(
+    public static func assess(
         front: (context: AnalysisContext, mask: FloatPlane),
         side: (context: AnalysisContext, mask: FloatPlane),
         faceEstimator: any FaceLayoutEstimating,

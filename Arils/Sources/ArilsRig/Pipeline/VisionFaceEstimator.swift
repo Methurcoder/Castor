@@ -6,6 +6,7 @@ import Vision
 /// photo-like images. Anime illustrations rarely trigger it, which is fine:
 /// returning nil hands arbitration back to `CompositeFaceEstimator`.
 public struct VisionFaceEstimator: FaceLayoutEstimating {
+    public var estimatorSourceLabel: String { "Apple Vision" }
     /// Vision confidences on real faces are high; anything below this is more
     /// likely a false positive on stylized art, so we bow out.
     public var minimumObservationConfidence: Float

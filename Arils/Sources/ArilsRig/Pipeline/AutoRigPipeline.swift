@@ -306,43 +306,15 @@ public struct AutoRigPipeline: RiggingPipeline {
             faceLayout: sideFaceLayout
         )
         let sideAvatar = sideBuild.avatar
-        let registration = QualityViewRegistration.automatic(front: frontBuild.avatar.rig, side: sideAvatar.rig)
-        let thickness = ThicknessProfile.fromSideMask(sideMasks.analysis).alignedToFront(
-            rowCount: frontMasks.analysis.height,
-            frontImageHeight: front.storage.source.height,
-            sideImageHeight: side.storage.source.height,
-            registration: registration
-        )
-        let depth: DepthMap
-        switch options.qualityDepthStrategy {
-        case .rowEllipse:
-            depth = SilhouetteDepthEstimator().estimate(
-                frontMask: frontMasks.analysis,
-                sideThickness: thickness
-            )
-        case .faceAwareRibbon:
-            depth = FaceAwareRibbonDepthEstimator().estimate(
-                frontMask: frontMasks.analysis,
-                sideThickness: thickness,
-                plan: frontBuild.plan,
-                source: front.storage.source
-            )
-        }
-        var depthRig = BindingSynthesizer.makeDepthRig(
-            plan: frontBuild.plan,
-            depthMap: depth,
-            depthScalePixels: Float(side.storage.source.width) * registration.sideScale,
-            maximumHeadDepthPixels: BindingSynthesizer.recommendedHeadDepthCap(plan: frontBuild.plan),
-            headMeshResolution: options.qualityDepthStrategy == .faceAwareRibbon
-                ? options.qualityHeadMeshResolution
-                : 12
-        )
-        depthRig.validatedPoseLimits = PoseSweepValidator.validate(
-            rig: depthRig,
-            plan: options.poseSweepPlan,
-            alphaCoverageByPartID: frontBuild.alphaCoverageByPartID
-        ).validatedPoseLimits
-        frontBuild.avatar.rig = depthRig
+        let depthBuild = RigLayerBuilder.addQualityDepth(
+            front: frontBuild.shared, side: sideBuild.shared,
+            frontSource: front.storage.source, sideSource: side.storage.source,
+            frontMask: frontMasks.analysis, sideMask: sideMasks.analysis,
+            strategy: options.qualityDepthStrategy,
+            headMeshResolution: options.qualityHeadMeshResolution,
+            poseSweep: options.poseSweepPlan)
+        frontBuild.avatar.rig = depthBuild.front.rig
+        let registration = depthBuild.registration
         return try QualityAvatarArchive(
             front: AvatarArchive(avatar: frontBuild.avatar),
             side: AvatarArchive(avatar: sideAvatar),
@@ -359,8 +331,9 @@ public struct AutoRigPipeline: RiggingPipeline {
 
     private struct AvatarBuild {
         var avatar: RiggedAvatar
-        var plan: PartPlan
-        var alphaCoverageByPartID: [String: FloatPlane]
+        var shared: RigLayerBuild
+        var plan: PartPlan { shared.plan }
+        var alphaCoverageByPartID: [String: FloatPlane] { shared.alphaCoverage }
     }
 
     /// Decodes and segments an image once for reuse by the token overloads.
@@ -448,43 +421,16 @@ public struct AutoRigPipeline: RiggingPipeline {
            result.height == storage.source.height {
             inpaintedSource = Bitmap(image: result)
         }
-        let layers = LayerFactory.extract(
-            source: storage.source,
-            subjectMask: masks.extraction,
-            plan: plan,
-            sharpenMaskEdges: !storage.maskIsAuthoritative,
-            inpaintedSource: inpaintedSource
-        )
-        var rig = BindingSynthesizer.makeRig(plan: plan)
-
+        let shared = RigLayerBuilder.build(
+            source: storage.source, extractionMask: masks.extraction, plan: plan,
+            maskIsAuthoritative: storage.maskIsAuthoritative,
+            inpaintedSource: inpaintedSource, poseSweep: options.poseSweepPlan)
         var textures: [String: CGImage] = [:]
-        let layerByPartID: [(String, Bitmap)] = [
-            ("body", layers.body),
-            ("neckSeam", layers.neckSeam),
-            ("head", layers.head),
-            ("eyeLeft", layers.eyeLeft),
-            ("eyeRight", layers.eyeRight),
-            ("mouth", layers.mouth),
-        ]
-        let alphaCoverageByPartID = Dictionary(
-            uniqueKeysWithValues: layerByPartID.map { ($0.0, $0.1.alphaPlane()) }
-        )
-        rig.validatedPoseLimits = PoseSweepValidator.validate(
-            rig: rig,
-            plan: options.poseSweepPlan,
-            alphaCoverageByPartID: alphaCoverageByPartID
-        ).validatedPoseLimits
-        for (partID, bitmap) in layerByPartID {
-            guard let cgImage = bitmap.cgImage() else {
-                throw RiggingError.textureEncodingFailed
-            }
-            textures[partID] = cgImage
+        for (partID, bitmap) in shared.layers {
+            guard let image = bitmap.cgImage() else { throw RiggingError.textureEncodingFailed }
+            textures[partID] = image
         }
-        return AvatarBuild(
-            avatar: RiggedAvatar(rig: rig, textures: textures),
-            plan: plan,
-            alphaCoverageByPartID: alphaCoverageByPartID
-        )
+        return AvatarBuild(avatar: RiggedAvatar(rig: shared.rig, textures: textures), shared: shared)
     }
 
     private func faceLayoutProposal(
@@ -583,45 +529,7 @@ public struct AutoRigPipeline: RiggingPipeline {
     /// expand the selected analysis support by one cell and use it only as a
     /// gate over the exact extraction mask. The dilation preserves full-size
     /// antialiasing and thin tips at the selected component's boundary.
-    static func candidateExtractionMask(
-        _ extraction: FloatPlane,
-        supportedBy selectedAnalysis: FloatPlane
-    ) -> FloatPlane {
-        guard extraction.width > 0, extraction.height > 0,
-              selectedAnalysis.width > 0, selectedAnalysis.height > 0 else {
-            return FloatPlane(width: extraction.width, height: extraction.height)
-        }
-
-        var support = FloatPlane(
-            width: selectedAnalysis.width,
-            height: selectedAnalysis.height
-        )
-        for y in 0..<selectedAnalysis.height {
-            for x in 0..<selectedAnalysis.width where selectedAnalysis[x, y] > 0.001 {
-                for offsetY in -1...1 {
-                    for offsetX in -1...1 {
-                        support[x + offsetX, y + offsetY] = 1
-                    }
-                }
-            }
-        }
-
-        var result = FloatPlane(width: extraction.width, height: extraction.height)
-        for y in 0..<extraction.height {
-            let v = extraction.height > 1 ? Float(y) / Float(extraction.height - 1) : 0
-            let supportY = Int(
-                (v * Float(selectedAnalysis.height - 1)).rounded()
-            )
-            for x in 0..<extraction.width {
-                let u = extraction.width > 1 ? Float(x) / Float(extraction.width - 1) : 0
-                let supportX = Int(
-                    (u * Float(selectedAnalysis.width - 1)).rounded()
-                )
-                if support[supportX, supportY] > 0 {
-                    result[x, y] = extraction[x, y]
-                }
-            }
-        }
-        return result
+    static func candidateExtractionMask(_ extraction: FloatPlane, supportedBy selectedAnalysis: FloatPlane) -> FloatPlane {
+        SubjectCandidates.extractionMask(extraction, supportedBy: selectedAnalysis)
     }
 }

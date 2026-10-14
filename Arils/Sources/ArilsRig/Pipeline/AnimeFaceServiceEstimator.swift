@@ -18,6 +18,7 @@ import UniformTypeIdentifiers
 /// derives its eye and mouth search windows from the head rectangle's width and
 /// height, a better head rectangle is expected to carry the other parts with it.
 public struct AnimeFaceServiceEstimator: FaceLayoutEstimating {
+    public var estimatorSourceLabel: String { Self.sourceLabel }
     /// Maps the service's face box or landmark hull onto the rectangle an
     /// annotator would draw. The offsets are in units of the source box, so the
     /// mapping is scale free.

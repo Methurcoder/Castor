@@ -13,7 +13,7 @@ let package = Package(
         .executable(name: "arils-corpus", targets: ["ArilsCorpus"]),
         // The platform-independent part (no Apple frameworks): what a
         // Windows/Linux host needs to play an avatar rigged on a Mac.
-        .library(name: "ArilsPortable", targets: ["ArilsCore", "ArilsMotion", "ArilsPlayer"]),
+        .library(name: "ArilsPortable", targets: ["ArilsCore", "ArilsMotion", "ArilsPlayer", "ArilsRigPortable"]),
         .executable(name: "arils-motion-eval", targets: ["ArilsMotionEval"]),
     ],
     targets: [
@@ -23,13 +23,16 @@ let package = Package(
 
         // Rig document model, deformation evaluation, and the automatic rigging pipeline
         // (subject mask, face layout estimation, layer extraction, binding synthesis).
-        .target(name: "ArilsRig", dependencies: ["ArilsCore", "ArilsPlayer", "ArilsFaceInference", "ArilsSubjectInference"]),
+        .target(name: "ArilsRig", dependencies: ["ArilsCore", "ArilsPlayer", "ArilsRigPortable", "ArilsFaceInference", "ArilsSubjectInference"]),
 
         // The platform-independent half of a rig: the document model, the
         // archive format and the deformation evaluators. Hosts that only play
         // avatars rigged elsewhere (the Windows/Linux preview) need just this
         // and ArilsMotion. ArilsRig re-exports it.
         .target(name: "ArilsPlayer", dependencies: ["ArilsCore"]),
+        // Shared image analysis, layer extraction, binding and depth validation.
+        .target(name: "ArilsRigPortable", dependencies: ["ArilsCore", "ArilsPlayer"],
+                swiftSettings: [.unsafeFlags(["-O"], .when(configuration: .debug))]),
 
         // In-process anime face detector and landmark model (Core ML) plus the
         // NMS / RoIAlign / heatmap steps between the networks. The models are
@@ -86,7 +89,7 @@ let package = Package(
         ),
 
         .testTarget(name: "ArilsCoreTests", dependencies: ["ArilsCore"]),
-        .testTarget(name: "ArilsRigTests", dependencies: ["ArilsRig", "ArilsPlayer"]),
+        .testTarget(name: "ArilsRigTests", dependencies: ["ArilsRig", "ArilsPlayer", "ArilsRigPortable"]),
         .testTarget(name: "ArilsFaceInferenceTests", dependencies: ["ArilsFaceInference"]),
         .testTarget(name: "ArilsSubjectInferenceTests", dependencies: ["ArilsSubjectInference"]),
         .testTarget(name: "ArilsMotionTests", dependencies: ["ArilsMotion"]),

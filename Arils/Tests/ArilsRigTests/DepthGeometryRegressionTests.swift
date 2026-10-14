@@ -5,6 +5,7 @@ import Testing
 
 import ArilsCore
 @testable import ArilsRig
+@testable import ArilsRigPortable
 
 private func depthGeometryRig(parts: [AvatarPart]) -> AvatarRig {
     AvatarRig(
