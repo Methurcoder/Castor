@@ -1,12 +1,14 @@
 # CastorDesktop (Windows preview)
 
-The Castor pet on Windows: a pet built with Arils on a Mac lives in a
-transparent, always-on-top window. It breathes, blinks, looks at your
+The Castor pet on Windows: a saved pet lives in a transparent, always-on-top window. It breathes, blinks, looks at your
 pointer, and reacts when you move the pointer over its head.
 
-This is the first step of the Windows version. Building a pet (automatic
-rigging) still needs the Mac app, because it uses Apple's Vision and Core ML;
-conversation, voice and camera come later. The fixed Castor source passes a Windows x64 Swift 6.4.1 Release
+Full Mac/Windows feature parity is in progress. A native PNG → marker review →
+2D-warp creation prototype is included. Mac-quality automatic depth/Quality rigs,
+conversation, voice, camera and the full settings UI remain unfinished. See the
+[feature inventory and plan](../docs/CROSS_PLATFORM_PARITY.md).
+
+The fixed Castor source passes a Windows x64 Swift 6.4.1 Release
 build and seven portable runtime tests in CI. GUI interaction and real-pet
 rendering remain unverified. Linux cross-build success was recorded before the Castor rename;
 it has not been repeated after renaming. A non-Windows build does not exercise
@@ -38,7 +40,25 @@ Dragging, right-click Quit and Alt click-through were not tested. No real pet
 exported from a Mac was available, so breathing, blinking, gaze, petting and
 `--wide-head` appearance remain unverified. The fixed Castor checkout now passes [Windows/macOS CI](https://github.com/Methurcoder/Castor/actions/runs/38424052817): seven runtime tests on both platforms and a Windows Win32 Release build. The old silent return has been replaced with a deterministic synthetic archive. Distribution checks pass 11 tests on macOS and eight on Windows; the three Mac-only launcher checks are explicitly skipped on Windows. A real-pet GUI check is still pending.
 
-## 1. Bring a pet from the Mac
+## Create a pet locally (prototype)
+
+With a built app, run `CastorPet.exe` or `Start-Castor.cmd` without arguments.
+On first launch choose a PNG, review the template head/eye/mouth rectangles by
+selecting a part and dragging on the image or editing its numbers, then create.
+No model, Python, login or Mac export is used by this initial flow.
+
+Right-click the pet to create another pet, open a saved JSON/Arils file, or export
+an Arils archive. Created pets remain in `%LOCALAPPDATA%\Castor\Library` with
+unique filenames; the last selected pet reloads on the next launch. App version
+folders and existing library pets are not replaced. Cancellation preserves the
+current pet. On Mac, Rigging's “保存ペットを読み込む” imports the saved JSON.
+
+The markers are a template, not an AI face detection result. This is a single
+2D warp surface, not Mac depth/Quality/eye-layer rendering. Use transparent PNG
+for best results; only uniform edge-connected backgrounds can be removed.
+The native UI and restart/import interactions still need Windows/Mac GUI checks.
+
+## Optional: import an existing Mac pet
 
 Copy the Mac app's saved pet to the Windows PC:
 
@@ -55,7 +75,11 @@ Castor reads that old file as a fallback without deleting it.
 archive (`.arils`) also works. The pet must have been built with Arils, not
 the legacy manual rig.
 
-## 2. Install Swift on Windows
+## Developer-only: build on Windows
+
+These compiler steps are for development. The planned end-user installer must not require them.
+
+### Install Swift
 
 From an elevated terminal, as on [swift.org](https://www.swift.org/install/windows/):
 
@@ -66,7 +90,7 @@ winget install --id Swift.Toolchain -e --source winget
 
 Open a new terminal afterwards so `swift` is on the PATH.
 
-## 3. Build and run
+### Build and run
 
 Run this in **PowerShell** from the repository root. Replace the pet path with
 your actual file. Build products go under `%TEMP%` to avoid a non-writable source

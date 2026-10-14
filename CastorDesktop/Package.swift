@@ -1,9 +1,8 @@
 // swift-tools-version: 6.0
 import PackageDescription
 
-// The desktop pet for platforms where Castor has no native app yet
-// (Windows first). It plays avatars rigged on a Mac: rigging still needs
-// Apple's Vision and Core ML.
+// Portable playback and initial Windows image-to-pet rigging. Mac feature parity
+// remains in progress; full depth/Quality rigging still uses Apple backends.
 let package = Package(
     name: "CastorDesktop",
     platforms: [.macOS(.v14)],
@@ -17,6 +16,7 @@ let package = Package(
     targets: [
         // stb_image (public domain / MIT), PNG decoding only.
         .target(name: "CStbImage"),
+        .target(name: "CDesktopUI"),
 
         // Platform-independent: archive loading, motion, deformation and a
         // CPU rasterizer into a premultiplied BGRA canvas.
@@ -30,10 +30,11 @@ let package = Package(
         // stub elsewhere.
         .executableTarget(
             name: "CastorPet",
-            dependencies: ["PetRuntime"],
+            dependencies: ["PetRuntime", "CDesktopUI"],
             linkerSettings: [
                 .linkedLibrary("User32", .when(platforms: [.windows])),
                 .linkedLibrary("Gdi32", .when(platforms: [.windows])),
+                .linkedLibrary("Comdlg32", .when(platforms: [.windows])),
             ]
         ),
 

@@ -143,3 +143,14 @@ New in the Arils API, not yet driven by the app:
 - Publish the audited source with the owner's authorization and confirmed two-factor authentication.
 - Update setup documentation for public access; no binary Release has been created.
 - Enable the repository URL in the GIF sharing Web Intent for public builds.
+
+## Mac / Windows parity: initial implementation
+
+- Record the full feature-parity and no-command installation contract in CROSS_PLATFORM_PARITY.md.
+- Start native Windows PNG selection, template marker editing, portable 2D keyform creation,
+  saved-pet history/restart, existing-pet selection and Arils export.
+- Add a Mac saved-pet JSON import action, validating archives and keeping the old pet as a backup.
+- The native Windows UI and cross-platform GUI workflow are unverified. This prototype is not
+  Mac-quality automatic depth/Quality rigging and does not complete the parity contract.
+- Distribution entry is GitHub Releases, as confirmed by the user. GUI installer and complete
+  runtime/model packaging remain in progress; no distribution Release is created by this change.

@@ -1,0 +1,4 @@
+module CDesktopUI {
+    header "CDesktopUI.h"
+    export *
+}

@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import CastorCore
+import Arils
 
 /// Pets saved before official characters were removed carry only an `officialCharacterID` key.
 /// Unknown keys are ignored when decoding, so such a payload decodes with no image and is treated
@@ -67,6 +68,30 @@ enum PetCharacterStore {
     static func updateImportedEvasionStyle(_ style: EvasionStyle) throws {
         guard var payload = load() else { return }
         payload.evasionStyle = style
+        try write(payload)
+    }
+
+    /// Accept the same saved-pet JSON on both platforms, including portable Windows rigs.
+    static func importSavedPet(from url: URL) throws {
+        let payload = try JSONDecoder().decode(SavedPetCharacter.self, from: Data(contentsOf: url))
+        guard payload.image != nil else { throw CocoaError(.coderReadCorrupt) }
+        if let qualityData = payload.qualityArchiveData {
+            let quality = try QualityAvatarArchive(data: qualityData)
+            _ = try quality.front.makeAvatar()
+            _ = try quality.side.makeAvatar()
+        } else if let archiveData = payload.arilsArchiveData {
+            _ = try AvatarArchive(data: archiveData).makeAvatar()
+        } else if payload.document == nil {
+            throw CocoaError(.coderValueNotFound)
+        }
+        // Keep the previous current pet as a library entry before a deliberate import.
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            let previous = try Data(contentsOf: fileURL)
+            let library = fileURL.deletingLastPathComponent().appendingPathComponent("Library", isDirectory: true)
+            try FileManager.default.createDirectory(at: library, withIntermediateDirectories: true)
+            try previous.write(to: library.appendingPathComponent("CastorPet-\(UUID().uuidString).json"),
+                               options: .withoutOverwriting)
+        }
         try write(payload)
     }
 

@@ -2,13 +2,14 @@
 //
 //     CastorPet.exe [CastorPet.json | avatar.arils] [--wide-head]
 //
-// Shows a pet rigged on a Mac in a transparent, always-on-top window:
+// Plays saved pets and offers an initial local PNG-to-pet creation flow:
 // it breathes, blinks and looks at the pointer; moving the pointer over its
 // head pets it. Drag to move it; right-click for the menu; hold Alt over it
 // to see through it and click what it covers.
 
 #if os(Windows)
 import Foundation
+import ArilsPlayer
 import PetRuntime
 import WinSDK
 
@@ -38,6 +39,9 @@ private let tpmRightButton: UINT = 0x0002
 private let mbOK: UINT = 0
 private let mbIconError: UINT = 0x10
 private let menuQuit: UINT_PTR = 1
+private let menuNew: UINT_PTR = 2
+private let menuOpen: UINT_PTR = 3
+private let menuExport: UINT_PTR = 4
 private let frameMilliseconds: UINT = 33
 
 private func wide(_ string: String) -> [WCHAR] {
@@ -57,7 +61,8 @@ private func showError(_ text: String) {
 private final class PetWindow {
     static var shared: PetWindow?
 
-    let player: PetPlayer
+    var player: PetPlayer
+    var currentArchive: ArilsPlayer.AvatarArchive
     var canvas: PetCanvas
     var hwnd: HWND?
     var screenDC: HDC?
@@ -67,8 +72,9 @@ private final class PetWindow {
     var isSeeingThrough = false
     let startTicks = GetTickCount64()
 
-    init(player: PetPlayer, width: Int, height: Int) {
+    init(player: PetPlayer, archive: AvatarArchive, width: Int, height: Int) {
         self.player = player
+        self.currentArchive = archive
         canvas = PetCanvas(width: width, height: height)
     }
 
@@ -169,6 +175,11 @@ private final class PetWindow {
 
     func showMenu() {
         guard let hwnd, let menu = CreatePopupMenu() else { return }
+        for (id, title) in [(menuNew, "画像から新しいペットを作る（2D試作）"),
+                            (menuOpen, "保存したペットを開く"), (menuExport, "Arils形式で書き出す")] {
+            let title = wide(title)
+            _ = title.withUnsafeBufferPointer { AppendMenuW(menu, mfString, id, $0.baseAddress) }
+        }
         let quit = wide("Quit Castor")
         _ = quit.withUnsafeBufferPointer { AppendMenuW(menu, mfString, menuQuit, $0.baseAddress) }
         var cursor = POINT()
@@ -193,8 +204,28 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
         PetWindow.shared?.showMenu()
         return 0
     case wmCommand:
-        if UInt16(truncatingIfNeeded: wParam) == UInt16(menuQuit) {
-            _ = DestroyWindow(hwnd)
+        let command = UInt16(truncatingIfNeeded: wParam)
+        if command == UInt16(menuQuit) { _ = DestroyWindow(hwnd) }
+        else if let window = PetWindow.shared {
+            // Keep the existing pet intact while dialogs are open or if creation fails.
+            _ = KillTimer(hwnd, 1)
+            defer { _ = SetTimer(hwnd, 1, frameMilliseconds, nil) }
+            do {
+                var archive: AvatarArchive?
+                if command == UInt16(menuNew) { archive = try WindowsRiggingFlow.startNewPet() }
+                if command == UInt16(menuOpen), let url = try WindowsRiggingFlow.choose(kind: "pet") {
+                    archive = try PetSource.load(contentsOf: url)
+                    try WindowsRiggingFlow.remember(url)
+                }
+                if command == UInt16(menuExport), let url = try WindowsRiggingFlow.choose(kind: "archive", save: true) {
+                    try window.currentArchive.data().write(to: url, options: .atomic)
+                }
+                if let archive {
+                    window.currentArchive = archive
+                    window.player = PetPlayer(archive: archive, wideHeadMovement: CommandLine.arguments.contains("--wide-head"))
+                    window.tick()
+                }
+            } catch { showError("処理を完了できませんでした。既存のペットと保存データは保持しています。\n\n\(error.localizedDescription)") }
         }
         return 0
     case wmDestroy:
@@ -210,21 +241,24 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
 _ = SetProcessDPIAware()
 let arguments = CommandLine.arguments.dropFirst()
 let wideHeadMovement = arguments.contains("--wide-head")
-let petPath = arguments.first { !$0.hasPrefix("--") }
-    ?? PetSource.defaultFileURL(in: URL(fileURLWithPath: FileManager.default.currentDirectoryPath)).path
-let player: PetPlayer
+let archive: AvatarArchive
 do {
-    player = PetPlayer(
-        archive: try PetSource.load(contentsOf: URL(fileURLWithPath: petPath)),
-        wideHeadMovement: wideHeadMovement
-    )
+    if let path = arguments.first(where: { !$0.hasPrefix("--") }) {
+        archive = try PetSource.load(contentsOf: URL(fileURLWithPath: path))
+    } else if let saved = try WindowsRiggingFlow.defaultPet() {
+        archive = try PetSource.load(contentsOf: saved)
+    } else {
+        guard let result = try WindowsRiggingFlow.startup() else { exit(0) }
+        archive = result.0
+    }
 } catch {
-    showError("Could not open \(petPath).\n\n\(error)\n\nCopy CastorPet.json from the Mac (see CastorDesktop/README.md) next to this program, or pass its path.")
+    showError("ペットを開けませんでした。既存データは変更していません。\n\n\(error.localizedDescription)")
     exit(1)
 }
+let player = PetPlayer(archive: archive, wideHeadMovement: wideHeadMovement)
 
 let scale = Double(GetDpiForSystem()) / 96
-private let window = PetWindow(player: player, width: Int(260 * scale), height: Int(340 * scale))
+private let window = PetWindow(player: player, archive: archive, width: Int(260 * scale), height: Int(340 * scale))
 PetWindow.shared = window
 guard window.create() else {
     showError("Could not create the pet window.")

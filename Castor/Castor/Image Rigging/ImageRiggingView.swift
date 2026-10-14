@@ -396,6 +396,13 @@ struct ImageRiggingView: View {
                 .help("Choose the imported character's voice and personality")
 
                 Button {
+                    importSavedPet()
+                } label: {
+                    Label("保存ペットを読み込む", systemImage: "square.and.arrow.down")
+                }
+                .help("MacまたはWindowsで保存したCastorペットのJSONを読み込みます。")
+
+                Button {
                     savePet()
                 } label: {
                     Label("Save Pet", systemImage: "sparkles")
@@ -557,6 +564,21 @@ struct ImageRiggingView: View {
         update(&current.parts[index])
         document = current
         isRigApplied = false
+    }
+
+    private func importSavedPet() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try PetCharacterStore.importSavedPet(from: url)
+            CastorPetController.shared.showPet()
+            statusText = "保存ペットを読み込み、デスクトップへ表示しました。"
+        } catch {
+            statusText = "読み込みを完了できませんでした。現在のペットは保持しています: \(error.localizedDescription)"
+        }
     }
 
     private func openImagePanel() {

@@ -79,10 +79,11 @@ Mac app は通常のローカルビルドでは ad-hoc 署名です。現在の�
 配布者を確認できる Developer ID 署名・公証（notarization）は未実施です。
 Windows 配布用 EXE のコード署名も未整備です。
 
-Windows 版はペットの再生プレビューです。アプリ本体にキャラクターのデータは
-含みません。ペットデータがない場合は、Mac の Arils で作成した `CastorPet.json`
-または `.arils` を用意し、展開先の `Start-Castor.cmd` から選択してください。自動リギング、会話、音声、カメラは
-Windows 版では未実装です。
+Windows版は全機能共通化の途中です。現在のソースには、PNG選択・顔マーカー補正・
+2D変形の試作作成があり、`CastorPet.exe` / `Start-Castor.cmd` の初回案内で作成できます。
+Macの自動リギング/Qualityと同等の品質、会話・音声・カメラはまだ未実装です。
+Macから保存ペットを読み込むこともできます。GUI導入・全機能共通化の目標と残課題は
+[実装計画](CROSS_PLATFORM_PARITY.md)を参照してください。配布Release自体はまだありません。
 
 ## 非公開 Release の認証
 
