@@ -1,10 +1,15 @@
 name: CastorDesktop checks
 on:
   pull_request:
-    paths: ["CastorDesktop/**", "Arils/**", "CastorCore/**", "download/**", "scripts/prepare-castor-release.py", "scripts/build-castor-setup.py", "scripts/tests/test_castor_distribution.py", ".github/workflows/castor-desktop-check.yml"]
+    paths: ["CastorDesktop/**", "Arils/**", "CastorCore/**", "download/**", "scripts/prepare-castor-release.py", "scripts/build-castor-setup.py", "scripts/build-castor-app.py", "scripts/windows_neural_tts_server.py", "scripts/build-castor-neural-helper.py", "scripts/tests/**", ".github/workflows/castor-desktop-check.yml"]
   push:
-    paths: ["CastorDesktop/**", "Arils/**", "CastorCore/**", "download/**", "scripts/prepare-castor-release.py", "scripts/build-castor-setup.py", "scripts/tests/test_castor_distribution.py", ".github/workflows/castor-desktop-check.yml"]
+    paths: ["CastorDesktop/**", "Arils/**", "CastorCore/**", "download/**", "scripts/prepare-castor-release.py", "scripts/build-castor-setup.py", "scripts/build-castor-app.py", "scripts/windows_neural_tts_server.py", "scripts/build-castor-neural-helper.py", "scripts/tests/**", ".github/workflows/castor-desktop-check.yml"]
   workflow_dispatch:
+    inputs:
+      build_neural_helper:
+        description: Build the optional Windows GUI helper without downloading models
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -21,10 +26,17 @@ jobs:
         run: swift test --package-path CastorDesktop --scratch-path "$env:RUNNER_TEMP/CastorDesktop"
       - name: Check packaging and Windows downloader offline
         run: python scripts/tests/test_castor_distribution.py
+      - name: Check loopback Neural TTS without model downloads
+        run: python scripts/tests/test_windows_neural_tts.py
       - name: Build the actual Win32 release executable
         run: swift build --package-path CastorDesktop --scratch-path "$env:RUNNER_TEMP/CastorDesktop" -c release --product CastorPet
       - name: Build and collect the GUI installer runtime locally
         run: python scripts/build-castor-setup.py --output "$env:RUNNER_TEMP/CastorSetupRuntime" --scratch "$env:RUNNER_TEMP/CastorDesktop"
+      - name: Collect app runtime with its in-app GUI setup entry
+        shell: pwsh
+        run: |
+          $bin = swift build --package-path CastorDesktop --scratch-path "$env:RUNNER_TEMP/CastorDesktop" -c release --show-bin-path
+          python -c "import importlib.util,pathlib; s=importlib.util.spec_from_file_location('bundle','scripts/build-castor-setup.py'); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); o=pathlib.Path(r'$env:RUNNER_TEMP/CastorAppRuntime'); o.mkdir(); m.windows_runtime(['CastorPet.exe','CastorSetup.exe'],o,pathlib.Path(r'$bin'),[])"
       - name: Exercise native ZIP extraction with the collected installer
         run: |
           $env:CASTOR_SETUP_EXE = "$env:RUNNER_TEMP/CastorSetupRuntime/CastorSetup.exe"
@@ -37,5 +49,39 @@ jobs:
       - run: swift test --package-path CastorDesktop
       - name: Check packaging and native Mac downloader offline
         run: python3 scripts/tests/test_castor_distribution.py
+      - name: Check loopback Neural TTS without model downloads
+        run: python3 scripts/tests/test_windows_neural_tts.py
       - name: Build a Finder-launchable GUI setup app locally
         run: python3 scripts/build-castor-setup.py --output "$RUNNER_TEMP/CastorSetupRuntime" --scratch "$RUNNER_TEMP/CastorSetupBuild" --arch arm64
+
+  neural-helper:
+    if: github.event_name == 'workflow_dispatch' && inputs.build_neural_helper
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Prepare an isolated CPU helper build environment
+        shell: pwsh
+        run: |
+          python -m venv "$env:RUNNER_TEMP/NeuralBuild"
+          $py = "$env:RUNNER_TEMP/NeuralBuild/Scripts/python.exe"
+          & $py -m pip install --disable-pip-version-check "torch==2.9.1" "torchaudio==2.9.1" --index-url https://download.pytorch.org/whl/cpu
+          & $py -m pip install --disable-pip-version-check "qwen-tts==0.1.1" "pyinstaller==6.22.3"
+      - name: Bundle GUI and Python runtime without model weights
+        shell: pwsh
+        run: python scripts/build-castor-neural-helper.py --python "$env:RUNNER_TEMP/NeuralBuild/Scripts/python.exe" --output "$env:RUNNER_TEMP/CastorNeuralCandidate"
+      - name: Load packaged dependencies without the build environment
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:SystemRoot/System32;$env:SystemRoot"
+          Remove-Item Env:PYTHONHOME -ErrorAction SilentlyContinue
+          Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
+          $result = "$env:RUNNER_TEMP/neural-dependencies.json"
+          $process = Start-Process "$env:RUNNER_TEMP/CastorNeuralCandidate/CastorNeuralTTS.exe" -ArgumentList '--self-check', $result -Wait -PassThru
+          if ($process.ExitCode -ne 0) { Get-Content $result -ErrorAction SilentlyContinue; throw 'Packaged helper could not load its dependencies.' }
+          $report = Get-Content $result | ConvertFrom-Json
+          if (-not $report.ready -or $report.modelsLoaded) { throw 'Invalid dependency-check result.' }
+          $report | ConvertTo-Json

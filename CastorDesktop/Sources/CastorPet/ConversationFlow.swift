@@ -42,6 +42,7 @@ enum WindowsConversationFlow {
                 S("desktop.settings.language", ["language": language.nativeLabel]),
                 S("desktop.settings.button_dodge", ["state": state(edited.buttonDodgeEnabled)]),
                 S("desktop.settings.microphone", ["state": state(edited.microphoneEnabled)]),
+                (language == .japanese ? "Neural TTS（失敗時は標準音声）: ":"Neural TTS (system voice fallback): ")+state(edited.neuralTTSEnabled),
                 S("desktop.settings.save_close"), S("desktop.settings.discard_close")
             ]) else { return nil }
             switch item {
@@ -96,7 +97,29 @@ enum WindowsConversationFlow {
             case 20:
                 edited.microphoneEnabled.toggle()
                 edited.microphoneSetupCompleted = true
-            case 21: return edited
+            case 21:
+                let ja=language == .japanese
+                guard let action=try WindowsRiggingFlow.option(title:"Neural TTS",items:ja ?
+                    ["使用する / 使用しない","接続先（localhost）","モデルID","声ID","声の指示","言語（auto/ja/en等）","速度","モデルを準備","導入GUIを開く"] :
+                    ["Enable / Disable","Endpoint (localhost)","Model ID","Voice ID","Voice instruction","Language (auto/ja/en)","Speed","Prepare model","Open setup"]) else {continue}
+                switch action {
+                case 0:edited.neuralTTSEnabled.toggle();if edited.neuralTTSEnabled {edited.systemTTSEnabled=true}
+                case 1:if let value=try WindowsRiggingFlow.text(title:"Neural TTS URL",value:edited.neuralEndpoint) {
+                    _ = try NeuralSpeechTransport(endpoint:URL(string:value) ?? URL(string:"http://invalid")!);edited.neuralEndpoint=value }
+                case 2:if let value=try WindowsRiggingFlow.text(title:"Model ID",value:edited.neuralModel){edited.neuralModel=value}
+                case 3:if let value=try WindowsRiggingFlow.text(title:"Voice ID",value:edited.neuralVoice){edited.neuralVoice=value}
+                case 4:if let value=try WindowsRiggingFlow.text(title:ja ? "声の指示":"Voice instruction",value:edited.neuralInstruction){edited.neuralInstruction=value}
+                case 5:if let value=try WindowsRiggingFlow.text(title:ja ? "言語コード":"Language code",value:edited.neuralLanguage){edited.neuralLanguage=value}
+                case 6:if let value=try WindowsRiggingFlow.text(title:ja ? "速度（0.5〜2）":"Speed (0.5–2)",value:String(edited.neuralSpeed)),let speed=Double(value),speed.isFinite,(0.5...2).contains(speed){edited.neuralSpeed=speed}
+                case 7:
+                    let settings=edited
+                    _ = try WindowsRiggingFlow.work(text:ja ? "音声モデルを準備しています。追加モデルは大きい場合があります。":"Preparing the voice model. Additional models can be large.",operation:{
+                        try await NeuralSpeechTransport(endpoint:URL(string:settings.neuralEndpoint)!).preload(model:settings.neuralModel)
+                    })
+                case 8:try WindowsRiggingFlow.openSetup()
+                default:break
+                }
+            case 22: return edited
             default: return nil
             }
         }

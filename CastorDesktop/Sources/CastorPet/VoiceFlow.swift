@@ -1,4 +1,5 @@
 #if os(Windows)
+import CastorCore
 import CDesktopUI
 import Foundation
 import PetRuntime
@@ -21,6 +22,28 @@ enum WindowsVoiceFlow {
         return String(cString: buffer).split(separator: "\n").compactMap { line in
             let parts = line.split(separator: "\t", maxSplits: 1)
             return parts.count == 2 ? (String(parts[0]), String(parts[1])) : nil
+        }
+    }
+    static func speak(_ text:String,preferences:DesktopPreferences) throws {
+        guard preferences.neuralTTSEnabled else {try speak(text,voice:preferences.systemVoice);return}
+        do {
+            _ = try WindowsRiggingFlow.work(text:preferences.displayLanguage == .japanese ?
+                "Neural TTSで生成・再生しています。キャンセルで停止します。":"Generating and playing Neural TTS. Cancel to stop.",operation:{
+                let transport=try NeuralSpeechTransport(endpoint:URL(string:preferences.neuralEndpoint)!)
+                let payload=NeuralSpeechPayload(model:preferences.neuralModel,input:text,instruct:preferences.neuralInstruction,
+                    voice:preferences.neuralVoice,speed:preferences.neuralSpeed,langCode:preferences.neuralLanguage)
+                let wav=try WavePCM(data:await transport.audio(for:payload))
+                let status=wav.samples.withUnsafeBufferPointer {
+                    castor_play_pcm($0.baseAddress,$0.count,Int32(wav.channels),Int32(wav.sampleRate),
+                        { _ in Task<Never,Never>.isCancelled ? 1:0 },nil)
+                }
+                if status<0 {throw VoiceError.unavailable}
+                try Task.checkCancellation()
+            })
+        } catch is CancellationError {return}
+        catch {
+            // Recover to an installed system voice without requiring a model/helper.
+            try speak(text,voice:preferences.systemVoice)
         }
     }
     static func speak(_ text: String, voice: String) throws {

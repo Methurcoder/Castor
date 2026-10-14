@@ -48,6 +48,7 @@ let package = Package(
                 .linkedLibrary("Comdlg32", .when(platforms: [.windows])),
                 .linkedLibrary("Shell32", .when(platforms: [.windows])),
                 .linkedLibrary("Ole32", .when(platforms: [.windows])),
+                .linkedLibrary("Winmm", .when(platforms: [.windows])),
             ]
         ),
 

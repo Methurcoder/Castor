@@ -371,27 +371,7 @@ final class NeuralSpeechSettings {
     }
 }
 
-struct NeuralSpeechRequest: Encodable {
-    let model: String
-    let input: String
-    let instruct: String
-    let voice: String
-    let speed: Double
-    let langCode: String
-    let responseFormat: String
-    let stream: Bool
-
-    enum CodingKeys: String, CodingKey {
-        case model
-        case input
-        case instruct
-        case voice
-        case speed
-        case langCode = "lang_code"
-        case responseFormat = "response_format"
-        case stream
-    }
-}
+typealias NeuralSpeechRequest = NeuralSpeechPayload
 
 struct NeuralSpeechClient {
     static let defaultEndpoint = URL(string: "http://127.0.0.1:8000/v1/audio/speech")!
@@ -447,18 +427,9 @@ struct NeuralSpeechClient {
             stream: false
         )
 
-        var request = URLRequest(url: endpoint)
-        request.httpMethod = "POST"
-        request.timeoutInterval = model == Self.qwenEnglishModel ? 120 : 20
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(payload)
-
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200..<300).contains(httpResponse.statusCode),
-              !data.isEmpty else {
-            throw NeuralSpeechError.invalidResponse
-        }
+        let transport = try NeuralSpeechTransport(endpoint:endpoint,session:session)
+        let (data,httpResponse) = try await transport.response(for:payload,
+            timeout:model == Self.qwenEnglishModel ? 120:20)
         let elapsed = Date().timeIntervalSince(startedAt)
         let serverTiming = httpResponse.value(forHTTPHeaderField: "Server-Timing") ?? "missing"
         Self.logger.info(

@@ -43,6 +43,10 @@ enum NativeInstall {
 #endif
         }
     }
+    static func installationRoot(component:DesktopHelperComponent?) throws -> URL {
+        let base=try root
+        return component.map {base.appendingPathComponent("CastorHelpers/"+$0.rawValue,isDirectory:true)} ?? base
+    }
     static func extract(_ archive: URL, _ destination: URL) async throws {
         try Task.checkCancellation()
 #if os(Windows)
@@ -70,9 +74,9 @@ enum NativeInstall {
         throw AdapterError.unsupported
 #endif
     }
-    static func stamp(_ payload: URL) throws {
+    static func stamp(_ payload: URL,component:DesktopHelperComponent?=nil) throws {
 #if os(macOS)
-        let app=payload.appendingPathComponent("Castor.app")
+        let app=payload.appendingPathComponent("\(component?.stem ?? "Castor").app")
         let value="0081;\(String(Int(Date().timeIntervalSince1970),radix:16));CastorSetup;\(UUID().uuidString)"
         let status=value.withCString { raw in app.path.withCString { path in
             setxattr(path,"com.apple.quarantine",raw,value.utf8.count,0,0)
@@ -80,13 +84,15 @@ enum NativeInstall {
         guard status==0 else { throw AdapterError.stamp }
 #elseif os(Windows)
         let mark=Data("[ZoneTransfer]\r\nZoneId=3\r\nHostUrl=https://github.com/Methurcoder/Castor\r\n".utf8)
-        for file in try FileManager.default.contentsOfDirectory(at:payload,includingPropertiesForKeys:nil) {
-            guard file.pathExtension.lowercased()=="exe" || file.pathExtension.lowercased()=="dll" || file.pathExtension.lowercased()=="cmd" || file.pathExtension.lowercased()=="ps1" else { continue }
+        guard let files=FileManager.default.enumerator(at:payload,includingPropertiesForKeys:[.isRegularFileKey],options:[]) else {throw AdapterError.stamp}
+        for case let file as URL in files {
+            guard file.pathExtension.lowercased()=="exe" || file.pathExtension.lowercased()=="dll" || file.pathExtension.lowercased()=="cmd" || file.pathExtension.lowercased()=="ps1" || file.pathExtension.lowercased()=="pyd" else { continue }
             try mark.write(to:URL(fileURLWithPath:file.path+":Zone.Identifier"))
         }
 #endif
     }
     static func createLaunchEntry(_ app: DesktopInstalledApp) throws {
+        guard app.component==nil else {return}
         // Never overwrite another user's app or an unrelated Castor shortcut.
         let base=try root
         guard try DesktopInstaller.selected(root:base)?.folder==app.folder else {throw AdapterError.unpack}
@@ -112,6 +118,7 @@ enum NativeInstall {
 #endif
     }
     static func removeLaunchEntry(_ app: DesktopInstalledApp) {
+        guard app.component==nil else {return}
         guard let base=try? root else{return}
 #if os(macOS)
         let link=base.appendingPathComponent("Castor.app")
@@ -126,12 +133,12 @@ enum NativeInstall {
     @MainActor
     #endif
     static func launch(_ app: DesktopInstalledApp) throws {
-        let folder=try root.appendingPathComponent(app.folder,isDirectory:true)
+        let folder=try installationRoot(component:app.component).appendingPathComponent(app.folder,isDirectory:true)
 #if os(macOS)
-        _ = NSWorkspace.shared.open(folder.appendingPathComponent("Castor.app"))
+        _ = NSWorkspace.shared.open(folder.appendingPathComponent("\(app.component?.stem ?? "Castor").app"))
 #elseif os(Windows)
         // Shell launch retains Windows security checks/Mark of the Web.
-        let executable=folder.appendingPathComponent("CastorPet.exe")
+        let executable=folder.appendingPathComponent(app.component?.executable(platform:app.platform) ?? "CastorPet.exe")
         guard executable.path.withCString({castor_launch_file($0)})>0 else { throw AdapterError.unpack }
 #endif
     }

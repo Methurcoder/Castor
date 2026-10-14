@@ -17,12 +17,12 @@ PLATFORMS = ('macos_arm64', 'macos_x86_64', 'windows_x86_64')
 LICENSES = ('LICENSE', 'THIRD_PARTY_NOTICES.md')
 
 
-def valid_file(path):
+def valid_file(path, public_ca=False):
     if any(ord(char) < 32 for char in str(path)):
         raise ValueError("Control characters are not allowed in release filenames.")
     if path.is_symlink() or not path.is_file():
         raise ValueError(f'Only regular files are allowed: {path.name}')
-    if path.suffix.lower() in {'.p12', '.p8', '.pem', '.key', '.cer', '.log'}:
+    if path.suffix.lower() in {'.p12', '.p8', '.pem', '.key', '.cer', '.log'} and not public_ca:
         raise ValueError(f'Unexpected local data or secret file: {path.name}')
     if any(part in {'.git', '.env', '__pycache__', 'xcuserdata', '.DS_Store'} for part in path.parts):
         raise ValueError('Local files must not be included in a release.')
@@ -52,8 +52,9 @@ def check_arch(binary, platform):
             raise ValueError('Expected a thin Mach-O executable matching the selected Mac CPU.')
 
 
-def prepare(output, version, apps, setups=None):
+def prepare(output, version, apps, setups=None, neural_helpers=None):
     setups = setups or {}
+    neural_helpers = neural_helpers or {}
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,63}', version):
         raise ValueError('Version must be a simple Release name.')
     if not apps:
@@ -86,9 +87,11 @@ def prepare(output, version, apps, setups=None):
             files = []
             for p in sorted(source.iterdir()):
                 # Only an explicit runtime directory: executable and DLLs, no pets/configs/debug data.
-                if p.name == 'CastorPet.exe' or p.suffix.lower() == '.dll':
+                if p.name in ('CastorPet.exe','CastorSetup.exe') or p.suffix.lower() == '.dll':
                     valid_file(p)
                     files.append((p, p.name))
+                elif p.name in LICENSES:
+                    valid_file(p)
                 else:
                     raise ValueError(f'Unexpected Windows runtime file: {p.name}')
             if not any(p.name.lower() == 'swiftcore.dll' for p, _ in files):
@@ -123,6 +126,35 @@ def prepare(output, version, apps, setups=None):
                 raise ValueError('The GUI setup needs its own Swift runtime DLLs.')
         files.extend((ROOT/name,name) for name in LICENSES)
         setup_payloads[platform] = files
+    helper_payloads = {}
+    for helper_platform, helper_source in neural_helpers.items():
+        if helper_platform not in PLATFORMS:
+            raise ValueError('Unexpected helper platform')
+        helper_source = helper_source.resolve()
+        executable = helper_source/'CastorNeuralTTS.app/Contents/MacOS/CastorNeuralTTS' if helper_platform.startswith('macos') else helper_source/'CastorNeuralTTS.exe'
+        if not helper_source.is_dir() or not executable.is_file():
+            raise ValueError('Built GUI Neural TTS helper is required')
+        check_arch(executable,helper_platform)
+        files = []
+        for file in helper_source.rglob('*'):
+            if file.is_symlink(): raise ValueError('Review helper symlinks before packaging')
+            if file.is_file():
+                relative = file.relative_to(helper_source).as_posix()
+                allowed = relative.startswith('CastorNeuralTTS.app/') if helper_platform.startswith('macos') else relative == 'CastorNeuralTTS.exe' or relative.startswith(('_internal/','licenses/'))
+                if not allowed and relative not in ('LICENSE','THIRD_PARTY_NOTICES.md'):
+                    raise ValueError('Unexpected helper file: '+relative)
+                public_ca = relative in ('_internal/certifi/cacert.pem','CastorNeuralTTS.app/Contents/Resources/certifi/cacert.pem','CastorNeuralTTS.app/Contents/Frameworks/certifi/cacert.pem')
+                if public_ca:
+                    certificate = file.read_bytes()
+                    if len(certificate)>1024*1024 or b'PRIVATE KEY' in certificate or b'BEGIN CERTIFICATE' not in certificate:
+                        raise ValueError('Unexpected CA trust bundle')
+                    import ssl
+                    ssl.create_default_context(cafile=str(file))
+                valid_file(file,public_ca=public_ca)
+                files.append((file,relative))
+        for name in ('LICENSE','THIRD_PARTY_NOTICES.md'):
+            if not any(relative == name for _,relative in files): files.append((ROOT/name,name))
+        helper_payloads[helper_platform] = files
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='castor-release-', dir=output.parent) as temp:
         stage = Path(temp)
@@ -146,6 +178,14 @@ def prepare(output, version, apps, setups=None):
                 for source, relative in files:
                     put(z,source,relative)
             manifest['setup'][platform] = {'asset':name,'sha256':hashlib.sha256(archive.read_bytes()).hexdigest(),'bytes':archive.stat().st_size}
+        if helper_payloads:
+            manifest['components'] = {'NeuralTTS': {}}
+        for helper_platform, files in helper_payloads.items():
+            name = f'CastorNeuralTTS-{version}-{helper_platform}.zip'
+            archive = stage/name
+            with zipfile.ZipFile(archive,'w') as z:
+                for source, relative in files: put(z,source,relative)
+            manifest['components']['NeuralTTS'][helper_platform] = {'asset':name,'sha256':hashlib.sha256(archive.read_bytes()).hexdigest(),'bytes':archive.stat().st_size}
         (stage/'castor-downloads.json').write_text(json.dumps(manifest, indent=2)+'\n', encoding='utf-8')
         with zipfile.ZipFile(stage/'Castor-Downloader.zip', 'w') as z:
             for name in ('Castor-Download.command', 'Castor-Download.cmd', 'Castor-Download.ps1'):
@@ -165,12 +205,14 @@ def main():
     for p in PLATFORMS:
         parser.add_argument('--'+p.replace('_', '-'), dest=p, type=Path,
                             help='Built Castor.app (Mac) or flat executable + runtime DLL directory (Windows)')
+        parser.add_argument('--neural-helper-'+p.replace('_','-'),dest='neural_helper_'+p,type=Path,help='Built GUI Neural TTS helper payload directory')
         parser.add_argument('--setup-'+p.replace('_','-'),dest='setup_'+p,type=Path,
                             help='Native GUI setup app (Mac) or setup executable + DLL directory (Windows)')
     args = parser.parse_args()
     try:
         prepare(args.output, args.version, {p: getattr(args, p) for p in PLATFORMS if getattr(args, p)},
-                {p: getattr(args,'setup_'+p) for p in PLATFORMS if getattr(args,'setup_'+p)})
+                {p: getattr(args,'setup_'+p) for p in PLATFORMS if getattr(args,'setup_'+p)},
+                {p: getattr(args,'neural_helper_'+p) for p in PLATFORMS if getattr(args,'neural_helper_'+p)})
     except (ValueError, OSError, KeyError, plistlib.InvalidFileException) as error:
         parser.exit(1, f'error: {error}\n')
 

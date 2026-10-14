@@ -32,6 +32,13 @@ public struct DesktopPreferences: Codable, Equatable, Sendable {
     public var positionY: Int32?
     public var systemTTSEnabled = false
     public var systemVoice = ""
+    public var neuralTTSEnabled = false
+    public var neuralEndpoint = "http://127.0.0.1:8000/v1/audio/speech"
+    public var neuralModel = "mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit"
+    public var neuralVoice = "Ryan"
+    public var neuralInstruction = "Speak gently, naturally, and a little hesitantly."
+    public var neuralLanguage = "auto"
+    public var neuralSpeed = 1.0
     public init() {}
     public var endpoint: String { provider == .lmStudio ? lmStudioEndpoint : ollamaEndpoint }
     public var model: String {
@@ -69,8 +76,16 @@ public struct DesktopPreferences: Codable, Equatable, Sendable {
         positionY = try values.decodeIfPresent(Int32.self, forKey: .positionY)
         systemTTSEnabled = try values.decodeIfPresent(Bool.self, forKey: .systemTTSEnabled) ?? systemTTSEnabled
         systemVoice = try values.decodeIfPresent(String.self, forKey: .systemVoice) ?? systemVoice
+        neuralTTSEnabled = try values.decodeIfPresent(Bool.self,forKey:.neuralTTSEnabled) ?? neuralTTSEnabled
+        neuralEndpoint = try values.decodeIfPresent(String.self,forKey:.neuralEndpoint) ?? neuralEndpoint
+        neuralModel = try values.decodeIfPresent(String.self,forKey:.neuralModel) ?? neuralModel
+        neuralVoice = try values.decodeIfPresent(String.self,forKey:.neuralVoice) ?? neuralVoice
+        neuralInstruction = try values.decodeIfPresent(String.self,forKey:.neuralInstruction) ?? neuralInstruction
+        neuralLanguage = try values.decodeIfPresent(String.self,forKey:.neuralLanguage) ?? neuralLanguage
+        neuralSpeed = try values.decodeIfPresent(Double.self,forKey:.neuralSpeed) ?? neuralSpeed
     }
     private enum Keys: String, CodingKey {
+        case neuralTTSEnabled,neuralEndpoint,neuralModel,neuralVoice,neuralInstruction,neuralLanguage,neuralSpeed
         case displayLanguage, buttonDodgeEnabled, microphoneEnabled, microphoneSetupCompleted
         case selectedBrain, externalBrain, automaticRouting, codexEndpoint, claudeEndpoint, workspacePath
         case evasionEnabled, evasionStyle
@@ -79,6 +94,10 @@ public struct DesktopPreferences: Codable, Equatable, Sendable {
     }
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: Keys.self)
+        try c.encode(neuralTTSEnabled,forKey:.neuralTTSEnabled);try c.encode(neuralEndpoint,forKey:.neuralEndpoint)
+        try c.encode(neuralModel,forKey:.neuralModel);try c.encode(neuralVoice,forKey:.neuralVoice)
+        try c.encode(neuralInstruction,forKey:.neuralInstruction);try c.encode(neuralLanguage,forKey:.neuralLanguage)
+        try c.encode(neuralSpeed,forKey:.neuralSpeed)
         try c.encode(displayLanguage, forKey: .displayLanguage)
         try c.encode(buttonDodgeEnabled, forKey: .buttonDodgeEnabled)
         try c.encode(microphoneEnabled, forKey: .microphoneEnabled)
@@ -113,6 +132,11 @@ public struct DesktopPreferenceStore {
         guard preferences.scale.isFinite, (0.5...3).contains(preferences.scale),
               preferences.petOpacity.isFinite, (0.2...1).contains(preferences.petOpacity),
               preferences.personality.count <= 8000 else { throw StoreError.invalidPreferences }
+        _ = try NeuralSpeechTransport(endpoint:URL(string:preferences.neuralEndpoint) ?? URL(string:"http://invalid")!)
+        guard preferences.neuralSpeed.isFinite,(0.5...2).contains(preferences.neuralSpeed),
+              !preferences.neuralModel.isEmpty,preferences.neuralModel.count<=1024,
+              !preferences.neuralVoice.isEmpty,preferences.neuralVoice.count<=256,
+              preferences.neuralInstruction.count<=4000,preferences.neuralLanguage.count<=32 else {throw StoreError.invalidPreferences}
         // Validate local endpoints before writing; cancel/invalid input keeps the old file.
         _ = try DesktopConversation.endpoint(preferences.lmStudioEndpoint)
         _ = try DesktopConversation.endpoint(preferences.ollamaEndpoint)

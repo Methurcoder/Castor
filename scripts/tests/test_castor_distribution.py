@@ -48,6 +48,29 @@ class DistributionTests(unittest.TestCase):
         release.prepare(self.output, 'local-test', {'macos_arm64': self.mac, 'windows_x86_64': self.windows})
         return json.loads((self.output/'castor-downloads.json').read_text())
 
+    def test_optional_neural_helper_has_separate_manifest_hash_and_payload(self):
+        helper=self.base/'helper';helper.mkdir()
+        shutil.copy2(self.windows/'CastorPet.exe',helper/'CastorNeuralTTS.exe')
+        (helper/'_internal').mkdir()
+        (helper/'_internal/python312.dll').write_bytes(b'runtime fixture')
+        (helper/'_internal/base_library.zip').write_bytes(b'stdlib fixture')
+        release.prepare(self.output,'helper-test',{'windows_x86_64':self.windows},neural_helpers={'windows_x86_64':helper})
+        manifest=json.loads((self.output/'castor-downloads.json').read_text())
+        entry=manifest['components']['NeuralTTS']['windows_x86_64']
+        data=(self.output/entry['asset']).read_bytes()
+        self.assertEqual(entry['sha256'],hashlib.sha256(data).hexdigest())
+        with zipfile.ZipFile(self.output/entry['asset']) as archive:
+            self.assertIn('CastorNeuralTTS.exe',archive.namelist())
+            self.assertIn('_internal/base_library.zip',archive.namelist())
+            self.assertNotIn('CastorPet.exe',archive.namelist())
+    def test_optional_neural_helper_rejects_extra_user_files(self):
+        helper=self.base/'helper';helper.mkdir()
+        shutil.copy2(self.windows/'CastorPet.exe',helper/'CastorNeuralTTS.exe')
+        (helper/'MyPet.json').write_text('{}')
+        with self.assertRaises(ValueError):
+            release.prepare(self.output,'helper-test',{'windows_x86_64':self.windows},neural_helpers={'windows_x86_64':helper})
+        self.assertFalse(self.output.exists())
+
     def test_packages_have_matching_hashes_architectures_licenses_and_launchers(self):
         manifest = self.package()
         for platform, asset in manifest['platforms'].items():

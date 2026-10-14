@@ -4,6 +4,13 @@ import CInstallLock
 import FoundationNetworking
 #endif
 
+public enum DesktopHelperComponent:String,Codable,Sendable {
+    case neuralTTS = "NeuralTTS"
+    public var stem:String {"Castor"+rawValue}
+    public func executable(platform:String)->String {
+        platform.hasPrefix("macos") ? "\(stem).app/Contents/MacOS/\(stem)":"\(stem).exe"
+    }
+}
 public struct DesktopRelease: Decodable, Sendable {
     public struct Asset: Decodable, Sendable { public let name: String; public let browser_download_url: String; public let size: Int64 }
     public let tag_name: String
@@ -16,9 +23,15 @@ public struct DesktopDownloadManifest: Decodable, Sendable {
     public let schema: Int
     public let version: String
     public let platforms: [String: Package]
-    public func package(platform: String, release: DesktopRelease) throws -> (Package, URL) {
+    public let components:[String:[String:Package]]?
+    public init(schema:Int,version:String,platforms:[String:Package],components:[String:[String:Package]]?=nil) {
+        self.schema=schema;self.version=version;self.platforms=platforms;self.components=components
+    }
+    public func package(platform: String, release: DesktopRelease,component:DesktopHelperComponent?=nil) throws -> (Package, URL) {
+        let packages=component.map {components?[$0.rawValue] ?? [:]} ?? platforms
+        let stem=component?.stem ?? "Castor"
         guard schema==1,version==release.tag_name,Self.validVersion(version),!release.draft,!release.prerelease,
-              let package=platforms[platform],package.asset=="Castor-\(version)-\(platform).zip",
+              let package=packages[platform],package.asset=="\(stem)-\(version)-\(platform).zip",
               package.sha256.count==64,package.sha256.allSatisfy({"0123456789abcdef".contains($0)}),package.bytes>0,package.bytes<2_147_483_648,
               let asset=release.assets.first(where:{$0.name==package.asset}),
               release.assets.filter({$0.name==package.asset}).count==1,asset.size==package.bytes,
@@ -35,6 +48,10 @@ public struct DesktopInstalledApp: Codable, Sendable {
     public let version: String
     public let platform: String
     public let folder: String
+    public let component:DesktopHelperComponent?
+    public init(version:String,platform:String,folder:String,component:DesktopHelperComponent?=nil) {
+        self.version=version;self.platform=platform;self.folder=folder;self.component=component
+    }
 }
 public enum DesktopInstaller {
     public enum InstallError: LocalizedError {
@@ -42,7 +59,7 @@ public enum DesktopInstaller {
         public var errorDescription: String? {
             switch self {
             case .noRelease: "公開された配布Releaseがまだありません。ソース公開だけではアプリを取得できません。"
-            case .invalidManifest: "配布情報が不正または、このOS/CPU向けアプリがありません。"
+            case .invalidManifest: "配布情報が不正、またはこのOS/CPU向け本体・追加helperがありません。"
             case let .downloadFailed(status): "取得に失敗しました（HTTP \(status)）。既存アプリとデータは保持しています。"
             case .integrity: "容量またはSHA-256が一致しません。既存アプリを保持して取得を中止しました。"
             case .existing: "同じ版が既にあります。起動または修復を選んでください。"
@@ -81,7 +98,7 @@ public enum DesktopInstaller {
     /// Extract/stamp are native adapters. Stage and target share a volume; an
     /// incomplete/cancelled replacement never touches the previous installation.
     private static func validFolder(_ app: DesktopInstalledApp) -> Bool {
-        let base="Castor-\(app.version)-\(app.platform)"
+        let base="\(app.component?.stem ?? "Castor")-\(app.version)-\(app.platform)"
         if app.folder==base { return true }
         let prefix=base+"-repair-"
         return app.folder.hasPrefix(prefix) && UUID(uuidString:String(app.folder.dropFirst(prefix.count))) != nil
@@ -102,13 +119,13 @@ public enum DesktopInstaller {
         try FileManager.default.copyItem(at:file,to:destination)
     }
     public static func install(root: URL, release: DesktopRelease, manifest: DesktopDownloadManifest, platform: String,
-                               repair: Bool=false, extract: @Sendable (URL,URL) async throws -> Void,
+                               repair: Bool=false,component:DesktopHelperComponent?=nil, extract: @Sendable (URL,URL) async throws -> Void,
                                stamp: @Sendable (URL) throws -> Void,
                                download: @Sendable (URL,URL) async throws -> Void = { try await DesktopInstaller.download($0,to:$1) }) async throws -> DesktopInstalledApp {
-        let(package,url)=try manifest.package(platform:platform,release:release)
+        let(package,url)=try manifest.package(platform:platform,release:release,component:component)
         try Task.checkCancellation()
         let lease=try lock(root:root);defer { castor_install_unlock(lease) }
-        let folder="Castor-\(manifest.version)-\(platform)"+(repair ? "-repair-\(UUID().uuidString)" : "")
+        let folder="\(component?.stem ?? "Castor")-\(manifest.version)-\(platform)"+(repair ? "-repair-\(UUID().uuidString)" : "")
         let target=root.appendingPathComponent(folder,isDirectory:true)
         guard !FileManager.default.fileExists(atPath:target.path) else { throw InstallError.existing }
         try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true)
@@ -120,16 +137,22 @@ public enum DesktopInstaller {
         let actualSize=(try FileManager.default.attributesOfItem(atPath:archive.path)[.size] as? NSNumber)?.int64Value
         guard actualSize==package.bytes,try PackageIntegrity.sha256(file:archive)==package.sha256 else { throw InstallError.integrity }
         try Task.checkCancellation()
-        try PackageZIP.validate(Data(contentsOf:archive,options:.mappedIfSafe),platform:platform)
+        try PackageZIP.validate(Data(contentsOf:archive,options:.mappedIfSafe),platform:platform,component:component)
         let unpacked=stage.appendingPathComponent("payload",isDirectory:true)
         try FileManager.default.createDirectory(at:unpacked,withIntermediateDirectories:false)
         try await extract(archive,unpacked)
         try Task.checkCancellation()
-        let executable=unpacked.appendingPathComponent(platform.hasPrefix("macos") ? "Castor.app/Contents/MacOS/Castor" : "CastorPet.exe")
+        let executable=unpacked.appendingPathComponent(component?.executable(platform:platform) ?? (platform.hasPrefix("macos") ? "Castor.app/Contents/MacOS/Castor" : "CastorPet.exe"))
         guard FileManager.default.fileExists(atPath:executable.path),
-              platform.hasPrefix("macos")||FileManager.default.fileExists(atPath:unpacked.appendingPathComponent("swiftCore.dll").path) else { throw InstallError.missingApp }
+              component != nil||platform.hasPrefix("macos")||FileManager.default.fileExists(atPath:unpacked.appendingPathComponent("swiftCore.dll").path) else { throw InstallError.missingApp }
+        if component != nil,platform=="windows_x86_64" {
+            let runtime=unpacked.appendingPathComponent("_internal",isDirectory:true)
+            let files=(try? FileManager.default.contentsOfDirectory(atPath:runtime.path)) ?? []
+            guard FileManager.default.fileExists(atPath:runtime.appendingPathComponent("base_library.zip").path),
+                  files.contains(where:{$0.lowercased().hasPrefix("python") && $0.lowercased().hasSuffix(".dll")}) else {throw InstallError.missingApp}
+        }
         try stamp(unpacked)
-        let installed=DesktopInstalledApp(version:manifest.version,platform:platform,folder:folder)
+        let installed=DesktopInstalledApp(version:manifest.version,platform:platform,folder:folder,component:component)
         let metadata=try JSONEncoder().encode(installed)
         try metadata.write(to:unpacked.appendingPathComponent("CastorInstall.json"),options:.withoutOverwriting)
         try Task.checkCancellation()
@@ -146,7 +169,7 @@ public enum DesktopInstaller {
         let folder=root.appendingPathComponent(app.folder,isDirectory:true)
         let marker=folder.appendingPathComponent("CastorInstall.json")
         let own=try JSONDecoder().decode(DesktopInstalledApp.self,from:Data(contentsOf:marker))
-        guard own.folder==app.folder,own.platform==app.platform,own.version==app.version,
+        guard own.folder==app.folder,own.platform==app.platform,own.version==app.version,own.component==app.component,
               !((try folder.resourceValues(forKeys:[.isSymbolicLinkKey])).isSymbolicLink ?? false) else { throw InstallError.invalidManifest }
         try FileManager.default.removeItem(at:folder)
         try FileManager.default.removeItem(at:root.appendingPathComponent("CurrentInstall.json"))

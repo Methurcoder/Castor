@@ -205,6 +205,9 @@ private final class PetWindow {
         } else { evasion.disable();buttonDodge.disable() }
         var microphoneLevel: Float=0
         let microphoneStatus=castor_microphone_level(&microphoneLevel)
+        let playbackLevel=castor_wave_level()
+        player.front.playbackSpeechEnergy=playbackLevel>=0 ? playbackLevel:nil
+        player.side?.playbackSpeechEnergy=player.front.playbackSpeechEnergy
         player.front.microphoneEnabled=preferences.microphoneEnabled && microphoneStatus==1
         player.side?.microphoneEnabled=player.front.microphoneEnabled
         player.front.microphoneLevel=microphoneLevel;player.side?.microphoneLevel=microphoneLevel
@@ -366,7 +369,7 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
                     if let reply = try WindowsConversationFlow.chat(preferences: window.preferences, history: &window.chatHistory, initialPrompt: prompt), window.preferences.systemTTSEnabled {
                         window.player.front.isSpeaking = true; window.player.side?.isSpeaking = true
                         defer { window.player.front.isSpeaking = false; window.player.side?.isSpeaking = false }
-                        try WindowsVoiceFlow.speak(reply, voice: window.preferences.systemVoice)
+                        try WindowsVoiceFlow.speak(reply, preferences: window.preferences)
                     }
                 }
                 if command == UInt16(menuClearChat) { window.chatHistory.removeAll() }

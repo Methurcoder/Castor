@@ -700,6 +700,18 @@ private struct VoiceSettingsPane: View {
                     }
                 }
 
+                Button(language == .japanese ? "Neural TTSの導入GUIを開く":"Open Neural TTS setup") {
+                    if let setup=Bundle.main.url(forResource:"CastorSetup",withExtension:"app") {
+                        NSWorkspace.shared.open(setup)
+                    } else {
+                        let alert=NSAlert()
+                        alert.messageText=language == .japanese ? "導入GUIは配布候補に同梱されます":"Setup is included in distribution candidates"
+                        alert.informativeText=language == .japanese ? "この開発用ビルドには導入GUIがありません。配布Releaseが用意されたらCastorSetupから追加helperを取得できます。":"This development build has no bundled setup. Once a distribution Release is available, use CastorSetup to get the optional helper."
+                        alert.addButton(withTitle:language == .japanese ? "配布ページを開く":"Open release page")
+                        alert.addButton(withTitle:language == .japanese ? "閉じる":"Close")
+                        if alert.runModal() == .alertFirstButtonReturn {NSWorkspace.shared.open(URL(string:"https://github.com/Methurcoder/Castor/releases/latest")!)}
+                    }
+                }
                 if neuralSpeechSettings.isPreparingQwen {
                     HStack(spacing: 8) {
                         ProgressView()

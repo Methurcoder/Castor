@@ -255,3 +255,15 @@ camera/Windows ML代替、LaMa/Neural TTS/helper完全梱包、手動リグの�
   未検出/複数人物は断定せず、確認の要否は本人が選ぶ。リグ自体の姿勢補正ではない。
 - Mac既存手動リグ/抽出検査を含むapp単体検査成功、Core127件/Desktop50件成功。
   ネイティブWindowsの編集/音声/カメラ、正式署名・本番配布・全機能parityは未完了。
+
+## 任意Neural TTSとhelper導入 (2026-10-14)
+
+共通NeuralSpeechTransport/WavePCMをMac既存clientとWindowsに接続。Windowsでは
+メモリ内waveOutで再生/取消/RMS口同期、失敗時は標準音声へ戻す。設定は旧file互換を保持する。
+Qwen backendはGUIを用意し、起動だけではmodelを取得しない。Voiceの導入GUIから本人が
+helperを追加し、model取得はhelper内の確認操作で行う構成を実装中。
+
+DesktopInstallerはoptional componentsへ拡張。helperは本体と別selection/rootで取得/起動/修復/削除し、
+SHA256・ZIP・Python同梱確認・OS由来属性・旧data保持を共用する。SDK/license/署名/clean-deviceの
+helper梱包、Qwen実モデル推論と品質、実音声のWindows/Mac確認は未完了。
+前段の手動rig/翻訳/画像decoderはWindows/Mac CI38573850761で成功。最新Neural差分は別途CI予定。

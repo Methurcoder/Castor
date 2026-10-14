@@ -61,6 +61,18 @@ enum WindowsRiggingFlow {
         return URL(fileURLWithPath: String(cString: path))
     }
 
+    static func openSetup() throws {
+        var buffer=[WCHAR](repeating:0,count:32768)
+        let length=buffer.withUnsafeMutableBufferPointer {GetModuleFileNameW(nil,$0.baseAddress,DWORD($0.count))}
+        guard length>0,Int(length)<buffer.count else {throw FlowError.dialogFailed}
+        let folder=URL(fileURLWithPath:String(decoding:buffer.prefix(Int(length)),as:UTF16.self)).deletingLastPathComponent()
+        let setup=folder.appendingPathComponent("CastorSetup.exe")
+        if FileManager.default.fileExists(atPath:setup.path) {
+            guard setup.path.withCString({castor_launch_file($0)})>0 else {throw FlowError.dialogFailed}
+        } else {
+            guard "https://github.com/Methurcoder/Castor/releases/latest".withCString({castor_open_url($0)})>0 else {throw FlowError.dialogFailed}
+        }
+    }
     static func text(title: String, value: String = "", readOnly: Bool = false) throws -> String? {
         var output = [CChar](repeating: 0, count: 131072)
         let status = title.withCString { title in value.withCString { value in output.withUnsafeMutableBufferPointer {

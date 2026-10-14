@@ -70,7 +70,7 @@ final class ManualPetRenderer {
         input.microphoneEnabled = control.microphoneEnabled; input.audioLevel = Double(control.microphoneLevel)
         let parameters = connection.parameters(from: snapshot, trilobite: input,
             context: MotionContext(touched: time<touchedUntil, isSpeaking: control.isSpeaking,
-                                   isListening: state == .listening), at: date)
+                                   isListening: state == .listening, speechEnergy: control.playbackSpeechEnergy.map(Double.init)), at: date)
         render(into: &canvas, control: control, parameters: parameters, opacity: opacity)
     }
     func render(into canvas: inout PetCanvas, control: PetPlayer, parameters: MotionParameters, opacity: Float) {

@@ -64,7 +64,7 @@ public enum PackageZIP {
         case invalid
         public var errorDescription: String? { "配布ZIPの形式または内容が不正です。既存アプリは変更していません。" }
     }
-    public static func validate(_ data: Data, platform: String) throws {
+    public static func validate(_ data: Data, platform: String,component:DesktopHelperComponent?=nil) throws {
         guard ["macos_arm64","macos_x86_64","windows_x86_64"].contains(platform),data.count >= 22 else { throw ZIPError.invalid }
         let bytes = Array(data)
         func u16(_ i: Int) -> Int { Int(bytes[i]) | Int(bytes[i+1]) << 8 }
@@ -94,14 +94,19 @@ public enum PackageZIP {
             guard local+30+localLength+localExtra+Int(compressed)<=offset,
                   String(bytes:bytes[local+30..<local+30+localLength],encoding:.utf8)==name else { throw ZIPError.invalid }
             if platform=="windows_x86_64" {
-                let stem=name.split(separator:".").first.map { String($0).uppercased() } ?? ""
                 let reserved=["CON","PRN","AUX","NUL"] + (1...9).flatMap { ["COM\($0)","LPT\($0)"] }
-                guard !reserved.contains(stem),!name.hasSuffix("."),!name.hasSuffix(" "),
-                      !name.contains(where:{ "<>\"|?*".contains($0) }) else { throw ZIPError.invalid }
+                for segment in name.split(separator:"/") {
+                    let stem=segment.split(separator:".").first.map {String($0).uppercased()} ?? ""
+                    guard !reserved.contains(stem),!segment.hasSuffix("."),!segment.hasSuffix(" "),
+                          !segment.contains(where:{"<>\"|?*".contains($0)}) else {throw ZIPError.invalid}
+                }
             }
             let allowed: Bool
-            if platform.hasPrefix("macos") { allowed=name.hasPrefix("Castor.app/")||name=="LICENSE"||name=="THIRD_PARTY_NOTICES.md" }
-            else { allowed = !name.contains("/") && (name=="CastorPet.exe"||name.lowercased().hasSuffix(".dll")||["LICENSE","THIRD_PARTY_NOTICES.md","Start-Castor.cmd","Start-Castor.ps1"].contains(name)) }
+            if let component {
+                if platform.hasPrefix("macos") {allowed=name.hasPrefix("\(component.stem).app/")||["LICENSE","THIRD_PARTY_NOTICES.md"].contains(name)}
+                else {allowed=name=="\(component.stem).exe"||name.hasPrefix("_internal/")||name.hasPrefix("licenses/")||["LICENSE","THIRD_PARTY_NOTICES.md"].contains(name)}
+            } else if platform.hasPrefix("macos") { allowed=name.hasPrefix("Castor.app/")||name=="LICENSE"||name=="THIRD_PARTY_NOTICES.md" }
+            else { allowed = !name.contains("/") && (name=="CastorPet.exe"||name=="CastorSetup.exe"||name.lowercased().hasSuffix(".dll")||["LICENSE","THIRD_PARTY_NOTICES.md","Start-Castor.cmd","Start-Castor.ps1"].contains(name)) }
             guard allowed else { throw ZIPError.invalid }
             expanded += UInt64(uncompressed);guard expanded<=4_294_967_296 else { throw ZIPError.invalid }
             cursor += 46+length+extra+comment

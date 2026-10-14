@@ -35,6 +35,7 @@ public final class PetPlayer {
     public var microphoneLevel: Float = 0
     public var microphoneEnabled = false
     public var isSpeaking = false
+    public var playbackSpeechEnergy:Float?
     public var behavior: MotionBehavior = .idle
     private var textureScaleBucket = 0
 
@@ -132,6 +133,7 @@ public final class PetPlayer {
     private func inputs(at time: Double) -> MotionInputs {
         var inputs = MotionInputs()
         inputs.isSpeaking = isSpeaking
+        if isSpeaking,let energy=playbackSpeechEnergy,energy.isFinite { inputs.lipSync=LipSyncFrame(open:max(0,min(1,energy)),form:0) }
         inputs.behavior = behavior
         if microphoneEnabled {
             inputs.listenerVoiceLevel=max(0,min(1,microphoneLevel))

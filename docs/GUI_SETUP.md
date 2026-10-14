@@ -62,3 +62,25 @@ Windowsの初回GUI、実機のOS警告・マイク、開発環境のないPCで
 同名の無関係なファイル/ショートカットがある場合は上書きせず、その旨を表示します。
 この場合もGUIの「起動」から実体を開けます。削除時は自分の管理対象への入口だけを除去します。
 本番Releaseがまだ無いため、配布済み実体による実機の直接起動は未検証です。
+
+## 任意のNeural TTS helper
+
+導入GUIでNeural TTS helperの取得/更新・起動・修復・削除を選べます。本体とは別の
+`CastorHelpers/NeuralTTS`領域へ導入し、失敗・取消でも旧本体/旧helper/ペット/設定を保持します。
+配布manifestの`components.NeuralTTS`にそのOS/CPU用のassetがある場合だけ取得します。
+helperを消してもモデルcacheは削除しません。正式なhelper assetはまだ公開していません。
+
+Voice設定から導入GUIを開きます。`build-castor-app.py`の候補はMac ResourcesへCastorSetup.app、
+WindowsはCastorPet.exeの隣へCastorSetup.exeを同梱します。開発用ビルドにはGUIが無いことがあり、
+その場合は配布ページを案内します。Windows/Swift runtimeは再帰収集します。
+
+`build-castor-neural-helper.py`は開発者が用意した環境からPython/Tk/Qwen/PyTorchをGUIにまとめ、
+license inventoryを保存します。利用者にPythonの手動導入を求める方式ではありません。
+モデルは同梱せず、helper画面で本人が確認して取得します。起動だけではモデルを取りません。
+WindowsはCPUでも動く構成を基準とし、CUDAは別途検証する構成です。
+
+Macの既存MLX helperは維持します。新しいQwen backendの0.6Bは指示による声質制御を
+保証しません。1.7B CustomVoiceを選んだ場合のみ声の指示を渡します。音声をファイル保存せず、
+loopbackのWAVを検査してWindows標準の音声deviceへ再生し、取消で停止します。
+Qwen backendの実モデル生成・速度・声の品質・依存DLL/license・開発環境なしのGUI起動は未検証です。
+GUI/helper builderと固定データ検査だけで、全機能parityを完成したとは扱いません。

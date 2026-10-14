@@ -126,3 +126,44 @@ private actor InstallerGate {
     _ = try await DesktopInstaller.install(root:root,release:release,manifest:manifest,platform:"windows_x86_64",repair:true,
         extract:installerExtract,stamp:{_ in},download:download)
 }
+
+@Test func helperZIPRejectsNestedWindowsAliasesAndKeepsAppRules() throws {
+    let helper=installerZIP(["CastorNeuralTTS.exe","_internal/python312.dll","licenses/Qwen/LICENSE"])
+    try PackageZIP.validate(helper,platform:"windows_x86_64",component:.neuralTTS)
+    #expect(throws:(any Error).self){try PackageZIP.validate(helper,platform:"windows_x86_64")}
+    for name in ["_internal/../bad.dll","_internal/CON.dll","_internal/folder./bad.dll","_internal/folder /bad.dll","outside.txt"] {
+        #expect(throws:(any Error).self){try PackageZIP.validate(installerZIP([name]),platform:"windows_x86_64",component:.neuralTTS)}
+    }
+    try PackageZIP.validate(installerZIP(["CastorNeuralTTS.app/Contents/MacOS/CastorNeuralTTS"]),platform:"macos_arm64",component:.neuralTTS)
+}
+@Test func helperInstallationIsIndependentAndCancellationRetainsItsPreviousVersion() async throws {
+    let base=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer {try? FileManager.default.removeItem(at:base)}
+    let appRoot=base.appendingPathComponent("App"),helperRoot=base.appendingPathComponent("Helper")
+    let appZIP=installerZIP(["CastorPet.exe","swiftCore.dll"])
+    let(appRelease,appManifest)=try installerFixture(appZIP,version:"v1")
+    _ = try await DesktopInstaller.install(root:appRoot,release:appRelease,manifest:appManifest,platform:"windows_x86_64",extract:installerExtract,stamp:{_ in},download:{_,to in try appZIP.write(to:to)})
+    let original=try Data(contentsOf:appRoot.appendingPathComponent("CurrentInstall.json"))
+    let helperZIP=installerZIP(["CastorNeuralTTS.exe","_internal/python312.dll","_internal/base_library.zip"])
+    let asset="CastorNeuralTTS-v1-windows_x86_64.zip"
+    let release=DesktopRelease(tag_name:"v1",draft:false,prerelease:false,assets:[.init(name:asset,browser_download_url:"https://github.com/Methurcoder/Castor/releases/download/v1/\(asset)",size:Int64(helperZIP.count))])
+    let manifest=DesktopDownloadManifest(schema:1,version:"v1",platforms:[:],components:["NeuralTTS":["windows_x86_64":.init(asset:asset,sha256:PackageIntegrity.sha256(helperZIP),bytes:Int64(helperZIP.count))]])
+    let download:@Sendable(URL,URL) async throws -> Void={_,to in try helperZIP.write(to:to)}
+    let extract:@Sendable(URL,URL) async throws -> Void={_,to in
+        try Data("helper".utf8).write(to:to.appendingPathComponent("CastorNeuralTTS.exe"))
+        let runtime=to.appendingPathComponent("_internal");try FileManager.default.createDirectory(at:runtime,withIntermediateDirectories:false)
+        try Data("runtime".utf8).write(to:runtime.appendingPathComponent("python312.dll"))
+        try Data("stdlib".utf8).write(to:runtime.appendingPathComponent("base_library.zip"))
+    }
+    let installed=try await DesktopInstaller.install(root:helperRoot,release:release,manifest:manifest,platform:"windows_x86_64",component:.neuralTTS,extract:extract,stamp:{_ in},download:download)
+    #expect(installed.component == .neuralTTS)
+    #expect(try DesktopInstaller.selected(root:helperRoot)?.folder==installed.folder)
+    #expect(throws:(any Error).self){_ = try manifest.package(platform:"windows_x86_64",release:release)}
+    do {
+        _ = try await DesktopInstaller.install(root:helperRoot,release:release,manifest:manifest,platform:"windows_x86_64",repair:true,component:.neuralTTS,extract:{_,_ in throw CancellationError()},stamp:{_ in},download:download)
+        Issue.record("Cancelled helper update should fail")
+    } catch {}
+    #expect(try DesktopInstaller.selected(root:helperRoot)?.folder==installed.folder)
+    try DesktopInstaller.uninstall(root:helperRoot)
+    #expect(try Data(contentsOf:appRoot.appendingPathComponent("CurrentInstall.json"))==original)
+}
