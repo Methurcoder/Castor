@@ -70,6 +70,18 @@ class DistributionTests(unittest.TestCase):
             release.prepare(self.output,'empty-model',{'macos_arm64':self.mac})
         self.assertFalse(self.output.exists())
 
+    def test_local_mac_home_path_in_binary_is_rejected(self):
+        from castor_privacy import check_private_home
+        root=self.base/'private-check';root.mkdir()
+        binary=root/'app'
+        home='/'+'Users'+'/'+'private-builder'
+        binary.write_bytes(b'code'+(home+'/project').encode()+b'code')
+        with self.assertRaises(ValueError): check_private_home(root,home=home)
+        binary.write_bytes(b'code'+(home+'/project').encode('utf-16le'))
+        with self.assertRaises(ValueError): check_private_home(root,home=home)
+        binary.write_bytes(b'code/Castor/relative-source-file')
+        check_private_home(root,home=home)
+
     def test_source_model_preflight_rejects_fresh_checkout(self):
         from castor_model_contract import require_source_models
         with self.assertRaisesRegex(ValueError,'Required compiled model'):

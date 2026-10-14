@@ -13,6 +13,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from castor_model_contract import require_source_models, require_app_models
+from castor_privacy import check_private_home
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location('castor_setup_builder', ROOT/'scripts/build-castor-setup.py')
@@ -60,8 +61,13 @@ def main():
             shutil.copytree(helper,resources/'CastorNeuralTTS.app',symlinks=False)
             subprocess.run(['/usr/bin/codesign','--force','--deep','--sign','-',str(resources/'CastorNeuralTTS.app')],check=True)
         subprocess.run(['/usr/bin/strip','-S','-x',str(app/'Contents/MacOS/Castor')],check=True)
+        agent=app/'Contents/Library/Helpers/CastorAgentLauncher.app'
+        if agent.is_dir():
+            subprocess.run(['/usr/bin/strip','-S','-x',str(agent/'Contents/MacOS/CastorAgentLauncher')],check=True)
+            subprocess.run(['/usr/bin/codesign','--force','--sign','-',str(agent)],check=True)
         require_app_models(app)
         subprocess.run(['/usr/bin/codesign','--force','--sign','-', '--entitlements',str(ROOT/'Castor/Castor/Castor.entitlements'),str(app)],check=True)
+        check_private_home(app)
         shutil.move(str(stage),output)
     elif sys.platform == 'win32':
         subprocess.run(['swift','build','--package-path',str(ROOT/'CastorDesktop'),'--scratch-path',str(scratch/'desktop'),

@@ -15,6 +15,7 @@ import zipfile
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from castor_model_contract import require_source_models, require_app_models
+from castor_privacy import check_private_home
 
 ROOT = Path(__file__).resolve().parents[1]
 PLATFORMS = ('macos_arm64', 'macos_x86_64', 'windows_x86_64')
@@ -76,6 +77,7 @@ def prepare(output, version, apps, setups=None, neural_helpers=None):
             if source.name != 'Castor.app':
                 raise ValueError('Expected Castor.app.')
             require_app_models(source)
+            check_private_home(source)
             info = plistlib.loads((source/'Contents/Info.plist').read_bytes())
             if info.get('CFBundleExecutable') != 'Castor':
                 raise ValueError('Unexpected macOS app executable.')
@@ -140,6 +142,7 @@ def prepare(output, version, apps, setups=None, neural_helpers=None):
         if not helper_source.is_dir() or not executable.is_file():
             raise ValueError('Built GUI Neural TTS helper is required')
         check_arch(executable,helper_platform)
+        if helper_platform.startswith('macos'): check_private_home(helper_source)
         files = []
         for file in helper_source.rglob('*'):
             if file.is_symlink(): raise ValueError('Review helper symlinks before packaging')

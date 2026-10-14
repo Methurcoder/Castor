@@ -13,6 +13,9 @@ import plistlib
 import shutil
 import subprocess
 import tempfile
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from castor_privacy import check_private_home
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULES = ('qwen_tts', 'torch', 'transformers', 'soundfile', 'librosa', 'numpy', 'accelerate', 'safetensors')
@@ -108,6 +111,7 @@ print(json.dumps({'missing':missing,'system':platform.system(),'machine':platfor
         if not expected.is_file(): raise ValueError('GUI helper executable is missing')
         if mac:
             subprocess.run(['/usr/bin/codesign','--force','--sign','-',str(payload)],check=True)
+            check_private_home(payload)
         shutil.move(str(final), output)
     print('Prepared local GUI helper:', output)
     print('No models or public Release. Mac helper uses PyInstaller ad-hoc development signature. Review license inventory and verify on a clean device before distribution.')
