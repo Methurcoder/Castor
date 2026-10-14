@@ -96,7 +96,13 @@ class DistributionTests(unittest.TestCase):
         with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as z:
             z.writestr('CastorPet.exe',b'fixture')
             z.writestr('swiftCore.dll',b'runtime fixture')
-        result=subprocess.run([os.environ['CASTOR_SETUP_EXE'],'--check-extract',str(archive),str(destination)],capture_output=True,text=True,timeout=30)
+        environment=os.environ.copy()
+        for key in list(environment):
+            if key.upper().startswith('SWIFT') or key.upper() in {'SDKROOT','INCLUDE','LIB','LIBPATH'}:
+                environment.pop(key,None)
+        system=Path(os.environ.get('SystemRoot',r'C:\Windows'))
+        environment['PATH']=os.pathsep.join([str(system/'System32'),str(system/'System32/WindowsPowerShell/v1.0')])
+        result=subprocess.run([os.environ['CASTOR_SETUP_EXE'],'--check-extract',str(archive),str(destination)],capture_output=True,text=True,timeout=30,env=environment)
         self.assertEqual(result.returncode,0,result.stderr)
         self.assertEqual((destination/'CastorPet.exe').read_bytes(),b'fixture')
         self.assertEqual((destination/'swiftCore.dll').read_bytes(),b'runtime fixture')

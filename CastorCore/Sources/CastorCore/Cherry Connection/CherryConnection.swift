@@ -1,6 +1,6 @@
 import Foundation
 
-public struct CherryConnection {
+public nonisolated struct CherryConnection: Sendable {
     public func parameters(from snapshot: HesitateSnapshot, at date: Date) -> MotionParameters {
         parameters(from: snapshot, trilobite: .inactive, at: date)
     }

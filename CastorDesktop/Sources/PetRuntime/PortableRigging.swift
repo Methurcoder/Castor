@@ -1,6 +1,7 @@
 import ArilsCore
 import ArilsPlayer
 import CStbImage
+import CPlatformImage
 import Foundation
 
 /// First portable rigging backend. All coordinates are image pixels, viewer's left/right.
@@ -14,8 +15,8 @@ public struct PortableRigImage: Sendable {
         case invalidImage, imageTooLarge, invalidMarkers
         public var errorDescription: String? {
             switch self {
-            case .invalidImage: return "PNG画像を読み込めませんでした。見えるキャラクターが含まれる画像を選んでください。"
-            case .imageTooLarge: return "4096×4096ピクセル以下、64MiB以下のPNG画像を選んでください。"
+            case .invalidImage: return "画像を読み込めませんでした。見えるキャラクターが含まれる画像を選んでください。"
+            case .imageTooLarge: return "4096×4096ピクセル以下、64MiB以下の画像を選んでください。"
             case .invalidMarkers: return "頭・目・口の範囲を確認してください。目と口は頭の内側、左右は見る側基準です。"
             }
         }
@@ -33,7 +34,18 @@ public struct PortableRigImage: Sendable {
         let valid = png.withUnsafeBytes { raw in
             stbi_info_from_memory(raw.bindMemory(to: UInt8.self).baseAddress, Int32(raw.count), &width, &height, &channels)
         }
-        guard valid != 0, width > 0, height > 0 else { throw ImageError.invalidImage }
+        if valid == 0 {
+            let info=png.withUnsafeBytes {raw in castor_image_info(raw.bindMemory(to:UInt8.self).baseAddress,raw.count,&width,&height)}
+            guard info>0,width>0,height>0 else {throw ImageError.invalidImage}
+            guard width<=4096,height<=4096 else {throw ImageError.imageTooLarge}
+            var pixels=[UInt8](repeating:0,count:Int(width)*Int(height)*4)
+            let decoded=png.withUnsafeBytes {raw in pixels.withUnsafeMutableBufferPointer {
+                castor_image_decode(raw.bindMemory(to:UInt8.self).baseAddress,raw.count,$0.baseAddress,width,height)
+            }}
+            guard decoded>0 else {throw ImageError.invalidImage}
+            try self.init(width:Int(width),height:Int(height),rgba:pixels);return
+        }
+        guard width > 0, height > 0 else { throw ImageError.invalidImage }
         guard width <= 4096, height <= 4096 else { throw ImageError.imageTooLarge }
         let decoded = png.withUnsafeBytes { raw in
             stbi_load_from_memory(raw.bindMemory(to: UInt8.self).baseAddress, Int32(raw.count), &width, &height, &channels, 4)

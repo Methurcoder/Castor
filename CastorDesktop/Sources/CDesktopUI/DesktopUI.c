@@ -19,11 +19,11 @@ int castor_open_microphone_settings(void) {return (INT_PTR)ShellExecuteW(NULL,L"
 
 int castor_choose_file(int save, const char *kind, char *output, size_t capacity) {
     WCHAR file[32768] = {0};
-    const WCHAR *filter = save ? (strcmp(kind,"gif")==0 ? L"GIF image (*.gif)\0*.gif\0\0" : L"Arils avatar (*.arils)\0*.arils\0\0") :
-        strcmp(kind, "pet") == 0 ? L"Castor / Arils (*.json;*.arils)\0*.json;*.arils\0\0" : L"PNG image (*.png)\0*.png\0\0";
+    const WCHAR *filter = save ? (strcmp(kind,"gif")==0 ? L"GIF image (*.gif)\0*.gif\0\0" : strcmp(kind,"json")==0 ? L"Castor pet (*.json)\0*.json\0\0" : L"Arils avatar (*.arils)\0*.arils\0\0") :
+        strcmp(kind, "pet") == 0 ? L"Castor / Arils (*.json;*.arils)\0*.json;*.arils\0\0" : L"Images (*.png;*.jpg;*.jpeg;*.tif;*.tiff;*.bmp;*.gif)\0*.png;*.jpg;*.jpeg;*.tif;*.tiff;*.bmp;*.gif\0\0";
     OPENFILENAMEW dialog = {0}; dialog.lStructSize = sizeof(dialog);
     dialog.lpstrFile = file; dialog.nMaxFile = 32768; dialog.lpstrFilter = filter;
-    dialog.lpstrDefExt = save ? (strcmp(kind,"gif")==0 ? L"gif" : L"arils") : NULL;
+    dialog.lpstrDefExt = save ? (strcmp(kind,"gif")==0 ? L"gif" : strcmp(kind,"json")==0 ? L"json" : L"arils") : NULL;
     dialog.lpstrTitle = save ? UI_TEXT(L"Castor - リグを保存",L"Castor - Save") : UI_TEXT(L"Castor - ファイルを選択",L"Castor - Choose a file");
     dialog.Flags = OFN_EXPLORER | OFN_NOCHANGEDIR | OFN_PATHMUSTEXIST |
         (save ? OFN_OVERWRITEPROMPT : OFN_FILEMUSTEXIST);
@@ -33,7 +33,7 @@ int castor_choose_file(int save, const char *kind, char *output, size_t capacity
 }
 
 typedef struct {
-    int width, height, selected, dragging, accepted;
+    int width, height, selected, dragging, accepted, count;
     float *rectangles, startX, startY;
     float scale, left, top;
     uint8_t *bgra;
@@ -41,26 +41,26 @@ typedef struct {
 } MarkerEditor;
 
 static void update_edits(MarkerEditor *state) {
-    for (int i = 0; i < 16; ++i) {
+    for (int i = 0; i < state->count*4; ++i) {
         WCHAR value[40]; swprintf(value, 40, L"%.1f", state->rectangles[i]);
         SetWindowTextW(state->edits[i], value);
     }
 }
 static int read_edits(MarkerEditor *state) {
-    for (int i = 0; i < 16; ++i) {
+    for (int i = 0; i < state->count*4; ++i) {
         WCHAR value[40], *end; GetWindowTextW(state->edits[i], value, 40);
         float parsed = wcstof(value, &end);
         if (end == value || *end || !isfinite(parsed)) return 0;
         state->rectangles[i] = parsed;
     }
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < state->count; ++i) {
         float *r = state->rectangles + i * 4;
         if (r[0] < 0 || r[1] < 0 || r[2] < 1 || r[3] < 1 || r[0] + r[2] > state->width || r[1] + r[3] > state->height) return 0;
-        if (i && (r[0] < state->rectangles[0] || r[1] < state->rectangles[1] ||
+        if (state->count==4 && i && (r[0] < state->rectangles[0] || r[1] < state->rectangles[1] ||
                   r[0]+r[2] > state->rectangles[0]+state->rectangles[2] ||
                   r[1]+r[3] > state->rectangles[1]+state->rectangles[3])) return 0;
     }
-    return state->rectangles[4]+state->rectangles[6]/2 < state->rectangles[8]+state->rectangles[10]/2;
+    return state->count==1 || state->rectangles[4]+state->rectangles[6]/2 < state->rectangles[8]+state->rectangles[10]/2;
 }
 static LRESULT CALLBACK marker_proc(HWND hwnd, UINT message, WPARAM w, LPARAM l) {
     MarkerEditor *s = (MarkerEditor *)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
@@ -79,7 +79,7 @@ static LRESULT CALLBACK marker_proc(HWND hwnd, UINT message, WPARAM w, LPARAM l)
                      0, 0, s->width, s->height, s->bgra, &info, DIB_RGB_COLORS, SRCCOPY);
         COLORREF colors[4] = {RGB(250,90,40), RGB(30,170,80), RGB(30,100,240), RGB(210,50,200)};
         HGDIOBJ brush = SelectObject(dc, GetStockObject(HOLLOW_BRUSH));
-        for (int i=0;i<4;++i) {
+        for (int i=0;i<s->count;++i) {
             float *r=s->rectangles+i*4; HPEN pen=CreatePen(PS_SOLID, i==s->selected ? 3 : 1, colors[i]);
             HGDIOBJ previous=SelectObject(dc,pen);
             Rectangle(dc,(int)(s->left+r[0]*s->scale),(int)(s->top+r[1]*s->scale),
@@ -107,9 +107,9 @@ static LRESULT CALLBACK marker_proc(HWND hwnd, UINT message, WPARAM w, LPARAM l)
     case WM_LBUTTONUP: if(s->dragging){s->dragging=0;ReleaseCapture();} return 0;
     case WM_COMMAND: {
         int id=LOWORD(w);
-        if(id>=300 && id<304){s->selected=id-300;InvalidateRect(hwnd,NULL,FALSE);return 0;}
+        if(id>=300 && id<300+s->count){s->selected=id-300;InvalidateRect(hwnd,NULL,FALSE);return 0;}
         if(id==IDOK) {
-            if(!read_edits(s)){MessageBoxW(hwnd,L"頭・目・口の範囲を確認してください。目と口は頭の内側、左右は見る側基準です。",L"Castor",MB_OK|MB_ICONWARNING);return 0;}
+            if(!read_edits(s)){MessageBoxW(hwnd,s->count==1 ? UI_TEXT(L"範囲が画像の内側に収まるように指定してください。",L"Keep the rectangle within the image.") : UI_TEXT(L"頭・目・口の範囲を確認してください。目と口は頭の内側、左右は見る側基準です。",L"Check the head, eyes and mouth. Keep the eyes and mouth inside the head."),L"Castor",MB_OK|MB_ICONWARNING);return 0;}
             s->accepted=1;DestroyWindow(hwnd);return 0;
         }
         if(id==IDCANCEL){DestroyWindow(hwnd);return 0;}
@@ -121,9 +121,9 @@ static LRESULT CALLBACK marker_proc(HWND hwnd, UINT message, WPARAM w, LPARAM l)
     }
 }
 
-int castor_review_markers(const uint8_t *rgba,int width,int height,float *rectangles) {
+static int castor_review_rectangles(const uint8_t *rgba,int width,int height,float *rectangles,int count) {
     if(!rgba || !rectangles || width<=0 || height<=0 || width>4096 || height>4096) return -1;
-    MarkerEditor state={0}; state.width=width;state.height=height;state.rectangles=rectangles;
+    MarkerEditor state={0}; state.count=count; state.width=width;state.height=height;state.rectangles=rectangles;
     state.scale=fminf(620.0f/width,620.0f/height);state.left=20+(620-width*state.scale)/2;state.top=20+(620-height*state.scale)/2;
     state.bgra=malloc((size_t)width*height*4); if(!state.bgra) return -1;
     for(size_t i=0;i<(size_t)width*height;++i) {
@@ -135,15 +135,15 @@ int castor_review_markers(const uint8_t *rgba,int width,int height,float *rectan
     cls.lpszClassName=L"CastorMarkerEditor";cls.hCursor=LoadCursorW(NULL,IDC_ARROW);cls.hbrBackground=(HBRUSH)(COLOR_WINDOW+1);
     if(!RegisterClassW(&cls) && GetLastError()!=ERROR_CLASS_ALREADY_EXISTS){free(state.bgra);return -1;}
     HWND owner=GetActiveWindow();
-    HWND hwnd=CreateWindowExW(0,cls.lpszClassName,UI_TEXT(L"Castor - 顔マーカー補正",L"Castor - Review face markers"),WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX,
+    HWND hwnd=CreateWindowExW(0,cls.lpszClassName,count==1 ? UI_TEXT(L"Castor - 手動リグの部位範囲",L"Castor - Manual part rectangle") : UI_TEXT(L"Castor - 顔マーカー補正",L"Castor - Review face markers"),WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX,
         CW_USEDEFAULT,CW_USEDEFAULT,1000,730,owner,NULL,instance,&state);
     if(!hwnd){free(state.bgra);return -1;}
     if(owner)EnableWindow(owner,FALSE);
     CreateWindowW(L"STATIC",UI_TEXT(L"推定結果を確認・補正してください。\n部位を選び、画像上でドラッグして\n範囲を指定できます。\n\n左右は見る側基準です。",L"Review the suggested markers.\nChoose a part and drag on the image\nto set its rectangle.\n\nLeft and right mean the viewer's sides."),WS_CHILD|WS_VISIBLE,665,20,300,105,hwnd,NULL,instance,NULL);
     const WCHAR *names[4]={UI_TEXT(L"頭",L"Head"),UI_TEXT(L"見る側の左目",L"Viewer-left eye"),UI_TEXT(L"見る側の右目",L"Viewer-right eye"),UI_TEXT(L"口",L"Mouth")};
     const WCHAR *labels[4]={L"X",L"Y",UI_TEXT(L"幅",L"Width"),UI_TEXT(L"高さ",L"Height")};
-    for(int row=0;row<4;++row) {
-        HWND radio=CreateWindowW(L"BUTTON",names[row],WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_AUTORADIOBUTTON|(row==0?WS_GROUP:0),665,140+row*90,270,24,hwnd,(HMENU)(INT_PTR)(300+row),instance,NULL);
+    for(int row=0;row<count;++row) {
+        HWND radio=CreateWindowW(L"BUTTON",count==1 ? UI_TEXT(L"編集中の部位",L"Selected part") : names[row],WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_AUTORADIOBUTTON|(row==0?WS_GROUP:0),665,140+row*90,270,24,hwnd,(HMENU)(INT_PTR)(300+row),instance,NULL);
         if(row==0)SendMessageW(radio,BM_SETCHECK,BST_CHECKED,0);
         for(int c=0;c<4;++c) {
             CreateWindowW(L"STATIC",labels[c],WS_CHILD|WS_VISIBLE,665+c*72,170+row*90,65,18,hwnd,NULL,instance,NULL);
@@ -163,6 +163,8 @@ int castor_review_markers(const uint8_t *rgba,int width,int height,float *rectan
     if(owner&&IsWindow(owner)){EnableWindow(owner,TRUE);SetActiveWindow(owner);}
     free(state.bgra);return state.accepted;
 }
+int castor_review_markers(const uint8_t *rgba,int width,int height,float *rectangles) { return castor_review_rectangles(rgba,width,height,rectangles,4); }
+int castor_review_part_rectangle(const uint8_t *rgba,int width,int height,float *rectangle) { return castor_review_rectangles(rgba,width,height,rectangle,1); }
 typedef struct { int selected, accepted, cancelled; HWND list; } CastorChoice;
 static WCHAR *castor_wide(const char *text) {
     int count=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,text,-1,NULL,0);
@@ -354,6 +356,7 @@ int castor_launch_file(const char *path) {
 int castor_open_microphone_settings(void) {return -1;}
 int castor_choose_file(int save,const char *kind,char *output,size_t capacity){return -1;}
 int castor_review_markers(const uint8_t *rgba,int width,int height,float *rectangles){return -1;}
+int castor_review_part_rectangle(const uint8_t *rgba,int width,int height,float *rectangle){return -1;}
 int castor_choose_option(const char *title,const char *options){return -1;}
 int castor_wait_work(const char *text,int (*poll)(void*),void *context){return -1;}
 int castor_preview_gif(const uint8_t *frames,int count,int width,int height,int fps){return -1;}

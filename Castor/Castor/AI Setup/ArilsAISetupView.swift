@@ -1,5 +1,6 @@
 import AppKit
 import ImageIO
+import Vision
 import SwiftUI
 import UniformTypeIdentifiers
 import CastorCore
@@ -10,6 +11,8 @@ struct ArilsAISetupView: View {
     @State private var step: Step = .referenceSet
     @State private var draft = ArilsAISettingsStore.current
     @State private var sourceImage: NSImage?
+    @State private var poseHasTilt: Bool?
+    @State private var poseGeneration=UUID()
     @State private var correctedImage: NSImage?
     @State private var imageImporterPresented=false
     @State private var externalGenerationConfirmation=false
@@ -40,7 +43,7 @@ struct ArilsAISetupView: View {
             HStack {
                 if step != .referenceSet {Button(T("戻る","Back")){stopGeneration();step=Step(rawValue:max(0,step.rawValue-1)) ?? .referenceSet}.disabled(generation.isWorking)}
                 Spacer()
-                Button(T("最初から","Start over")){stopGeneration();draft=ArilsAISettingsStore.current;sourceImage=nil;correctedImage=nil;showPrompt=false;imageError=nil;step = .referenceSet}
+                Button(T("最初から","Start over")){stopGeneration();draft=ArilsAISettingsStore.current;sourceImage=nil;correctedImage=nil;poseHasTilt=nil;poseGeneration=UUID();showPrompt=false;imageError=nil;step = .referenceSet}
                     .buttonStyle(.plain).foregroundStyle(palette.secondaryText)
             }
         }
@@ -107,7 +110,9 @@ struct ArilsAISetupView: View {
     }
     @ViewBuilder private var postureContent: some View {
         if let sourceImage {Image(nsImage:sourceImage).resizable().scaledToFit().frame(maxHeight:155)}
-        Text(T("寝た姿勢や大きな傾きを直したい場合だけ「はい」を選んでください。姿勢は自動判定していません。","Choose Yes only if you want to correct a lying pose or a pronounced tilt. The pose is not automatically classified."))
+        Text(poseHasTilt == true
+            ? T("画像の体の軸が大きく傾いている可能性があります。判定は目安なので、画像を見て決めてください。","The body axis may be significantly tilted. This is only a hint; decide by reviewing the image.")
+            : T("寝た姿勢や大きな傾きを直したい場合だけ「はい」を選んでください。姿勢を判定できない画像もあります。","Choose Yes only if you want to correct a lying pose or a pronounced tilt. Some images cannot be assessed reliably."))
             .font(.caption).foregroundStyle(palette.secondaryText)
         if generation.isWorking {
             ProgressView();Text(generation.status).font(.caption)
@@ -116,7 +121,7 @@ struct ArilsAISetupView: View {
             Image(nsImage:correctedImage).resizable().scaledToFit().frame(maxHeight:210)
             Text(T("顔・服・手足を確認してください。生成画像は元のデザインから変わることがあります。","Check the face, clothes and limbs. Generated images may differ from the original design.")).font(.caption)
             HStack {
-                Button(T("この生成画像を使う","Use this generated image")){sourceImage=correctedImage;self.correctedImage=nil;step = .underpaint}
+                Button(T("この生成画像を使う","Use this generated image")){sourceImage=correctedImage;poseHasTilt=nil;poseGeneration=UUID();self.correctedImage=nil;step = .underpaint}
                 Button(T("元画像を使う","Use original image")){self.correctedImage=nil;step = .underpaint}
             }
         } else {
@@ -153,7 +158,23 @@ struct ArilsAISetupView: View {
                   let width=properties[kCGImagePropertyPixelWidth] as? Int,let height=properties[kCGImagePropertyPixelHeight] as? Int,
                   width>0,height>0,width<=4096,height<=4096,
                   let cg=CGImageSourceCreateImageAtIndex(source,0,nil) else {throw ArilsAIAdjustmentError.imageEncodingFailed}
-            sourceImage=NSImage(cgImage:cg,size:.zero);correctedImage=nil;imageError=nil
+            sourceImage=NSImage(cgImage:cg,size:.zero);correctedImage=nil;imageError=nil;poseHasTilt=nil
+            let token=UUID();poseGeneration=token
+            Task { @MainActor in
+                let hint=await Task.detached(priority:.userInitiated) { () -> Bool? in
+                    let request=VNDetectHumanBodyPoseRequest()
+                    do {
+                        try VNImageRequestHandler(cgImage:cg,options:[:]).perform([request])
+                        guard let poses=request.results,poses.count==1,
+                              let neck=try? poses[0].recognizedPoint(.neck),let root=try? poses[0].recognizedPoint(.root),
+                              neck.confidence>=0.4,root.confidence>=0.4 else{return nil}
+                        let dx=abs(neck.location.x-root.location.x),dy=abs(neck.location.y-root.location.y)
+                        guard dx*dx+dy*dy>=0.0025 else{return nil}
+                        return dx>dy*0.7
+                    } catch{return nil}
+                }.value
+                if poseGeneration==token {poseHasTilt=hint}
+            }
             if step == .referenceSet {step = .provider}else{showPrompt=false;step = .posture}
         } catch CocoaError.userCancelled {} catch {imageError=error.localizedDescription}
     }

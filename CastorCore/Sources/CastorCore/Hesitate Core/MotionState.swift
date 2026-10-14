@@ -1,6 +1,6 @@
 import Foundation
 
-public enum MotionState: String, CaseIterable, Identifiable {
+public nonisolated enum MotionState: String, CaseIterable, Identifiable, Sendable {
     case idle
     case thinking
     case listening

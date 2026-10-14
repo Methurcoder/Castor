@@ -25,20 +25,20 @@ Macの機能を削って合わせない。旧公式キャラクターは戻さ�
 |---|---|---|
 |1枚自動リグ・マスク・顔候補|ArilsRig/AutoRigPipeline、SubjectMask、FaceLayoutReview|共有マスク/イラスト推定/レイヤー構築に接続。Windows Vision/CoreML代替は未接続|
 |2枚Quality・向き・登録・深度|QualityCharacterEngine、QualityHybridTurnModel、QualityPair、MetalAvatarRenderer|Windowsで両画像の補正→共有Quality深度構築を接続。実画像/GUIの品質検証が必要|
-|顔マーカー・手動リグ・保存読込|ImageRiggingView、RigDocument、PetCharacterStore|今回Win32補正画面と互換保存を追加。Mac全編集項目/手動パーツ編集が不足|
+|顔マーカー・手動リグ・保存読込|ImageRiggingView、RigDocument、PetCharacterStore|Win32顔補正と互換保存。手動リグの種類/範囲/形/アンカー/重ね順/追加削除、保存と再表示を接続。実機編集と描画比較は未検証|
 |呼吸・瞬き・視線・口パク・撫で・自発動作|ArilsMotion、CherryConnection|共有モーションと変形はあり。入力/会話接続・同品質描画が不足|
 |移動・透過・背後クリック|CastorPetController、PetPassThrough|ドラッグ/Alt透過あり。透明部分hit-test、位置保持、OS間設定統一を整備する|
-|退避・帰巣・反応|PetEvasionWindowProvider、CastorCore/PetEvasion|純粋ロジックは共有可能。Windowsウインドウメタデータ/UI接続なし|
-|ボタン検出・広い首振り|PointerTargetClient、SettingsView、controller|広い首振りCLIフラグのみ。検出helper、UI、退避接続が必要|
-|会話・性格・モデル・ルーティング|PetVoiceConversation、OllamaSession、LMStudioClient、CastorAgentSettings|CastorCoreに共通クライアントあり。Windows会話/性格/設定画面なし|
-|マイク・カメラ・音声認識|TrilobiteEngine、SpeechInputEngine、TrilobiteArilsFaceBridge|Windows入力adapter・権限・録音/認識UIなし|
-|標準/Neural TTS・口同期|PetSpeechOutput、PetVoiceProfile、PetSpeechSegmentation|Windows標準音声と同梱helper、共通会話パイプライン接続が必要|
-|Codex/Claude Code・承認・拒否・取消|CastorCore/Agent、PetVoiceConversation、承認カード|クライアント再利用。Windows表示・helper管理・キャンセルの実経路が必要|
+|退避・帰巣・反応|PetEvasionWindowProvider、CastorCore/PetEvasion|共有退避/帰巣・手動保護をWindowsのウインドウ矩形に接続。実機挙動未検証|
+|ボタン検出・広い首振り|PointerTargetClient、SettingsView、controller|設定とUIAutomationによる矩形のみのボタン検出・退避を接続。実機未検証|
+|会話・性格・モデル・ルーティング|PetVoiceConversation、OllamaSession、LMStudioClient、CastorAgentSettings|共有クライアントとWindows会話/性格/モデル/ルーティング設定を接続。外部サービス実動作は未検証|
+|マイク・カメラ・音声認識|TrilobiteEngine、SpeechInputEngine、TrilobiteArilsFaceBridge|WASAPI音量・初回マイク案内・SAPI最大20秒認識を接続。カメラ未実装、実機権限/認識未検証|
+|標準/Neural TTS・口同期|PetSpeechOutput、PetVoiceProfile、PetSpeechSegmentation|SAPI標準TTSと会話/口同期を接続。Neural helper梱包と実発声確認が必要|
+|Codex/Claude Code・承認・拒否・取消|CastorCore/Agent、PetVoiceConversation、承認カード|共有sessionとWindows承認内容/拒否/取消を接続。helperのGUI導入と実アカウント確認が必要|
 |AIマーカー提案・顔推定・切り抜き|ArilsAIAdjustment、AnimeFaceModels、AnimeSegmentationModel|ONNX等のWindows代替と同じモデル/前処理/座標/出力の一致検査が必要|
 |LaMa|LaMaInpainting、ArilsRig/OcclusionInpainting、localhost helper|Macもbootstrap/startコマンド案内あり。両OSでGUI導入へ変える|
 |GIF・X共有|PetGIFExporter、PetGIFShareWindow|生成/容量調整/native preview/保存/X案内を接続。実機GUIと画質を確認する|
-|外観/Input/Voice/Brain/Advanced|SettingsViewの全タブ・保存キー|Windows設定画面なし。UI項目単位で完了管理する|
-|簡単導入・更新・修復・削除|download/、prepare-castor-release.py|現状はスクリプト式。GUI installerと自動起動、更新/修復/削除は未実装|
+|外観/Input/Voice/Brain/Advanced|SettingsViewの全タブ・保存キー|Windows設定・日英表示を追加。カメラ/Neural/helper等を含む全Advancedの項目一致は未完了|
+|簡単導入・更新・修復・削除|download/、prepare-castor-release.py|CastorSetup GUIの取得/起動/更新/修復/削除・旧データ保護を接続。署名/公証/本番Release/開発環境なしの実機確認は未完了|
 
 独立製品のScreenshotAnswer / Arils-exの新規統合はこの作業の完了条件へ混ぜない。
 現行Castor本体が呼び出す機能を基準とし、調査で見つかった追加項目も上表へ足す。
@@ -236,3 +236,22 @@ Desktop46件、Core120件、Mac Universal Releaseのコンパイル成功。
 GUI setupのMac起動とReleaseなしの案内を確認。Windows CIで新しいnative入力/展開の確認を続けます。
 camera/Windows ML代替、LaMa/Neural TTS/helper完全梱包、手動リグの全編集、全Advanced、署名/公証と
 全実機検証は継続項目です。この統合単位だけで全体完成としません。
+
+## 手動リグ・画像形式・直接起動の継続統合 (2026-10-14)
+
+- RigPart/RigDocument/ManualRigGeometryをCastorCoreへ移動。Macは型エイリアスで既存JSONと
+  手動編集UIを維持。CherryConnectionと入力/状態DTOをUI actorから分離し、Windowsも同じ動きを使う。
+- ManualRigLayersは部位切り出し・目/口の背景補修・背景連結除去を両OSで共有。
+  Macは元画像を一度だけデコードして全パーツを抽出。ManualPetは旧MacのTIFF画像付きJSONを読む。
+  保存は元画素のPNGと元のdocumentを残し、Arils archiveへ偽装しない。
+- Windowsは手動リグの作成/編集/追加削除/形/範囲/アンカー/重ね順/種類変更をネイティブ画面へ接続。
+  保存確定で新しいlibraryコピーを作り、取消では旧作品を保持。GIFと再起動時の読込も同じ経路。
+- CPlatformImageはWindows WIC / Mac ImageIOによるJPEG/TIFF/BMP/GIFの単一frame読込。
+  サイズを先に検査し64MiB/4096pxを上限とする。自作TIFFで上下方向・色・PNG roundtripを検査。
+  EXIF回転/ICCの全画像同一性やWindowsネイティブGUI品質はまだ未確認。
+- InstallerはWindows StartメニューとMac ~/Applications/Castor.appへ管理中の版の起動入口を作る。
+  同名の無関係な入口は上書きせず案内。更新/削除で本人のペット・設定を削除しない。
+- AI設定の姿勢判定は単一人物のVision neck/root軸が横に傾く場合の保守的なヒントのみ。
+  未検出/複数人物は断定せず、確認の要否は本人が選ぶ。リグ自体の姿勢補正ではない。
+- Mac既存手動リグ/抽出検査を含むapp単体検査成功、Core127件/Desktop50件成功。
+  ネイティブWindowsの編集/音声/カメラ、正式署名・本番配布・全機能parityは未完了。

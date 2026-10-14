@@ -1,3 +1,4 @@
+import CastorCore
 import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
@@ -13,7 +14,7 @@ final class PetGIFShareWindow: NSObject, NSWindowDelegate {
         window?.close()
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 490, height: 650),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        window.title = "GIFを作ってXで共有"
+        window.title = CastorAppStrings.label("GIFを作ってXで共有", language: SettingsDisplayLanguage(rawValue: UserDefaults.standard.string(forKey: "Castor.SettingsDisplayLanguage") ?? "") ?? .systemDefault)
         window.isReleasedWhenClosed = false
         window.delegate = self
         window.contentViewController = NSHostingController(rootView: PetGIFShareView(asset: asset))
@@ -30,6 +31,9 @@ final class PetGIFShareWindow: NSObject, NSWindowDelegate {
 }
 
 private struct PetGIFShareView: View {
+    @AppStorage("Castor.SettingsDisplayLanguage") private var displayLanguage: SettingsDisplayLanguage = .systemDefault
+    private func L(_ source: String) -> String { CastorAppStrings.label(source, language: displayLanguage) }
+
     let asset: SavedPetCharacter
     @State private var motion: PetGIFOptions.Motion = .idle
     @State private var duration = 4
@@ -47,31 +51,31 @@ private struct PetGIFShareView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("うちの子をGIFに").font(.title2.bold())
-                Text("ペットだけを、選んだ動きで書き出します。")
+                Text(L("うちの子をGIFに")).font(.title2.bold())
+                Text(L("ペットだけを、選んだ動きで書き出します。"))
                     .font(.callout).foregroundStyle(.secondary)
                 HStack {
-                    Picker("動き", selection: $motion) {
-                        ForEach(PetGIFOptions.Motion.allCases) { Text($0.rawValue).tag($0) }
+                    Picker(L("動き"), selection: $motion) {
+                        ForEach(PetGIFOptions.Motion.allCases) { Text(L($0.rawValue)).tag($0) }
                     }
-                    Picker("長さ", selection: $duration) {
-                        ForEach(3...5, id: \.self) { Text("\($0)秒").tag($0) }
+                    Picker(L("長さ"), selection: $duration) {
+                        ForEach(3...5, id: \.self) { Text(L("\($0)秒")).tag($0) }
                     }.frame(width: 115)
                 }.disabled(isWorking)
-                ColorPicker("背景色", selection: $background, supportsOpacity: false)
+                ColorPicker(L("背景色"), selection: $background, supportsOpacity: false)
                     .disabled(isWorking)
                 ZStack {
                     RoundedRectangle(cornerRadius: 12).fill(.quaternary)
                     if let result {
                         AnimatedGIFPreview(data: result.data).padding(12)
                     } else {
-                        ContentUnavailableView("GIFプレビュー", systemImage: "photo.on.rectangle.angled",
-                            description: Text("「プレビューを作成」で動きを確認できます。"))
+                        ContentUnavailableView(L("GIFプレビュー"), systemImage: "photo.on.rectangle.angled",
+                            description: Text(L("「プレビューを作成」で動きを確認できます。")))
                     }
                     if isWorking {
                         VStack {
                             ProgressView(value: progress)
-                            Text("GIFを作成中… \(Int(progress * 100))%")
+                            Text(L("GIFを作成中… \(Int(progress * 100))%"))
                                 .font(.caption).monospacedDigit()
                         }.padding().background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
                             .padding(30)
@@ -79,23 +83,23 @@ private struct PetGIFShareView: View {
                 }.frame(height: 280)
                 HStack {
                     if isWorking {
-                        Button("キャンセル") {
+                        Button(L("キャンセル")) {
                             task?.cancel()
                             status = "GIFの作成を停止しました。"
                         }
                     } else {
-                        Button(result == nil ? "プレビューを作成" : "プレビューを作り直す", action: generate)
+                        Button(L(result == nil ? "プレビューを作成" : "プレビューを作り直す"), action: generate)
                     }
                     Spacer()
                     if let result {
-                        Text("\(result.dimension) × \(result.dimension) · \(result.framesPerSecond)fps · " +
+                        Text(L("\(result.dimension) × \(result.dimension) · \(result.framesPerSecond)fps · ") +
                              ByteCountFormatter.string(fromByteCount: Int64(result.data.count), countStyle: .file))
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }
-                if let error { Text(error).font(.callout).foregroundStyle(.red).textSelection(.enabled) }
-                if let status { Text(status).font(.callout).foregroundStyle(.secondary) }
-                Label(PetGIFSharing.manualAttachmentNotice, systemImage: "paperclip")
+                if let error { Text(L(error)).font(.callout).foregroundStyle(.red).textSelection(.enabled) }
+                if let status { Text(L(status)).font(.callout).foregroundStyle(.secondary) }
+                Label(L(PetGIFSharing.manualAttachmentNotice), systemImage: "paperclip")
                     .font(.callout).fixedSize(horizontal: false, vertical: true)
                     .padding(12).frame(maxWidth: .infinity, alignment: .leading)
                     .background(.yellow.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
@@ -104,15 +108,15 @@ private struct PetGIFShareView: View {
                         Label(savedURL.lastPathComponent, systemImage: "checkmark.circle.fill")
                             .font(.callout).lineLimit(1)
                         Spacer()
-                        Button("GIFの場所を表示") { NSWorkspace.shared.activateFileViewerSelecting([savedURL]) }
+                        Button(L("GIFの場所を表示")) { NSWorkspace.shared.activateFileViewerSelecting([savedURL]) }
                     }
                 }
                 HStack {
                     Spacer()
-                    Button("GIFを保存してXを開く", action: saveAndOpenX)
+                    Button(L("GIFを保存してXを開く"), action: saveAndOpenX)
                         .buttonStyle(.borderedProminent)
                         .disabled(result == nil || isWorking)
-                        .accessibilityHint(PetGIFSharing.manualAttachmentNotice)
+                        .accessibilityHint(L(PetGIFSharing.manualAttachmentNotice))
                 }
             }
             .padding(22)
@@ -171,7 +175,7 @@ private struct PetGIFShareView: View {
         panel.allowedContentTypes = [.gif]
         panel.nameFieldStringValue = "Castor-pet.gif"
         panel.canCreateDirectories = true
-        panel.message = PetGIFSharing.manualAttachmentNotice
+        panel.message = L(PetGIFSharing.manualAttachmentNotice)
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             try result.data.write(to: url, options: .atomic)

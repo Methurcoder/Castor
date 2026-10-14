@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-public struct HesitateSnapshot {
+public nonisolated struct HesitateSnapshot: Sendable {
     public var state: MotionState
     public var previousState: MotionState
     public var confidence: Double

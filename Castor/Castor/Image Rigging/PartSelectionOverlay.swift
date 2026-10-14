@@ -1,3 +1,4 @@
+import CastorCore
 import SwiftUI
 
 struct PartSelectionOverlay: View {

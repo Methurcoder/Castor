@@ -21,7 +21,7 @@ private func setupUI() {
             if choice==2 {if let app=try DesktopInstaller.selected(root:root){try NativeInstall.launch(app)};continue}
             if choice==4 {
                 let confirm="アプリ本体を削除します。ペット・会話設定は保持します。".withCString {title in "削除する\nキャンセル".withCString {castor_choose_option(title,$0)}}
-                if confirm==1 {try DesktopInstaller.uninstall(root:root)};continue
+                if confirm==1 {let old=try DesktopInstaller.selected(root:root);try DesktopInstaller.uninstall(root:root);if let old {NativeInstall.removeLaunchEntry(old)}};continue
             }
             let repair=choice==3,state=SetupWork()
             let job=Task.detached {
@@ -38,6 +38,9 @@ private func setupUI() {
             if status<=0 {job.cancel();continue}
             do {
                 let app=try state.value()
+                do {try NativeInstall.createLaunchEntry(app)} catch {
+                    _ = "ショートカットを作れませんでした。既存の同名項目は保持しています。この導入アプリの起動ボタンからCastorを開けます。".withCString {title in "続ける".withCString {castor_choose_option(title,$0)}}
+                }
                 let launch="導入できました。初回にはSmartScreenの確認が出る場合があります。".withCString {title in "アプリを起動\n後で起動".withCString {castor_choose_option(title,$0)}}
                 if launch==1 {try NativeInstall.launch(app)}
             } catch {
@@ -82,7 +85,8 @@ import SwiftUI
                 let (release,manifest)=try await DesktopInstaller.latest()
                 let app=try await DesktopInstaller.install(root:NativeInstall.root,release:release,manifest:manifest,
                     platform:NativeInstall.platform,repair:repair,extract:{try await NativeInstall.extract($0,$1)},stamp:{try NativeInstall.stamp($0)})
-                status="Castor \(app.version)を導入しました。初回にはmacOSの安全確認が出る場合があります。"
+                do {try NativeInstall.createLaunchEntry(app);status="Castor \(app.version)を導入しました。ApplicationsのCastor.appから直接起動できます。初回にはmacOSの安全確認が出る場合があります。"}
+                catch {status="Castor \(app.version)は導入済みです。同名の既存アプリを保持したため入口を作れませんでした。起動ボタンで開けます。"}
             } catch is CancellationError {status="キャンセルしました。既存アプリとデータは保持しています。"}
             catch {status=error.localizedDescription}
             busy=false;job=nil
@@ -92,7 +96,7 @@ import SwiftUI
     func launch(){do{if let app=try DesktopInstaller.selected(root:NativeInstall.root){try NativeInstall.launch(app)}}catch{status=error.localizedDescription}}
     func remove(){
         let alert=NSAlert();alert.messageText="アプリ本体を削除しますか？";alert.informativeText="ペット・会話設定は保持します。";alert.addButton(withTitle:"削除");alert.addButton(withTitle:"キャンセル")
-        if alert.runModal() == .alertFirstButtonReturn {do{try DesktopInstaller.uninstall(root:NativeInstall.root);status="アプリを削除しました。ペット・設定は保持しています。"}catch{status=error.localizedDescription}}
+        if alert.runModal() == .alertFirstButtonReturn {do{let old=try DesktopInstaller.selected(root:NativeInstall.root);try DesktopInstaller.uninstall(root:NativeInstall.root);if let old{NativeInstall.removeLaunchEntry(old)};status="アプリを削除しました。ペット・設定は保持しています。"}catch{status=error.localizedDescription}}
     }
 }
 @main struct CastorSetupApp: App {

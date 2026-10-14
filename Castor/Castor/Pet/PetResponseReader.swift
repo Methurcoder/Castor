@@ -1,6 +1,10 @@
+import CastorCore
 import SwiftUI
 
 struct PetResponseReader: View {
+    @AppStorage("Castor.SettingsDisplayLanguage") private var displayLanguage: SettingsDisplayLanguage = .systemDefault
+    private func L(_ source: String) -> String { CastorAppStrings.label(source, language: displayLanguage) }
+
     let segments: [String]
     let currentIndex: Int
     let isSpeaking: Bool
@@ -56,7 +60,7 @@ struct PetResponseReader: View {
             .background(Circle().fill(.black.opacity(0.42)))
             .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 1))
             .padding(isExpanded ? 24 : 7)
-            .accessibilityLabel(isExpanded ? "Exit full screen answer" : "View answer full screen")
+            .accessibilityLabel(isExpanded ? L("Exit full screen answer") : L("View answer full screen"))
         }
         .contentShape(Rectangle())
         .onTapGesture {

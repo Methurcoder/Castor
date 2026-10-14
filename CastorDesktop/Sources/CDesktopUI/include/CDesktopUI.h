@@ -9,6 +9,8 @@ extern "C" {
 int castor_choose_file(int save, const char *kind, char *output, size_t capacity);
 /* Four image-space rectangles (head, left eye, right eye, mouth), x/y/w/h each. */
 int castor_review_markers(const uint8_t *rgba, int width, int height, float *rectangles);
+/* A single image-space rectangle; no face constraints. */
+int castor_review_part_rectangle(const uint8_t *rgba, int width, int height, float *rectangle);
 /* Returns option index+1, 0 for cancellation, -1 for error. */
 int castor_choose_option(const char *title, const char *options);
 /* Pumps native UI while the locked host completion callback returns 0. */
@@ -26,6 +28,7 @@ void castor_set_ui_language(int japanese);
 int castor_monitor_bounds(int x, int y, int32_t *screen, int32_t *work);
 int castor_expand_zip(const char *archive, const char *destination, int (*cancelled)(void *), void *context);
 int castor_native_windows_x64(void);
+int castor_pet_shortcut(const char *executable, const char *root, int remove);
 void castor_update_work_text(const char *text);
 void castor_microphone_enable(int enabled);
 int castor_microphone_level(float *level);

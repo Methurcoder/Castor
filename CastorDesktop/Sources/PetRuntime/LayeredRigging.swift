@@ -136,6 +136,7 @@ public enum LayeredRigging {
     public static func savedPetData(source: PortableRigImage, asset: PetAsset) throws -> Data {
         struct Saved: Encodable { let imageData: Data; let arilsArchiveData: Data?; let qualityArchiveData: Data? }
         switch asset {
+        case let .manual(pet): return try pet.data()
         case let .standard(archive):
             return try JSONEncoder().encode(Saved(imageData: source.pngData(), arilsArchiveData: archive.data(), qualityArchiveData: nil))
         case let .quality(archive):

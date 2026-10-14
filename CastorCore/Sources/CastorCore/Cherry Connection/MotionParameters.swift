@@ -1,6 +1,6 @@
 import Foundation
 
-public struct MotionParameters {
+public nonisolated struct MotionParameters: Sendable {
     public var state: MotionState
     public var bodyLift: Double
     public var headTilt: Double

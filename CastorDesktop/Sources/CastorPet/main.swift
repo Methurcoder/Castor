@@ -53,6 +53,8 @@ private let menuSettings: UINT_PTR = 9
 private let menuChat: UINT_PTR = 10
 private let menuClearChat: UINT_PTR = 11
 private let menuListen: UINT_PTR = 12
+private let menuManual: UINT_PTR = 13
+private let menuEditManual: UINT_PTR = 14
 private let wmExitSizeMove: UINT = 0x0232
 private let frameMilliseconds: UINT = 33
 
@@ -299,9 +301,13 @@ private final class PetWindow {
         guard let hwnd, let menu = CreatePopupMenu() else { return }
         let japanese=preferences.displayLanguage == .japanese
         for (id, title) in [(menuNew, japanese ? "1枚から新しいペットを作る":"Create a pet from one image"), (menuNewQuality, japanese ? "2枚からQualityを作る":"Create Quality from two images"),
-                            (menuOpen, japanese ? "保存したペットを開く":"Open a saved pet"), (menuExport, japanese ? "Arils形式で書き出す":"Export Arils archive"), (menuGIF, japanese ? "GIFを作ってXで共有":"Create GIF and share on X"), (menuChat, japanese ? "ローカル会話":"Chat / Request an action"), (menuSettings, japanese ? "設定・モデル・性格":"Settings / Models / Personality"), (menuClearChat, japanese ? "会話履歴を消す":"Clear conversation"), (menuListen, japanese ? "マイクから会話する（確認して送信）":"Speak (review before sending)")] {
+                            (menuManual, japanese ? "手動リグを作る":"Create a manual rig"), (menuOpen, japanese ? "保存したペットを開く":"Open a saved pet"), (menuExport, japanese ? "ペットを書き出す":"Export pet"), (menuGIF, japanese ? "GIFを作ってXで共有":"Create GIF and share on X"), (menuChat, japanese ? "ローカル会話":"Chat / Request an action"), (menuSettings, japanese ? "設定・モデル・性格":"Settings / Models / Personality"), (menuClearChat, japanese ? "会話履歴を消す":"Clear conversation"), (menuListen, japanese ? "マイクから会話する（確認して送信）":"Speak (review before sending)")] {
             let title = wide(title)
             _ = title.withUnsafeBufferPointer { AppendMenuW(menu, mfString, id, $0.baseAddress) }
+        }
+        if case .manual = currentAsset {
+            let label = wide(japanese ? "手動リグを編集":"Edit manual rig")
+            _ = label.withUnsafeBufferPointer { AppendMenuW(menu, mfString, menuEditManual, $0.baseAddress) }
         }
         if case .quality = currentAsset {
             for (id, title) in [(menuQuality2D, japanese ? "Quality: 2Dクロスフェード":"Quality: 2D crossfade"), (menuQuality3D, japanese ? "Quality: 3D＋横画像":"Quality: 3D + side reference")] {
@@ -365,13 +371,19 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
                 }
                 if command == UInt16(menuClearChat) { window.chatHistory.removeAll() }
                 var asset: PetAsset?
+                if command == UInt16(menuManual) { asset = try WindowsManualRiggingFlow.edit(language: window.preferences.displayLanguage) }
+                if command == UInt16(menuEditManual), case let .manual(pet) = window.currentAsset {
+                    asset = try WindowsManualRiggingFlow.edit(pet, language: window.preferences.displayLanguage)
+                }
                 if command == UInt16(menuNew) { asset = try WindowsRiggingFlow.startNewPet(quality: false) }
                 if command == UInt16(menuNewQuality) { asset = try WindowsRiggingFlow.startNewPet(quality: true) }
                 if command == UInt16(menuOpen), let url = try WindowsRiggingFlow.choose(kind: "pet") {
                     asset = try PetSource.loadAsset(contentsOf: url)
                     try WindowsRiggingFlow.remember(url)
                 }
-                if command == UInt16(menuExport), let url = try WindowsRiggingFlow.choose(kind: "archive", save: true) {
+                let exportKind: String
+                if case .manual = window.currentAsset { exportKind = "json" } else { exportKind = "archive" }
+                if command == UInt16(menuExport), let url = try WindowsRiggingFlow.choose(kind: exportKind, save: true) {
                     var exported = window.currentAsset
                     if case var .quality(quality) = exported {
                         quality.preferredPresentationMode = window.player.presentationMode

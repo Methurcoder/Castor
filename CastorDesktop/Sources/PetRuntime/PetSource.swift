@@ -1,15 +1,18 @@
 import ArilsPlayer
 import Foundation
+import CastorCore
 
 /// Keeps the complete asset, including the profile view and its registration.
 public enum PetAsset: Sendable {
     case standard(AvatarArchive)
     case quality(QualityAvatarArchive)
+    case manual(ManualPet)
 
     public var front: AvatarArchive {
         switch self {
         case let .standard(archive): archive
         case let .quality(archive): archive.front
+        case let .manual(pet): pet.controlArchive
         }
     }
 
@@ -17,6 +20,7 @@ public enum PetAsset: Sendable {
         switch self {
         case let .standard(archive): try archive.data()
         case let .quality(archive): try archive.data()
+        case let .manual(pet): try pet.data()
         }
     }
 }
@@ -46,6 +50,8 @@ public enum PetSource {
     private struct SavedPet: Decodable {
         var arilsArchiveData: Data?
         var qualityArchiveData: Data?
+        var document: RigDocument?
+        var imageData: Data?
     }
 
     public static func loadAsset(contentsOf url: URL) throws -> PetAsset {
@@ -75,6 +81,10 @@ public enum PetSource {
             }
             return .standard(archive)
         }
+        if let document = saved.document, let imageData = saved.imageData {
+            do { return .manual(try ManualPet(document: document, source: PortableRigImage(png: imageData))) }
+            catch { throw LoadError.unreadable(error.localizedDescription) }
+        }
         throw LoadError.noArilsAvatar
     }
 
@@ -93,9 +103,14 @@ public enum PetSource {
     /// Explicit compatibility API for callers that only need the front view.
     /// Desktop playback uses loadAsset so Quality is never flattened.
     public static func load(contentsOf url: URL) throws -> AvatarArchive {
-        try loadAsset(contentsOf: url).front
+        try arilsFront(loadAsset(contentsOf: url))
     }
     public static func load(data: Data) throws -> AvatarArchive {
-        try loadAsset(data: data).front
+        try arilsFront(loadAsset(data: data))
     }
+    private static func arilsFront(_ asset: PetAsset) throws -> AvatarArchive {
+        if case .manual = asset { throw LoadError.unreadable("手動リグはCastor JSONとして保存してください。") }
+        return asset.front
+    }
+
 }

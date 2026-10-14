@@ -6,7 +6,7 @@ import Foundation
 /// struct means every existing call site that does not pass a context (`ContentView`'s preview
 /// usage via `parameters(from:at:)` / `parameters(from:trilobite:at:)`) keeps producing exactly
 /// the same output as before this type existed.
-public struct MotionContext {
+public nonisolated struct MotionContext: Sendable {
     public var touched: Bool = false
     public var isSpeaking: Bool = false
     public var isListening: Bool = false

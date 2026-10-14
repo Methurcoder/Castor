@@ -31,7 +31,7 @@ public nonisolated enum EvasionPathEasing: Equatable {
     case overdamped
 }
 
-public nonisolated enum EvasionBodyCue: Equatable {
+public nonisolated enum EvasionBodyCue: Equatable, Sendable {
     case startledHop
     case bow
     case none
@@ -364,7 +364,7 @@ public nonisolated struct PetEvasionPolicy: Equatable {
     }
 }
 
-public nonisolated enum PetEvasionPhase: Equatable {
+public nonisolated enum PetEvasionPhase: Equatable, Sendable {
     case settled
     case anticipating
     case evading
@@ -489,7 +489,7 @@ public nonisolated struct PetEvasionStateMachine {
     public init() {}
 }
 
-public nonisolated struct EvasionMotionCue {
+public nonisolated struct EvasionMotionCue: Sendable {
     public var style: EvasionStyle
     public var bodyCue: EvasionBodyCue
     public var phase: PetEvasionPhase

@@ -3,6 +3,9 @@ import SwiftUI
 import CastorCore
 
 struct PetFloatingView: View {
+    @AppStorage("Castor.SettingsDisplayLanguage") private var displayLanguage: SettingsDisplayLanguage = .systemDefault
+    private func L(_ source: String) -> String { CastorAppStrings.label(source, language: displayLanguage) }
+
     let asset: SavedPetCharacter
     let trilobite: TrilobiteEngine?
     let onClose: () -> Void
@@ -50,10 +53,10 @@ struct PetFloatingView: View {
             Button {
                 PetGIFShareWindow.shared.show(asset: asset)
             } label: {
-                Label("GIFを作ってXで共有", systemImage: "square.and.arrow.up")
+                Label(L("GIFを作ってXで共有"), systemImage: "square.and.arrow.up")
             }
             Divider()
-            Button("ペットを閉じる", action: onClose)
+            Button(L("ペットを閉じる"), action: onClose)
         }
 
         .background(
@@ -190,7 +193,7 @@ struct PetFloatingView: View {
                         Image(systemName: voiceIndicatorSymbol)
                             .foregroundStyle(voice.isListening ? Color.red.opacity(0.92) : Color.white.opacity(0.82))
 
-                        Text(voice.caption)
+                        Text(localizedVoiceCaption)
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(.white.opacity(0.92))
                             .lineLimit(voice.phase == .thinking ? 3 : 2)
@@ -243,7 +246,7 @@ struct PetFloatingView: View {
                     Text("Castor")
                         .font(.headline)
                     Spacer()
-                    Text(responseStatusLabel)
+                    Text(L(responseStatusLabel))
                         .font(.caption.monospaced().weight(.semibold))
                         .foregroundStyle(.white.opacity(0.48))
                 }
@@ -278,7 +281,7 @@ struct PetFloatingView: View {
     private func approvalPanel(compact: Bool) -> some View {
         if let approval = voice.pendingApproval {
             VStack(alignment: .leading, spacing: compact ? 7 : 10) {
-                Label(approval.title, systemImage: "hand.raised.fill")
+                Label(L(approval.title), systemImage: "hand.raised.fill")
                     .font(.system(size: compact ? 11 : 14, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white.opacity(0.94))
 
@@ -299,20 +302,20 @@ struct PetFloatingView: View {
                 }
 
                 HStack(spacing: 8) {
-                    Button("Deny") {
+                    Button(L("Deny")) {
                         voice.resolvePendingApproval(approved: false)
                     }
                     .buttonStyle(.bordered)
 
                     if compact {
-                        Button("Review details") {
+                        Button(L("Review details")) {
                             toggleReaderMode()
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(.white.opacity(0.92))
                         .foregroundStyle(.black.opacity(0.88))
                     } else {
-                        Button("Allow once") {
+                        Button(L("Allow once")) {
                             voice.resolvePendingApproval(approved: true)
                         }
                         .buttonStyle(.borderedProminent)
@@ -335,30 +338,30 @@ struct PetFloatingView: View {
     private var brainSelector: some View {
         HStack(spacing: 10) {
             Label(
-                agentPreferences.routingPolicy == .automatic ? "Auto" : "Brain",
+                L(agentPreferences.routingPolicy == .automatic ? "Auto" : "Brain"),
                 systemImage: agentPreferences.routingPolicy == .automatic ? "wand.and.stars" : "brain.head.profile"
             )
             .font(.caption.weight(.semibold))
             .foregroundStyle(.white.opacity(0.58))
 
             if agentPreferences.routingPolicy == .manual {
-                Picker("Brain", selection: $agentPreferences.selectedBrain) {
+                Picker(L("Brain"), selection: $agentPreferences.selectedBrain) {
                     ForEach(CastorBrain.allCases.filter(\.isImplemented)) { brain in
-                        Text(brain.label).tag(brain)
+                        Text(L(brain.label)).tag(brain)
                     }
                 }
                 .labelsHidden()
                 .pickerStyle(.segmented)
                 .frame(maxWidth: 300)
             } else {
-                Text("Castor will keep chat local and call \(agentPreferences.automaticExternalBrain.label) for actions.")
+                Text(L("Castor will keep chat local and call \(agentPreferences.automaticExternalBrain.label) for actions."))
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.72))
             }
 
             Spacer()
 
-            Text(voice.activeBrain.shortLabel)
+            Text(L(voice.activeBrain.shortLabel))
                 .font(.caption2.monospaced().weight(.bold))
                 .foregroundStyle(.white.opacity(0.54))
         }
@@ -375,19 +378,19 @@ struct PetFloatingView: View {
                     .padding(.top, 2)
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(voice.generationStatus.isEmpty ? "Generating a reply..." : voice.generationStatus)
+                    Text(L(voice.generationStatus.isEmpty ? "Generating a reply..." : voice.generationStatus))
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white.opacity(0.90))
 
                     if !voice.transcript.isEmpty {
-                        Text("Sent: \(voice.transcript)")
+                        Text(L("Sent: \(voice.transcript)"))
                             .font(.system(size: 12, weight: .medium, design: .rounded))
                             .foregroundStyle(.white.opacity(0.62))
                             .lineLimit(3)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    Text("Castor is composing a short answer.")
+                    Text(L("Castor is composing a short answer."))
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.42))
                 }
@@ -420,9 +423,9 @@ struct PetFloatingView: View {
             .background(Circle().fill(voice.isListening ? Color.red.opacity(0.18) : Color.white.opacity(0.08)))
             .overlay(Circle().stroke(.white.opacity(0.16), lineWidth: 1))
             .disabled(voice.phase == .thinking)
-            .help(voice.isListening ? "Finish voice message" : "Start voice message")
+            .help(voice.isListening ? L("Finish voice message") : L("Start voice message"))
 
-            TextField("Message Castor", text: $messageDraft, axis: .vertical)
+            TextField(L("Message Castor"), text: $messageDraft, axis: .vertical)
                 .textFieldStyle(.plain)
                 .font(.system(size: 15, weight: .medium, design: .rounded))
                 .foregroundStyle(.white.opacity(0.94))
@@ -444,7 +447,7 @@ struct PetFloatingView: View {
             .background(Circle().fill(composerButtonBackground))
             .overlay(Circle().stroke(.white.opacity(canUseComposerButton ? 0 : 0.14), lineWidth: 1))
             .disabled(!canUseComposerButton)
-            .help(voice.canStopResponseGeneration ? "Stop response" : "Send message")
+            .help(voice.canStopResponseGeneration ? L("Stop response") : L("Send message"))
         }
         .padding(8)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -551,11 +554,18 @@ struct PetFloatingView: View {
         return canSubmitMessage ? Color.white.opacity(0.92) : Color.white.opacity(0.08)
     }
 
+    /// Replies, recognized speech and provider errors are content, even when they match a UI label.
+    private var localizedVoiceCaption: String {
+        let caption = voice.caption
+        if voice.phase == .speaking || voice.phase == .failed || caption.hasPrefix("“") { return caption }
+        return L(caption)
+    }
+
     private var responseStatusLabel: String {
-        let emotion = voice.responseEmotion.rawValue.uppercased()
+        let emotion = L(voice.responseEmotion.rawValue.uppercased())
         let intensity = Int((voice.responseEmotionIntensity * 100).rounded())
-        let engine = voice.isUsingNeuralVoice ? "NEURAL" : "SYSTEM"
-        let brain = voice.activeBrain.shortLabel
+        let engine = L(voice.isUsingNeuralVoice ? "NEURAL" : "SYSTEM")
+        let brain = L(voice.activeBrain.shortLabel)
         return voice.isSpeaking
             ? "\(brain) · \(engine) · \(emotion) \(intensity)%"
             : "\(brain) · \(emotion) \(intensity)%"

@@ -3,6 +3,9 @@ import SwiftUI
 import CastorCore
 
 struct VoiceSelectionView: View {
+    @AppStorage("Castor.SettingsDisplayLanguage") private var displayLanguage: SettingsDisplayLanguage = .systemDefault
+    private func L(_ source: String) -> String { CastorAppStrings.label(source, language: displayLanguage) }
+
     let characterName: String
     let palette: CastorPalette
     let refreshPetOnApply: Bool
@@ -43,12 +46,12 @@ struct VoiceSelectionView: View {
 
             VStack(spacing: 22) {
                 VStack(spacing: 5) {
-                    Text("\(characterName)の声を選んでね")
+                    Text(L("\(characterName)の声を選んでね"))
                         .font(.system(size: 25, weight: .semibold, design: .rounded))
-                    Text("声を選び、短いサンプルで確かめてから適用できます")
+                    Text(L("声を選び、短いサンプルで確かめてから適用できます"))
                         .font(.callout)
                         .foregroundStyle(palette.secondaryText)
-                    Text("このキャラクターは人格も自由に設定できます")
+                    Text(L("このキャラクターは人格も自由に設定できます"))
                         .font(.caption)
                         .foregroundStyle(palette.secondaryText.opacity(0.82))
                 }
@@ -89,7 +92,7 @@ struct VoiceSelectionView: View {
     private var personalityPanel: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Label("人格", systemImage: "person.text.rectangle")
+                Label(L("人格"), systemImage: "person.text.rectangle")
                     .font(.headline)
                 Spacer()
                 Text("\(customPersonality.count)/800")
@@ -109,24 +112,24 @@ struct VoiceSelectionView: View {
                     }
                 }
 
-            Text("会話と外部エージェントへの指示に使われます。パスワードや秘密情報は入れないでください。")
+            Text(L("会話と外部エージェントへの指示に使われます。パスワードや秘密情報は入れないでください。"))
                 .font(.caption2)
                 .foregroundStyle(palette.secondaryText.opacity(0.82))
 
             HStack {
-                Label("場所を譲るとき", systemImage: "arrow.up.left.and.arrow.down.right")
+                Label(L("場所を譲るとき"), systemImage: "arrow.up.left.and.arrow.down.right")
                     .font(.callout.weight(.semibold))
                 Spacer()
-                Picker("Evasion style", selection: $selectedEvasionStyle) {
+                Picker(L("Evasion style"), selection: $selectedEvasionStyle) {
                     ForEach(EvasionStyle.allCases) { style in
-                        Text(style.label).tag(style)
+                        Text(L(style.label)).tag(style)
                     }
                 }
                 .labelsHidden()
                 .frame(width: 150)
             }
 
-            Text("保存時に性格から候補を一度だけ提案します。ここで選んだ値は常に優先されます。")
+            Text(L("保存時に性格から候補を一度だけ提案します。ここで選んだ値は常に優先されます。"))
                 .font(.caption2)
                 .foregroundStyle(palette.secondaryText.opacity(0.82))
         }
@@ -152,11 +155,11 @@ struct VoiceSelectionView: View {
                 cornerRadius: 16,
                 isElevated: false
             )
-            .accessibilityLabel("Close voice selection")
+            .accessibilityLabel(L("Close voice selection"))
 
             Spacer()
 
-            Text("VOICE")
+            Text(L("VOICE"))
                 .font(.caption.monospaced().weight(.semibold))
                 .tracking(2.4)
                 .foregroundStyle(palette.secondaryText)
@@ -164,7 +167,7 @@ struct VoiceSelectionView: View {
             Spacer()
 
             Button(action: applySelection) {
-                Text(hasUnsavedChanges ? "適用" : "適用済み")
+                Text(L(hasUnsavedChanges ? "適用" : "適用済み"))
                     .font(.callout.weight(.semibold))
                     .frame(minWidth: 68)
             }
@@ -209,7 +212,7 @@ struct VoiceSelectionView: View {
                                 .lineLimit(1)
 
                             if distance == 0 {
-                                Text(preset.subtitle)
+                                Text(L(preset.subtitle))
                                     .font(.caption)
                                     .foregroundStyle(palette.secondaryText)
                                     .transition(.opacity)
@@ -230,7 +233,7 @@ struct VoiceSelectionView: View {
                     .opacity(distance >= 2 ? 0.68 : 1)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("\(preset.title), \(preset.subtitle)")
+                .accessibilityLabel(L("\(preset.title), \(L(preset.subtitle))"))
             }
         }
         .frame(height: 190)
@@ -258,7 +261,7 @@ struct VoiceSelectionView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(selectedPreset.title)
                             .font(.title3.weight(.semibold))
-                        Text(selectedPreset.detail)
+                        Text(L(selectedPreset.detail))
                             .font(.callout)
                             .foregroundStyle(palette.secondaryText)
                             .fixedSize(horizontal: false, vertical: true)
@@ -287,7 +290,7 @@ struct VoiceSelectionView: View {
                         radius: 10,
                         y: 4
                     )
-                    .accessibilityLabel(preview.isPlaying ? "Stop voice sample" : "Play voice sample")
+                    .accessibilityLabel(preview.isPlaying ? L("Stop voice sample") : L("Play voice sample"))
                 }
 
                 VoiceSampleWaveform(
@@ -306,13 +309,13 @@ struct VoiceSelectionView: View {
                     Image(systemName: "hare")
                         .foregroundStyle(palette.secondaryText)
 
-                    Text("\(Int((speakingRate * 100).rounded()))%")
+                    Text(L("\(Int((speakingRate * 100).rounded()))%"))
                         .font(.caption.monospaced().weight(.semibold))
                         .foregroundStyle(palette.secondaryText)
                         .frame(width: 38, alignment: .trailing)
                 }
 
-                Text("試聴にはローカルのNeural TTSを使用します。利用できない場合はシステム音声へ切り替わります。")
+                Text(L("試聴にはローカルのNeural TTSを使用します。利用できない場合はシステム音声へ切り替わります。"))
                     .font(.caption2)
                     .foregroundStyle(palette.secondaryText.opacity(0.82))
             }
@@ -419,6 +422,9 @@ struct VoiceSelectionView: View {
 }
 
 private struct VoiceOrb: View {
+    @AppStorage("Castor.SettingsDisplayLanguage") private var displayLanguage: SettingsDisplayLanguage = .systemDefault
+    private func L(_ source: String) -> String { CastorAppStrings.label(source, language: displayLanguage) }
+
     let preset: PetVoicePreset
     let isSelected: Bool
     let isPlaying: Bool
@@ -498,6 +504,9 @@ private struct VoiceOrb: View {
 }
 
 private struct VoiceSampleWaveform: View {
+    @AppStorage("Castor.SettingsDisplayLanguage") private var displayLanguage: SettingsDisplayLanguage = .systemDefault
+    private func L(_ source: String) -> String { CastorAppStrings.label(source, language: displayLanguage) }
+
     let accent: Color
     let isPlaying: Bool
 

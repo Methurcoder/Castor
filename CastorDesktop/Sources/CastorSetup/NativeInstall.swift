@@ -86,6 +86,42 @@ enum NativeInstall {
         }
 #endif
     }
+    static func createLaunchEntry(_ app: DesktopInstalledApp) throws {
+        // Never overwrite another user's app or an unrelated Castor shortcut.
+        let base=try root
+        guard try DesktopInstaller.selected(root:base)?.folder==app.folder else {throw AdapterError.unpack}
+#if os(macOS)
+        let link=base.appendingPathComponent("Castor.app")
+        let target=base.appendingPathComponent(app.folder).appendingPathComponent("Castor.app")
+        let manager=FileManager.default
+        if let existing=try? manager.destinationOfSymbolicLink(atPath:link.path) {
+            let old=URL(fileURLWithPath:existing)
+            let marker=old.deletingLastPathComponent().appendingPathComponent("CastorInstall.json")
+            guard old.lastPathComponent=="Castor.app",old.deletingLastPathComponent().deletingLastPathComponent().standardizedFileURL==base.standardizedFileURL,
+                  let record=try? JSONDecoder().decode(DesktopInstalledApp.self,from:Data(contentsOf:marker)),
+                  record.folder==old.deletingLastPathComponent().lastPathComponent else {throw AdapterError.unpack}
+        } else if manager.fileExists(atPath:link.path) {throw AdapterError.unpack}
+        let staged=base.appendingPathComponent(".castor-link-\(UUID().uuidString)")
+        defer {try? manager.removeItem(at:staged)}
+        try manager.createSymbolicLink(at:staged,withDestinationURL:target)
+        let committed=staged.path.withCString {source in link.path.withCString {rename(source,$0)}}
+        guard committed==0 else {throw AdapterError.unpack}
+#elseif os(Windows)
+        let file=base.appendingPathComponent(app.folder).appendingPathComponent("CastorPet.exe")
+        guard file.path.withCString({file in base.path.withCString {castor_pet_shortcut(file,$0,0)}})>0 else {throw AdapterError.unpack}
+#endif
+    }
+    static func removeLaunchEntry(_ app: DesktopInstalledApp) {
+        guard let base=try? root else{return}
+#if os(macOS)
+        let link=base.appendingPathComponent("Castor.app")
+        let target=base.appendingPathComponent(app.folder).appendingPathComponent("Castor.app")
+        if (try? FileManager.default.destinationOfSymbolicLink(atPath:link.path))==target.path {try? FileManager.default.removeItem(at:link)}
+#elseif os(Windows)
+        let file=base.appendingPathComponent(app.folder).appendingPathComponent("CastorPet.exe")
+        _ = file.path.withCString {file in base.path.withCString {castor_pet_shortcut(file,$0,1)}}
+#endif
+    }
     #if os(macOS)
     @MainActor
     #endif

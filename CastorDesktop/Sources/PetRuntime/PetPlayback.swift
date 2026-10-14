@@ -19,9 +19,11 @@ public final class PetPlayback {
     private var lastTime: Double?
     private var frontCanvas: PetCanvas?
     private var sideCanvas: PetCanvas?
+    private let manual: ManualPetRenderer?
 
     public init(asset: PetAsset, wideHeadMovement: Bool = false) {
         self.asset = asset
+        if case let .manual(pet) = asset { manual = ManualPetRenderer(pet: pet) } else { manual = nil }
         front = PetPlayer(archive: asset.front, wideHeadMovement: wideHeadMovement)
         if case let .quality(quality) = asset {
             side = PetPlayer(archive: quality.side, wideHeadMovement: wideHeadMovement)
@@ -54,12 +56,14 @@ public final class PetPlayback {
     }
 
     public func pointerMoved(to point: SIMD2<Float>?, canvasWidth: Int, canvasHeight: Int, time: Double) {
+        manual?.pointerMoved(point, control: front, width: canvasWidth, height: canvasHeight, time: time)
         register(width: canvasWidth, height: canvasHeight)
         front.pointerMoved(to: point, canvasWidth: canvasWidth, canvasHeight: canvasHeight, time: time)
         side?.pointerMoved(to: point, canvasWidth: canvasWidth, canvasHeight: canvasHeight, time: time)
     }
 
     public func render(into canvas: inout PetCanvas, time: Double, opacity: Float = 1) {
+        if let manual { manual.render(into: &canvas, control: front, time: time, opacity: opacity); return }
         guard case let .quality(quality) = asset, let side else {
             front.render(into: &canvas, time: time, opacity: opacity)
             return

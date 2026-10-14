@@ -12,6 +12,7 @@
 		C0A57A000000000000000003 /* claude_code_bridge.py in Resources */ = {isa = PBXBuildFile; fileRef = C0A57A000000000000000002 /* claude_code_bridge.py */; };
 		C0A57A000000000000000004 /* CastorAgentLauncher.app in Embed Helpers */ = {isa = PBXBuildFile; fileRef = C0A57A000000000000000001 /* CastorAgentLauncher.app */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		C0A57A000000000000000005 /* CastorCore in Frameworks */ = {isa = PBXBuildFile; productRef = C0A57A000000000000000006 /* CastorCore */; };
+        CA5700D00000000000000001 /* CastorDesktopRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = CA5700D00000000000000002 /* CastorDesktopRuntime */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -90,6 +91,7 @@
 			files = (
 				A9115AA12FC5E82A00000001 /* Arils in Frameworks */,
 				A9115AB12FC5E82A00000011 /* CastorCore in Frameworks */,
+                CA5700D00000000000000001 /* CastorDesktopRuntime in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -165,6 +167,7 @@
 			packageProductDependencies = (
 				A9115AA22FC5E82A00000002 /* Arils */,
 				A9115AB22FC5E82A00000012 /* CastorCore */,
+                CA5700D00000000000000002 /* CastorDesktopRuntime */,
 			);
 			productName = Castor;
 			productReference = 87F539E72FC5E828000593FE /* Castor.app */;
@@ -275,6 +278,7 @@
 			mainGroup = 87F539DE2FC5E828000593FE;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+                CA5700D00000000000000003 /* XCLocalSwiftPackageReference "../CastorDesktop" */,
 				A9115AA32FC5E82A00000003 /* XCLocalSwiftPackageReference "../Arils" */,
 				A9115AB32FC5E82A00000013 /* XCLocalSwiftPackageReference "../CastorCore" */,
 			);
@@ -750,6 +754,7 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../CastorCore;
 		};
+        CA5700D00000000000000003 /* XCLocalSwiftPackageReference "../CastorDesktop" */ = {isa = XCLocalSwiftPackageReference; relativePath = ../CastorDesktop; };
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -765,6 +770,7 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = CastorCore;
 		};
+        CA5700D00000000000000002 /* CastorDesktopRuntime */ = {isa = XCSwiftPackageProductDependency; package = CA5700D00000000000000003; productName = CastorDesktopRuntime; };
 /* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 87F539DF2FC5E828000593FE /* Project object */;

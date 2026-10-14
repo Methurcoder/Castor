@@ -7,6 +7,7 @@ let package = Package(
     name: "CastorDesktop",
     platforms: [.macOS(.v14)],
     products: [
+        .library(name: "CastorDesktopRuntime", targets: ["PetRuntime"]),
         .executable(name: "CastorPet", targets: ["CastorPet"]),
         .executable(name: "CastorSetup", targets: ["CastorSetup"]),
         .executable(name: "pet-snapshot", targets: ["PetSnapshot"]),
@@ -19,6 +20,12 @@ let package = Package(
     targets: [
         // stb_image (public domain / MIT), PNG decoding only.
         .target(name: "CStbImage"),
+        .target(name: "CPlatformImage", linkerSettings: [
+            .linkedLibrary("Ole32",.when(platforms:[.windows])),
+            .linkedLibrary("WindowsCodecs",.when(platforms:[.windows])),
+            .linkedLibrary("Uuid",.when(platforms:[.windows])),
+            .linkedFramework("CoreGraphics",.when(platforms:[.macOS])),
+            .linkedFramework("ImageIO",.when(platforms:[.macOS]))]),
         .target(name: "CDesktopUI"),
         .target(name: "CInstallLock"),
 
@@ -26,7 +33,7 @@ let package = Package(
         // CPU rasterizer into a premultiplied BGRA canvas.
         .target(
             name: "PetRuntime",
-            dependencies: ["CStbImage", "CInstallLock", .product(name: "ArilsPortable", package: "Arils"), .product(name: "CastorCore", package: "CastorCore")],
+            dependencies: ["CStbImage", "CPlatformImage", "CInstallLock", .product(name: "ArilsPortable", package: "Arils"), .product(name: "CastorCore", package: "CastorCore")],
             swiftSettings: [.unsafeFlags(["-Ounchecked"], .when(configuration: .debug))]
         ),
 

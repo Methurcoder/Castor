@@ -5,6 +5,9 @@ import UniformTypeIdentifiers
 import CastorCore
 
 struct ImageRiggingView: View {
+    @AppStorage("Castor.SettingsDisplayLanguage") private var displayLanguage: SettingsDisplayLanguage = .systemDefault
+    private func L(_ source: String) -> String { CastorAppStrings.label(source, language: displayLanguage) }
+
     private static let qualityReferenceHelp = "Recommended: use a second full-body reference showing the same character turned about 60° to the left or right (a three-quarter view). Keep the pose, expression, framing, and scale as close to the front image as possible."
 
     let core: HesitateCore
@@ -185,20 +188,20 @@ struct ImageRiggingView: View {
                     VStack(spacing: 8) {
                         QualityAvatarView(engine: qualityEngine)
                         HStack(spacing: 8) {
-                            Toggle("Auto", isOn: $isQualityAutoTurnOn)
+                            Toggle(L("Auto"), isOn: $isQualityAutoTurnOn)
                                 .toggleStyle(.checkbox)
                                 .font(.caption)
                                 .help(
                                     arilsPreviewMode == .quality3D
-                                        ? "視線ターゲット(ホバー)に合わせて左右・上下を自動で向く"
-                                        : "視線ターゲット(ホバー)に合わせて左右を自動で向く"
+                                        ? L("視線ターゲット(ホバー)に合わせて左右・上下を自動で向く")
+                                        : L("視線ターゲット(ホバー)に合わせて左右を自動で向く")
                                 )
                                 .onChange(of: isQualityAutoTurnOn) { _, isOn in
                                     qualityEngine.automaticTurn = isOn
                                 }
                             VStack(spacing: 3) {
                                 HStack(spacing: 6) {
-                                    Text("左右")
+                                    Text(L("左右"))
                                         .frame(width: 28, alignment: .trailing)
                                     Slider(
                                         value: Binding(
@@ -210,7 +213,7 @@ struct ImageRiggingView: View {
                                 }
                                 if arilsPreviewMode == .quality3D {
                                     HStack(spacing: 6) {
-                                        Text("上下")
+                                        Text(L("上下"))
                                             .frame(width: 28, alignment: .trailing)
                                         Slider(
                                             value: Binding(
@@ -274,9 +277,9 @@ struct ImageRiggingView: View {
                     VStack(spacing: 12) {
                         Image(systemName: "photo.badge.plus")
                             .font(.system(size: 42))
-                        Text("Image Rigging")
+                        Text(L("Image Rigging"))
                             .font(.title2.weight(.semibold))
-                        Text(statusText)
+                        Text(L(statusText))
                             .font(.callout)
                             .foregroundStyle(palette.secondaryText)
                     }
@@ -299,7 +302,7 @@ struct ImageRiggingView: View {
             )
 
             if !isManualRiggingEnabled, image != nil {
-                Text(statusText)
+                Text(L(statusText))
                     .font(.caption)
                     .foregroundStyle(palette.secondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -311,20 +314,20 @@ struct ImageRiggingView: View {
                 Button {
                     openImagePanel()
                 } label: {
-                    Label("Import Image", systemImage: "photo")
+                    Label(L("Import Image"), systemImage: "photo")
                 }
 
                 if isManualRiggingEnabled {
                     Button {
                         isRigImporterPresented = true
                     } label: {
-                        Label("Load JSON", systemImage: "doc")
+                        Label(L("Load JSON"), systemImage: "doc")
                     }
 
                     Button {
                         saveRig()
                     } label: {
-                        Label("Save JSON", systemImage: "square.and.arrow.down")
+                        Label(L("Save JSON"), systemImage: "square.and.arrow.down")
                     }
                     .disabled(document == nil)
 
@@ -332,7 +335,7 @@ struct ImageRiggingView: View {
                         isRigApplied.toggle()
                         statusText = isRigApplied ? "Rig applied." : "Editing ranges."
                     } label: {
-                        Label(isRigApplied ? "Edit Ranges" : "Apply Rig", systemImage: isRigApplied ? "slider.horizontal.3" : "play.fill")
+                        Label(L(isRigApplied ? "Edit Ranges" : "Apply Rig"), systemImage: isRigApplied ? "slider.horizontal.3" : "play.fill")
                     }
                     .disabled(document == nil)
                 }
@@ -344,46 +347,46 @@ struct ImageRiggingView: View {
                         ProgressView()
                             .controlSize(.small)
                     } else {
-                        Label("Arils", systemImage: isArilsPreviewOn ? "wand.and.stars.inverse" : "wand.and.stars")
+                        Label(L("Arils"), systemImage: isArilsPreviewOn ? "wand.and.stars.inverse" : "wand.and.stars")
                     }
                 }
                 .disabled(image == nil || isArilsRigging || (isArilsPreviewOn && !isManualRiggingEnabled))
                 .help(isArilsPreviewOn
-                    ? "Back to the classic rig preview"
-                    : "Auto-rig with the Arils engine and preview (hover: gaze, drag the head: pet)")
+                    ? L("Back to the classic rig preview")
+                    : L("Auto-rig with the Arils engine and preview (hover: gaze, drag the head: pet)"))
 
                 Button {
                     pendingArilsCandidate = arilsSelectedCandidate
                     isFaceAlignmentPresented = true
                 } label: {
-                    Label("Adjust Face", systemImage: "face.dashed")
+                    Label(L("Adjust Face"), systemImage: "face.dashed")
                 }
                 .disabled(image == nil || faceLayoutProposal == nil || isArilsRigging)
-                .help("Review and correct the head, eye, and mouth positions")
+                .help(L("Review and correct the head, eye, and mouth positions"))
 
                 Button {
                     beginQualitySideAlignment()
                 } label: {
-                    Label("Adjust Side", systemImage: "person.crop.rectangle.badge.plus")
+                    Label(L("Adjust Side"), systemImage: "person.crop.rectangle.badge.plus")
                 }
                 .disabled(qualitySideImage == nil || isArilsRigging)
-                .help("Review the head, eye, mouth, and neck markers in the Quality side reference")
+                .help(L("Review the head, eye, mouth, and neck markers in the Quality side reference"))
 
                 Button {
                     isQualitySideImporterPresented = true
                 } label: {
-                    Label("Add Quality View", systemImage: "rectangle.on.rectangle")
+                    Label(L("Add Quality View"), systemImage: "rectangle.on.rectangle")
                 }
                 .disabled(image == nil || isArilsRigging)
-                .help(Self.qualityReferenceHelp)
+                .help(L(Self.qualityReferenceHelp))
 
-                Picker("Arils mode", selection: $arilsPreviewMode) {
-                    Text("Standard").tag(ArilsPreviewMode.standard)
-                    Text("2D Quality")
-                        .help(Self.qualityReferenceHelp)
+                Picker(L("Arils mode"), selection: $arilsPreviewMode) {
+                    Text(L("Standard")).tag(ArilsPreviewMode.standard)
+                    Text(L("2D Quality"))
+                        .help(L(Self.qualityReferenceHelp))
                         .tag(ArilsPreviewMode.quality2D)
-                    Text("3D Quality")
-                        .help(Self.qualityReferenceHelp)
+                    Text(L("3D Quality"))
+                        .help(L(Self.qualityReferenceHelp))
                         .tag(ArilsPreviewMode.quality3D)
                 }
                 .labelsHidden()
@@ -392,7 +395,7 @@ struct ImageRiggingView: View {
                 // The segmented picker is backed by one native control, so
                 // keep the same help on the control as a reliable fallback in
                 // addition to the per-Quality segment annotations above.
-                .help(Self.qualityReferenceHelp)
+                .help(L(Self.qualityReferenceHelp))
                 .onChange(of: arilsPreviewMode) { _, mode in
                     selectArilsPreviewMode(mode)
                 }
@@ -400,22 +403,22 @@ struct ImageRiggingView: View {
                 Button {
                     isVoiceSelectionPresented = true
                 } label: {
-                    Label("Voice", systemImage: "person.wave.2")
+                    Label(L("Voice"), systemImage: "person.wave.2")
                 }
                 .disabled(image == nil || document == nil)
-                .help("Choose the imported character's voice and personality")
+                .help(L("Choose the imported character's voice and personality"))
 
                 Button {
                     importSavedPet()
                 } label: {
-                    Label("保存ペットを読み込む", systemImage: "square.and.arrow.down")
+                    Label(L("保存ペットを読み込む"), systemImage: "square.and.arrow.down")
                 }
-                .help("MacまたはWindowsで保存したCastorペットのJSONを読み込みます。")
+                .help(L("MacまたはWindowsで保存したCastorペットのJSONを読み込みます。"))
 
                 Button {
                     savePet()
                 } label: {
-                    Label("Save Pet", systemImage: "sparkles")
+                    Label(L("Save Pet"), systemImage: "sparkles")
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(palette.meterFill)
@@ -424,10 +427,10 @@ struct ImageRiggingView: View {
                 Button {
                     sharePetGIF()
                 } label: {
-                    Label("GIFを作ってXで共有", systemImage: "square.and.arrow.up")
+                    Label(L("GIFを作ってXで共有"), systemImage: "square.and.arrow.up")
                 }
                 .disabled(!canSavePet)
-                .help("GIFを保存してXを開きます。GIFはXで手動添付してください。")
+                .help(L("GIFを保存してXを開きます。GIFはXで手動添付してください。"))
                 }
                 .fixedSize(horizontal: true, vertical: false)
             }
@@ -443,13 +446,13 @@ struct ImageRiggingView: View {
 
     private var inspectorPanel: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Rig Parts")
+            Text(L("Rig Parts"))
                 .font(.headline)
 
             if let document {
-                Picker("Part", selection: selectedPartBinding(document: document)) {
+                Picker(L("Part"), selection: selectedPartBinding(document: document)) {
                     ForEach(document.parts) { part in
-                        Text(part.kind.label).tag(Optional(part.id))
+                        Text(L(part.kind.label)).tag(Optional(part.id))
                     }
                 }
                 .labelsHidden()
@@ -460,18 +463,18 @@ struct ImageRiggingView: View {
 
                 Divider()
 
-                Text("Layers are cut from the selected image at render time. JSON stores rectangles, shapes, anchors, and ordering.")
+                Text(L("Layers are cut from the selected image at render time. JSON stores rectangles, shapes, anchors, and ordering."))
                     .font(.caption)
                     .foregroundStyle(palette.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                Text("No rig document yet.")
+                Text(L("No rig document yet."))
                     .foregroundStyle(palette.secondaryText)
             }
 
             Spacer()
 
-            Text(statusText)
+            Text(L(statusText))
                 .font(.caption.monospaced())
                 .foregroundStyle(palette.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
@@ -483,27 +486,27 @@ struct ImageRiggingView: View {
 
     private func partInspector(_ part: RigPart) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(part.kind.label)
+            Text(L(part.kind.label))
                 .font(.title3.weight(.semibold))
 
-            Picker("Shape", selection: selectedShapeBinding(for: part.id)) {
+            Picker(L("Shape"), selection: selectedShapeBinding(for: part.id)) {
                 ForEach(RigPartShape.allCases) { shape in
-                    Text(shape.rawValue).tag(shape)
+                    Text(L(shape.rawValue)).tag(shape)
                 }
             }
             .pickerStyle(.segmented)
 
             VStack(alignment: .leading) {
-                Text("Anchor X")
+                Text(L("Anchor X"))
                 Slider(value: selectedAnchorBinding(for: part.id, axis: .x), in: 0...1)
-                Text("Anchor Y")
+                Text(L("Anchor Y"))
                 Slider(value: selectedAnchorBinding(for: part.id, axis: .y), in: 0...1)
             }
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("rect x \(part.normalizedRect.minX, format: .number.precision(.fractionLength(2)))")
-                Text("rect y \(part.normalizedRect.minY, format: .number.precision(.fractionLength(2)))")
-                Text("size \(part.normalizedRect.width, format: .number.precision(.fractionLength(2))) x \(part.normalizedRect.height, format: .number.precision(.fractionLength(2)))")
+                Text(L("rect x \(Double(part.normalizedRect.minX).formatted(.number.precision(.fractionLength(2))))"))
+                Text(L("rect y \(Double(part.normalizedRect.minY).formatted(.number.precision(.fractionLength(2))))"))
+                Text(L("size \(Double(part.normalizedRect.width).formatted(.number.precision(.fractionLength(2)))) x \(Double(part.normalizedRect.height).formatted(.number.precision(.fractionLength(2))))"))
             }
             .font(.caption.monospaced())
             .foregroundStyle(palette.secondaryText)
@@ -1479,6 +1482,9 @@ struct ImageRiggingView: View {
 }
 
 private struct ArilsFaceAlignmentSheet: View {
+    @AppStorage("Castor.SettingsDisplayLanguage") private var displayLanguage: SettingsDisplayLanguage = .systemDefault
+    private func L(_ source: String) -> String { CastorAppStrings.label(source, language: displayLanguage) }
+
     private enum Feature: String, CaseIterable, Identifiable {
         case head = "Head / neck"
         case leftEye = "Left eye"
@@ -1534,9 +1540,9 @@ private struct ArilsFaceAlignmentSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Check face alignment")
+            Text(L("Check face alignment"))
                 .font(.title2.weight(.semibold))
-            Text("Drag each marker on the image. Use the sliders to correct its size. The cyan bottom edge is the neck cut used to move the head.")
+            Text(L("Drag each marker on the image. Use the sliders to correct its size. The cyan bottom edge is the neck cut used to move the head."))
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
@@ -1568,42 +1574,41 @@ private struct ArilsFaceAlignmentSheet: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
-                        Picker("Marker", selection: $selectedFeature) {
+                        Picker(L("Marker"), selection: $selectedFeature) {
                             ForEach(Feature.allCases) { feature in
-                                Text(feature.rawValue).tag(feature)
+                                Text(L(feature.rawValue)).tag(feature)
                             }
                         }
 
                         if automaticChoices.count > 1 {
-                            Picker("Detection candidate", selection: $automaticSourceID) {
+                            Picker(L("Detection candidate"), selection: $automaticSourceID) {
                                 ForEach(automaticChoices) { candidate in
-                                    Text(candidate.sourceLabel).tag(candidate.id)
+                                    Text(L(candidate.sourceLabel)).tag(candidate.id)
                                 }
                             }
                             .onChange(of: automaticSourceID) {
                                 selectAutomaticCandidate()
                             }
 
-                            Text("Candidates are reviewed independently. Switching does not build or save anything.")
+                            Text(L("Candidates are reviewed independently. Switching does not build or save anything."))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
 
                         coordinateSlider("X", component: .x)
                         coordinateSlider("Y", component: .y)
-                        coordinateSlider("Width", component: .width)
-                        coordinateSlider("Height", component: .height)
+                        coordinateSlider(L("Width"), component: .width)
+                        coordinateSlider(L("Height"), component: .height)
 
                         Divider()
-                        Label(
-                            "Automatic confidence: \(Int((selectedAutomaticChoice.review.confidence * 100).rounded()))%",
+                        Label(L("Automatic confidence: \(Int((selectedAutomaticChoice.review.confidence * 100).rounded()))%"),
                             systemImage: selectedAutomaticChoice.review.requiresReview
                                 ? "exclamationmark.triangle.fill"
                                 : "checkmark.circle.fill"
                         )
                         .foregroundStyle(selectedAutomaticChoice.review.requiresReview ? .orange : .green)
 
-                        Text("Estimated by: \(selectedAutomaticChoice.sourceLabel)")
+                        Text(L("Estimated by: \(selectedAutomaticChoice.sourceLabel)"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
@@ -1613,8 +1618,8 @@ private struct ArilsFaceAlignmentSheet: View {
                         ) {
                             Label {
                                 Text(AnimeFaceLandmarksSettingsStore.modelsAreInstalled
-                                     ? "The anime landmark model found no face in this image, so the built-in estimator placed the markers."
-                                     : "The anime landmark model is not included in this build, so the built-in estimator placed the markers.")
+                                     ? L("The anime landmark model found no face in this image, so the built-in estimator placed the markers.")
+                                     : L("The anime landmark model is not included in this build, so the built-in estimator placed the markers."))
                             } icon: {
                                 Image(systemName: "info.circle")
                             }
@@ -1623,25 +1628,25 @@ private struct ArilsFaceAlignmentSheet: View {
                         }
 
                         if selectedAutomaticChoice.review.issues.isEmpty {
-                            Text("No geometric warning was found. Visual confirmation is still recommended.")
+                            Text(L("No geometric warning was found. Visual confirmation is still recommended."))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         } else {
                             ForEach(selectedAutomaticChoice.review.issues, id: \.self) { issue in
-                                Text("• \(message(for: issue))")
+                                Text("• \(L(message(for: issue)))")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
                         }
 
-                        Text("The head box is a search area. Arils follows the nearby subject silhouette and facial markers to build a soft curved head/neck mask.")
+                        Text(L("The head box is a search area. Arils follows the nearby subject silhouette and facial markers to build a soft curved head/neck mask."))
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
                         Divider()
                         aiAdjustmentControls
 
-                        Button("Reset to automatic") {
+                        Button(L("Reset to automatic")) {
                             resetToAutomatic()
                         }
                     }
@@ -1651,16 +1656,16 @@ private struct ArilsFaceAlignmentSheet: View {
 
             HStack {
                 if !layoutIsValid {
-                    Label("Put both eyes and the mouth inside the head, with the mouth below the eyes.", systemImage: "exclamationmark.triangle.fill")
+                    Label(L("Put both eyes and the mouth inside the head, with the mouth below the eyes."), systemImage: "exclamationmark.triangle.fill")
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }
                 Spacer()
-                Button("Cancel") {
+                Button(L("Cancel")) {
                     stopAIWork()
                     cancel()
                 }
-                Button(aiProposal == nil ? "Build with this alignment" : "Approve AI alignment and build") {
+                Button(L(aiProposal == nil ? "Build with this alignment" : "Approve AI alignment and build")) {
                     stopAIWork()
                     build(layout)
                 }
@@ -1670,14 +1675,13 @@ private struct ArilsFaceAlignmentSheet: View {
         }
         .padding(24)
         .frame(width: 900, height: 700)
-        .alert(
-            "Send image to \(aiSettings.provider.label)?",
+        .alert(L("Send image to \(aiSettings.provider.label)?"),
             isPresented: $isExternalSendConfirmationPresented
         ) {
-            Button("Cancel", role: .cancel) {}
-            Button("Send image") { startAISuggestion() }
+            Button(L("Cancel"), role: .cancel) {}
+            Button(L("Send image")) { startAISuggestion() }
         } message: {
-            Text("A temporary copy of this image and its current marker coordinates will be sent through the configured localhost \(aiSettings.provider.label) connection. The returned proposal will still require your approval.")
+            Text(L("A temporary copy of this image and its current marker coordinates will be sent through the configured localhost \(aiSettings.provider.label) connection. The returned proposal will still require your approval."))
         }
         .onDisappear { stopAIWork() }
     }
@@ -1686,31 +1690,31 @@ private struct ArilsFaceAlignmentSheet: View {
     private var aiAdjustmentControls: some View {
         let settings = aiSettings
 
-        Label("AI alignment suggestion", systemImage: "wand.and.stars")
+        Label(L("AI alignment suggestion"), systemImage: "wand.and.stars")
             .font(.callout.weight(.semibold))
 
-        Text("Reviewer: \(settings.provider.label). The suggestion only moves the markers in this preview; it cannot build or save the rig.")
+        Text(L("Reviewer: \(settings.provider.label). The suggestion only moves the markers in this preview; it cannot build or save the rig."))
             .font(.caption)
             .foregroundStyle(.secondary)
 
         if aiCoordinator.isWorking {
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
-                Text(aiCoordinator.status.isEmpty ? "Reviewing alignment..." : aiCoordinator.status)
+                Text(L(aiCoordinator.status.isEmpty ? "Reviewing alignment..." : aiCoordinator.status))
                     .font(.caption)
             }
         }
 
         if let approval = aiCoordinator.pendingApproval {
             VStack(alignment: .leading, spacing: 8) {
-                Label(approval.title, systemImage: "checkmark.shield")
+                Label(L(approval.title), systemImage: "checkmark.shield")
                     .font(.caption.weight(.semibold))
                 Text(approval.detail)
                     .font(.caption2.monospaced())
                     .textSelection(.enabled)
                 HStack {
-                    Button("Decline") { aiCoordinator.resolvePendingApproval(approved: false) }
-                    Button("Allow once") { aiCoordinator.resolvePendingApproval(approved: true) }
+                    Button(L("Decline")) { aiCoordinator.resolvePendingApproval(approved: false) }
+                    Button(L("Allow once")) { aiCoordinator.resolvePendingApproval(approved: true) }
                         .buttonStyle(.borderedProminent)
                 }
             }
@@ -1720,8 +1724,7 @@ private struct ArilsFaceAlignmentSheet: View {
 
         if let aiProposal {
             VStack(alignment: .leading, spacing: 5) {
-                Label(
-                    "\(aiProposal.provider.label) confidence: \(Int((aiProposal.confidence * 100).rounded()))%",
+                Label(L("\(aiProposal.provider.label) confidence: \(Int((aiProposal.confidence * 100).rounded()))%"),
                     systemImage: "eye.circle.fill"
                 )
                 .font(.caption.weight(.semibold))
@@ -1730,7 +1733,7 @@ private struct ArilsFaceAlignmentSheet: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Text("Review the overlaid markers, adjust them if needed, then use the approval-and-build button below.")
+                Text(L("Review the overlaid markers, adjust them if needed, then use the approval-and-build button below."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -1745,13 +1748,13 @@ private struct ArilsFaceAlignmentSheet: View {
         }
 
         HStack {
-            Button(aiProposal == nil ? "Suggest with AI" : "Ask AI again") {
+            Button(L(aiProposal == nil ? "Suggest with AI" : "Ask AI again")) {
                 requestAISuggestion()
             }
             .disabled(aiCoordinator.isWorking)
 
             if aiProposal != nil {
-                Button("Revert AI suggestion") { revertAISuggestion() }
+                Button(L("Revert AI suggestion")) { revertAISuggestion() }
                     .buttonStyle(.plain)
             }
         }
@@ -1845,7 +1848,7 @@ private struct ArilsFaceAlignmentSheet: View {
 
     private func coordinateSlider(_ label: String, component: RectComponent) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(label)
+            Text(L(label))
                 .font(.caption)
             Slider(value: normalizedBinding(component), in: 0...1)
         }
@@ -1960,6 +1963,9 @@ private struct FaceAspectFitTransform {
 }
 
 private struct FaceAlignmentMarker: View {
+    @AppStorage("Castor.SettingsDisplayLanguage") private var displayLanguage: SettingsDisplayLanguage = .systemDefault
+    private func L(_ source: String) -> String { CastorAppStrings.label(source, language: displayLanguage) }
+
     @Binding var rect: CGRect
     let imageBounds: CGRect
     let transform: FaceAspectFitTransform
@@ -1976,7 +1982,7 @@ private struct FaceAlignmentMarker: View {
             .fill(color.opacity(isSelected ? 0.20 : 0.09))
             .overlay(RoundedRectangle(cornerRadius: 5).stroke(color, lineWidth: isSelected ? 3 : 2))
             .overlay(alignment: .topLeading) {
-                Text(label)
+                Text(L(label))
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 4)
@@ -2001,7 +2007,7 @@ private struct FaceAlignmentMarker: View {
                     }
                     .onEnded { _ in dragStart = nil }
             )
-            .accessibilityLabel(label)
+            .accessibilityLabel(L(label))
     }
 }
 
@@ -2021,15 +2027,18 @@ private extension CGRect {
 }
 
 private struct ArilsCandidateSelectionSheet: View {
+    @AppStorage("Castor.SettingsDisplayLanguage") private var displayLanguage: SettingsDisplayLanguage = .systemDefault
+    private func L(_ source: String) -> String { CastorAppStrings.label(source, language: displayLanguage) }
+
     let image: NSImage?
     let candidates: [RiggingSubjectCandidate]
     let select: (RiggingSubjectCandidate) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Choose the character to animate")
+            Text(L("Choose the character to animate"))
                 .font(.title3.weight(.semibold))
-            Text("Only disconnected foreground regions can be separated. The characters you do not choose will become transparent.")
+            Text(L("Only disconnected foreground regions can be separated. The characters you do not choose will become transparent."))
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
@@ -2076,6 +2085,9 @@ private struct ArilsCandidateSelectionSheet: View {
 }
 
 private struct QualityPairAssessmentSheet: View {
+    @AppStorage("Castor.SettingsDisplayLanguage") private var displayLanguage: SettingsDisplayLanguage = .systemDefault
+    private func L(_ source: String) -> String { CastorAppStrings.label(source, language: displayLanguage) }
+
     let assessment: QualityPairAssessment?
     let sideFileName: String
     @Binding var sideDirection: QualitySideDirection
@@ -2084,53 +2096,53 @@ private struct QualityPairAssessmentSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Arils-2D-Quality reference check")
+            Text(L("Arils-2D-Quality reference check"))
                 .font(.title3.weight(.semibold))
-            Text("正面画像と横向き画像を比較した事前確認です。確率は画像の色・シルエット・顔推定に基づく目安で、人物の同一性を断定するものではありません。")
+            Text(L("正面画像と横向き画像を比較した事前確認です。確率は画像の色・シルエット・顔推定に基づく目安で、人物の同一性を断定するものではありません。"))
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
             if let assessment {
                 Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
                     GridRow {
-                        Text("同一人物らしさ")
+                        Text(L("同一人物らしさ"))
                         Text(percent(assessment.sameCharacterConfidence))
                     }
                     GridRow {
-                        Text("顔の読み取り信頼度")
+                        Text(L("顔の読み取り信頼度"))
                         Text(percent(assessment.faceReadabilityConfidence))
                     }
                 }
                 .font(.callout)
 
                 if assessment.warnings.isEmpty {
-                    Label("現時点で大きな警告はありません。", systemImage: "checkmark.circle.fill")
+                    Label(L("現時点で大きな警告はありません。"), systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green)
                 } else {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(Array(assessment.warnings.enumerated()), id: \.offset) { _, warning in
-                            Label(warning.message, systemImage: "exclamationmark.triangle.fill")
+                            Label(L(warning.message), systemImage: "exclamationmark.triangle.fill")
                                 .foregroundStyle(.orange)
                         }
                     }
                 }
             } else {
-                Text("評価結果を取得できませんでした。")
+                Text(L("評価結果を取得できませんでした。"))
                     .foregroundStyle(.secondary)
             }
 
-            Text("横向き参照: \(sideFileName)")
+            Text(L("横向き参照: \(sideFileName)"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Picker("横向きの方向", selection: $sideDirection) {
-                Text("Right").tag(QualitySideDirection.right)
-                Text("Left").tag(QualitySideDirection.left)
+            Picker(L("横向きの方向"), selection: $sideDirection) {
+                Text(L("Right")).tag(QualitySideDirection.right)
+                Text(L("Left")).tag(QualitySideDirection.left)
             }
             HStack {
                 Spacer()
-                Button("Review side alignment", action: useQuality)
+                Button(L("Review side alignment"), action: useQuality)
                     .buttonStyle(.borderedProminent)
-                Button("Close", action: dismiss)
+                Button(L("Close"), action: dismiss)
                     .keyboardShortcut(.defaultAction)
             }
         }

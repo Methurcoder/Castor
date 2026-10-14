@@ -3,7 +3,7 @@ import Foundation
 import CoreGraphics
 #endif
 
-public struct TrilobiteInputSnapshot {
+public nonisolated struct TrilobiteInputSnapshot: Sendable {
     public var cameraEnabled: Bool
     public var microphoneEnabled: Bool
     public var cameraPermission: TrilobitePermissionState
@@ -109,7 +109,7 @@ public struct TrilobiteInputSnapshot {
     }
 }
 
-public enum TrilobiteFaceMetrics {
+public nonisolated enum TrilobiteFaceMetrics {
     public static let targetAnalysisHertz = 7.0
 
     /// Landmark contour bounding-height / bounding-width. This is invariant
@@ -134,7 +134,7 @@ public enum TrilobiteFaceMetrics {
     }
 }
 
-public enum TrilobitePermissionState: String {
+public nonisolated enum TrilobitePermissionState: String, Sendable {
     case notDetermined
     case granted
     case denied

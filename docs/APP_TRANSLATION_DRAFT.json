@@ -1,0 +1,778 @@
+{
+  "schema": "castor-app-translation-draft-v1",
+  "description": "Draft Japanese translations for remaining macOS UI source strings. Each source_key uses the English source template; interpolation placeholders are printf-style equivalents for String Catalog entries.",
+  "language": "ja",
+  "source_language": "en",
+  "strings": [
+    {
+      "source_key": "Image Rigging",
+      "ja": "画像からペットを作成",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Import Image",
+      "ja": "画像を読み込む",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Load JSON",
+      "ja": "JSONを読み込む",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Save JSON",
+      "ja": "JSONを保存",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Edit Ranges",
+      "ja": "範囲を編集",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Apply Rig",
+      "ja": "リグを適用",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Arils",
+      "ja": "Arils",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Back to the classic rig preview",
+      "ja": "従来のリグプレビューに戻る",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Auto-rig with the Arils engine and preview (hover: gaze, drag the head: pet)",
+      "ja": "Arilsで自動リギングしてプレビュー（ポインタを重ねると視線、頭をドラッグするとペットが動きます）",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Adjust Face",
+      "ja": "顔を調整",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Review and correct the head, eye, and mouth positions",
+      "ja": "頭・目・口の位置を確認して調整します",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Adjust Side",
+      "ja": "横向き画像を調整",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Review the head, eye, mouth, and neck markers in the Quality side reference",
+      "ja": "Quality用の横向き画像で頭・目・口・首のマーカーを確認します",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Add Quality View",
+      "ja": "Quality用の画像を追加",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Recommended: use a second full-body reference showing the same character turned about 60° to the left or right (a three-quarter view). Keep the pose, expression, framing, and scale as close to the front image as possible.",
+      "ja": "同じキャラクターを約60°左右どちらかへ向けた全身画像を、2枚目の参照画像として使うことをおすすめします（斜め向きの画像）。ポーズ、表情、構図、サイズは正面画像にできるだけ近づけてください。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Arils mode",
+      "ja": "Arilsの表示モード",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Standard",
+      "ja": "Standard",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "2D Quality",
+      "ja": "2D Quality",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "3D Quality",
+      "ja": "3D Quality",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Voice",
+      "ja": "音声",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Choose the imported character's voice and personality",
+      "ja": "読み込んだキャラクターの声と性格を選びます",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Save Pet",
+      "ja": "ペットを保存",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Rig Parts",
+      "ja": "リグのパーツ",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Part",
+      "ja": "パーツ",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Layers are cut from the selected image at render time. JSON stores rectangles, shapes, anchors, and ordering.",
+      "ja": "レイヤーは描画時に選択画像から切り出します。JSONには矩形、形状、基準点、重ね順を保存します。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "No rig document yet.",
+      "ja": "リグデータがまだありません。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Shape",
+      "ja": "形状",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Anchor X",
+      "ja": "基準点 X",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Anchor Y",
+      "ja": "基準点 Y",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Check face alignment",
+      "ja": "顔の位置を確認",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Drag each marker on the image. Use the sliders to correct its size. The cyan bottom edge is the neck cut used to move the head.",
+      "ja": "画像上の各マーカーをドラッグして位置を調整します。スライダーで大きさを調整してください。水色の下端は、頭を動かすための首の切り分け位置です。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Marker",
+      "ja": "マーカー",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Detection candidate",
+      "ja": "検出候補",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Candidates are reviewed independently. Switching does not build or save anything.",
+      "ja": "検出候補はそれぞれ独立して確認できます。候補を切り替えても、リグの作成や保存は行われません。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "X",
+      "ja": "X",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Y",
+      "ja": "Y",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Width",
+      "ja": "幅",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Height",
+      "ja": "高さ",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Automatic confidence: %lld%%",
+      "ja": "自動推定の信頼度: %lld%%",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Estimated by: %@",
+      "ja": "推定方法: %@",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "The anime landmark model found no face in this image, so the built-in estimator placed the markers.",
+      "ja": "この画像からアニメ向けランドマークモデルが顔を検出できなかったため、内蔵の推定器がマーカーを配置しました。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "The anime landmark model is not included in this build, so the built-in estimator placed the markers.",
+      "ja": "このビルドにはアニメ向けランドマークモデルが含まれていないため、内蔵の推定器がマーカーを配置しました。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "No geometric warning was found. Visual confirmation is still recommended.",
+      "ja": "形状上の警告は見つかりませんでした。画像を目で確認することをおすすめします。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "The head box is a search area. Arils follows the nearby subject silhouette and facial markers to build a soft curved head/neck mask.",
+      "ja": "頭の枠は探索範囲です。Arilsは近くのシルエットと顔マーカーを使って、頭から首に沿う滑らかなマスクを作ります。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Reset to automatic",
+      "ja": "自動推定に戻す",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Put both eyes and the mouth inside the head, with the mouth below the eyes.",
+      "ja": "両目と口を頭の範囲内に配置し、口を目より下に置いてください。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Cancel",
+      "ja": "キャンセル",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Build with this alignment",
+      "ja": "この位置で作成",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Approve AI alignment and build",
+      "ja": "AIの位置調整を承認して作成",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Send image to %@?",
+      "ja": "画像を%@に送信しますか？",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Send image",
+      "ja": "画像を送信",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "A temporary copy of this image and its current marker coordinates will be sent through the configured localhost %@ connection. The returned proposal will still require your approval.",
+      "ja": "この画像の一時コピーと現在のマーカー座標を、設定済みのローカル %@ 接続を通じて送信します。返された提案を使うには、引き続き承認が必要です。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "AI alignment suggestion",
+      "ja": "AIによる位置調整の提案",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Reviewer: %@. The suggestion only moves the markers in this preview; it cannot build or save the rig.",
+      "ja": "確認元: %@。提案で変わるのはこのプレビュー上のマーカー位置だけです。リグの作成や保存は行われません。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Reviewing alignment...",
+      "ja": "位置を確認しています…",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Decline",
+      "ja": "拒否",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Allow once",
+      "ja": "今回のみ許可",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "%@ confidence: %lld%%",
+      "ja": "%@ の信頼度: %lld%%",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Review the overlaid markers, adjust them if needed, then use the approval-and-build button below.",
+      "ja": "画像上のマーカーを確認し、必要に応じて調整してから、下の承認して作成ボタンを押してください。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Suggest with AI",
+      "ja": "AIに提案を依頼",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Ask AI again",
+      "ja": "AIにもう一度依頼",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Revert AI suggestion",
+      "ja": "AIの提案を取り消す",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Choose the character to animate",
+      "ja": "動かすキャラクターを選択",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Only disconnected foreground regions can be separated. The characters you do not choose will become transparent.",
+      "ja": "切り分けられるのは、互いにつながっていない前景部分だけです。選ばなかったキャラクターは透明になります。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Arils-2D-Quality reference check",
+      "ja": "Arils-2D-Quality 参照画像の確認",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Right",
+      "ja": "右向き",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Left",
+      "ja": "左向き",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Review side alignment",
+      "ja": "横向き画像の位置を確認",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Close",
+      "ja": "閉じる",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Rigged character animated by Awkward Engine",
+      "ja": "Awkward Engineでアニメーションするリグ済みキャラクター",
+      "file": "Castor/Castor/Image Rigging/RiggedCharacterRenderer.swift"
+    },
+    {
+      "source_key": "Close voice selection",
+      "ja": "音声選択を閉じる",
+      "file": "Castor/Castor/Pet/VoiceSelectionView.swift"
+    },
+    {
+      "source_key": "Evasion style",
+      "ja": "退避スタイル",
+      "file": "Castor/Castor/Pet/VoiceSelectionView.swift"
+    },
+    {
+      "source_key": "Stop voice sample",
+      "ja": "音声サンプルを停止",
+      "file": "Castor/Castor/Pet/VoiceSelectionView.swift"
+    },
+    {
+      "source_key": "Play voice sample",
+      "ja": "音声サンプルを再生",
+      "file": "Castor/Castor/Pet/VoiceSelectionView.swift"
+    },
+    {
+      "source_key": "Fast. Uses the macOS system voice for every language.",
+      "ja": "高速です。すべての言語でmacOSのシステム音声を使います。",
+      "file": "Castor/Castor/Pet/PetVoiceProfile.swift"
+    },
+    {
+      "source_key": "More natural and multilingual, but slower and without detailed style control.",
+      "ja": "より自然で多言語に対応しますが、速度は遅めで、細かな話し方の調整はできません。",
+      "file": "Castor/Castor/Pet/PetVoiceProfile.swift"
+    },
+    {
+      "source_key": "Deny",
+      "ja": "拒否",
+      "file": "Castor/Castor/Pet/PetFloatingView.swift"
+    },
+    {
+      "source_key": "Review details",
+      "ja": "詳細を確認",
+      "file": "Castor/Castor/Pet/PetFloatingView.swift"
+    },
+    {
+      "source_key": "Auto",
+      "ja": "自動",
+      "file": "Castor/Castor/Pet/PetFloatingView.swift"
+    },
+    {
+      "source_key": "Brain",
+      "ja": "応答先",
+      "file": "Castor/Castor/Pet/PetFloatingView.swift"
+    },
+    {
+      "source_key": "Castor will keep chat local and call %@ for actions.",
+      "ja": "会話は端末内で行い、操作の依頼は%@に送ります。",
+      "file": "Castor/Castor/Pet/PetFloatingView.swift"
+    },
+    {
+      "source_key": "Generating a reply...",
+      "ja": "返答を生成しています…",
+      "file": "Castor/Castor/Pet/PetFloatingView.swift"
+    },
+    {
+      "source_key": "Sent: %@",
+      "ja": "送信内容: %@",
+      "file": "Castor/Castor/Pet/PetFloatingView.swift"
+    },
+    {
+      "source_key": "Castor is composing a short answer.",
+      "ja": "Castorが短い返答を作成しています。",
+      "file": "Castor/Castor/Pet/PetFloatingView.swift"
+    },
+    {
+      "source_key": "Finish voice message",
+      "ja": "音声入力を終了",
+      "file": "Castor/Castor/Pet/PetFloatingView.swift"
+    },
+    {
+      "source_key": "Start voice message",
+      "ja": "音声入力を開始",
+      "file": "Castor/Castor/Pet/PetFloatingView.swift"
+    },
+    {
+      "source_key": "Message Castor",
+      "ja": "Castorにメッセージ",
+      "file": "Castor/Castor/Pet/PetFloatingView.swift"
+    },
+    {
+      "source_key": "Stop response",
+      "ja": "返答を停止",
+      "file": "Castor/Castor/Pet/PetFloatingView.swift"
+    },
+    {
+      "source_key": "Send message",
+      "ja": "メッセージを送信",
+      "file": "Castor/Castor/Pet/PetFloatingView.swift"
+    },
+    {
+      "source_key": "Exit full screen answer",
+      "ja": "回答の全画面表示を終了",
+      "file": "Castor/Castor/Pet/PetResponseReader.swift"
+    },
+    {
+      "source_key": "View answer full screen",
+      "ja": "回答を全画面表示",
+      "file": "Castor/Castor/Pet/PetResponseReader.swift"
+    },
+    {
+      "source_key": "Head / neck",
+      "ja": "頭・首",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Left eye",
+      "ja": "左目",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Right eye",
+      "ja": "右目",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Mouth",
+      "ja": "口",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Facial features were weak in the source image.",
+      "ja": "元画像では顔の特徴をはっきり確認できませんでした。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "The detected head may extend into the torso.",
+      "ja": "検出した頭の範囲に胴体が含まれている可能性があります。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Hair or clothing may have been included in the head.",
+      "ja": "髪や服が頭の範囲に含まれている可能性があります。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "One or both eyes are outside the detected head.",
+      "ja": "片目または両目が検出した頭の範囲外にあります。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "The eyes have an unusual vertical offset.",
+      "ja": "左右の目の高さに大きなずれがあります。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "The eye spacing looks unusual for this head.",
+      "ja": "目の間隔が頭の大きさに対して不自然に見えます。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "The mouth is outside the detected head.",
+      "ja": "口が検出した頭の範囲外にあります。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "The mouth was not found below the eyes.",
+      "ja": "口が目より下に見つかりませんでした。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "The mouth is far from the center between the eyes.",
+      "ja": "口が両目の中心から大きく離れています。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source_key": "Front + three-quarter view",
+      "ja": "正面＋斜め向き",
+      "file": "Castor/Castor/Image Rigging/ArilsAIAdjustment.swift"
+    }
+  ],
+  "dynamic_status": [
+    {
+      "source": "Rig applied.",
+      "key": "rigging.status.applied",
+      "ja": "リグを適用しました。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source": "Editing ranges.",
+      "key": "rigging.status.editing_ranges",
+      "ja": "範囲を編集中です。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source": "Image drop failed: %@",
+      "key": "rigging.status.image_drop_failed",
+      "ja": "画像をドロップできませんでした: %@",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source": "Drop a PNG, JPEG, or other image file.",
+      "key": "rigging.status.drop_image",
+      "ja": "PNG、JPEGなどの画像ファイルをドロップしてください。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source": "Could not read that image.",
+      "key": "rigging.status.image_read_failed",
+      "ja": "画像を読み込めませんでした。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source": "Starter rig created.",
+      "key": "rigging.status.starter_created",
+      "ja": "基本リグを作成しました。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source": "Back to the classic rig preview.",
+      "key": "rigging.status.classic_preview",
+      "ja": "従来のリグプレビューに戻りました。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source": "Looking for separate characters…",
+      "key": "rigging.status.finding_subjects",
+      "ja": "キャラクターを個別に検出しています…",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source": "Choose the character to animate.",
+      "key": "rigging.status.choose_subject",
+      "ja": "動かすキャラクターを選んでください。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source": "Check the face markers before rigging.",
+      "key": "rigging.status.review_face",
+      "ja": "リギングの前に顔マーカーを確認してください。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source": "2D Quality references look usable.",
+      "key": "rigging.status.quality_refs_usable",
+      "ja": "2D Qualityの参照画像を使用できます。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source": "2D Quality needs review before use.",
+      "key": "rigging.status.quality_refs_review",
+      "ja": "使用する前に2D Qualityの参照画像を確認してください。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source": "Building Arils-2D-Quality…",
+      "key": "rigging.status.building_quality",
+      "ja": "Arils-2D-Qualityを作成しています…",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source": "Arils-2D-Quality preview is ready.",
+      "key": "rigging.status.quality_preview_ready",
+      "ja": "Arils-2D-Qualityのプレビューができました。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source": "Check the side-reference markers before Build.",
+      "key": "rigging.status.review_side_markers",
+      "ja": "作成する前に横向き参照画像のマーカーを確認してください。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source": "Build a Standard Arils rig first.",
+      "key": "rigging.status.standard_required",
+      "ja": "先にStandard Arilsのリグを作成してください。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source": "Build a 2D Quality pair first.",
+      "key": "rigging.status.quality_pair_required",
+      "ja": "先に2D Quality用の2枚の画像を設定してください。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source": "3D Quality: depth turn + profile crossfade.",
+      "key": "rigging.status.mode_3d",
+      "ja": "3D Quality: 奥行き回転と横向き画像へのクロスフェード。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source": "2D Quality: front/profile crossfade.",
+      "key": "rigging.status.mode_2d",
+      "ja": "2D Quality: 正面と横向き画像をクロスフェード。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source": "Could not access the selected JSON.",
+      "key": "rigging.status.json_access_failed",
+      "ja": "選択したJSONにアクセスできませんでした。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source": "Pet saved. Double-click a screen edge to call it.",
+      "key": "rigging.status.pet_saved",
+      "ja": "ペットを保存しました。画面の端をダブルクリックすると呼び出せます。",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift"
+    },
+    {
+      "source": "The source image could not be prepared for AI review.",
+      "key": "rigging.ai.status.prepare_failed",
+      "ja": "AI確認用の画像を準備できませんでした。",
+      "file": "Castor/Castor/Image Rigging/ArilsAIAdjustment.swift"
+    },
+    {
+      "source": "Receiving the Codex proposal...",
+      "key": "rigging.ai.status.codex_receiving",
+      "ja": "Codexの提案を受信しています…",
+      "file": "Castor/Castor/Image Rigging/ArilsAIAdjustment.swift"
+    },
+    {
+      "source": "Receiving the Claude Code proposal...",
+      "key": "rigging.ai.status.claude_receiving",
+      "ja": "Claude Codeの提案を受信しています…",
+      "file": "Castor/Castor/Image Rigging/ArilsAIAdjustment.swift"
+    },
+    {
+      "source": "Validating the proposed markers...",
+      "key": "rigging.ai.status.validating",
+      "ja": "提案されたマーカーを検証しています…",
+      "file": "Castor/Castor/Image Rigging/ArilsAIAdjustment.swift"
+    },
+    {
+      "source": "Click to talk",
+      "key": "voice.phase.idle",
+      "ja": "クリックして話す",
+      "file": "Castor/Castor/Pet/PetVoiceConversation.swift"
+    },
+    {
+      "source": "Listening... click again when finished",
+      "key": "voice.phase.listening",
+      "ja": "聞き取り中…終わったらもう一度クリック",
+      "file": "Castor/Castor/Pet/PetVoiceConversation.swift"
+    },
+    {
+      "source": "Thinking...",
+      "key": "voice.phase.thinking",
+      "ja": "考え中…",
+      "file": "Castor/Castor/Pet/PetVoiceConversation.swift"
+    },
+    {
+      "source": "Replying...",
+      "key": "voice.phase.speaking",
+      "ja": "返答中…",
+      "file": "Castor/Castor/Pet/PetVoiceConversation.swift"
+    },
+    {
+      "source": "Click to try again",
+      "key": "voice.phase.failed",
+      "ja": "クリックしてもう一度試す",
+      "file": "Castor/Castor/Pet/PetVoiceConversation.swift"
+    },
+    {
+      "source": "Preparing %@...",
+      "key": "voice.status.preparing_microphone",
+      "ja": "%@を準備しています…",
+      "file": "Castor/Castor/Pet/PetVoiceConversation.swift"
+    },
+    {
+      "source": "Generating reply for “%@”",
+      "key": "voice.status.generating_for_transcript",
+      "ja": "「%@」への返答を生成しています",
+      "file": "Castor/Castor/Pet/PetVoiceConversation.swift"
+    },
+    {
+      "source": "Type something first.",
+      "key": "voice.status.empty_text",
+      "ja": "先にメッセージを入力してください。",
+      "file": "Castor/Castor/Pet/PetVoiceConversation.swift"
+    },
+    {
+      "source": "Preparing your message...",
+      "key": "voice.status.preparing_message",
+      "ja": "メッセージを準備しています…",
+      "file": "Castor/Castor/Pet/PetVoiceConversation.swift"
+    },
+    {
+      "source": "The source image could not be prepared for AI review.",
+      "key": "rigging.ai.status.prepare_failed",
+      "ja": "AIによる確認用に画像を準備できませんでした。",
+      "file": "Castor/Castor/Image Rigging/ArilsAIAdjustment.swift"
+    }
+  ],
+  "pending": [
+    {
+      "source": "rect x / rect y / size numeric FormatStyle interpolations",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift",
+      "reason": "Keep numeric formatting in the source; confirm String Catalog placeholder representation with Sol before adding localized templates."
+    },
+    {
+      "source": "Image drop failed: <system error detail> (file URL or image data)",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift",
+      "reason": "The inserted error description is system-generated English and may itself be localized. A plain-string translation cannot reliably preserve the error meaning; localize the prefix and keep the error detail as-is."
+    },
+    {
+      "source": "%@, %@",
+      "file": "Castor/Castor/Pet/VoiceSelectionView.swift",
+      "reason": "Accessibility label combines a voice preset name and subtitle. Keep the preset name unchanged; the subtitle may be localized, but catalog extraction of this combined value needs a deliberate implementation."
+    },
+    {
+      "source": "Error and status values displayed from `error`, `status`, `aiError`, `aiCoordinator.status`, `aiProposal.explanation`, `approval.title`, and `approval.detail`",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift; Castor/Castor/Pet/PetGIFShareWindow.swift; Castor/Castor/Pet/PetFloatingView.swift",
+      "reason": "These are runtime-provided plain strings, localizable only where their producer owns user-facing text. Do not translate logs, operation values, API payloads, or arbitrary provider text."
+    },
+    {
+      "source": "`RigPartKind.label`, `RigPartShape.rawValue`, `FaceLayoutAlternative.sourceLabel`, and runtime provider labels",
+      "file": "Castor/Castor/Image Rigging/ImageRiggingView.swift",
+      "reason": "These are dynamically supplied display labels from model/core types. Confirm which are human-facing labels and their actual English source values before adding catalog entries; preserve provider/product names."
+    }
+  ],
+  "excluded": [
+    "String Catalog implementation and code changes",
+    "SettingsView.swift, ContentView.swift, AI Setup/ArilsAISetupView.swift (handled separately)",
+    "Persisted settings keys/values, model IDs, voice speaker IDs/names, system image names, filenames/extensions, commands, API operation names, JSON/API payloads, and logging strings",
+    "Existing Japanese UI literals (already Japanese; English translations require a separate source-language direction)"
+  ]
+}
