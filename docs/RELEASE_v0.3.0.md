@@ -29,7 +29,7 @@ Castorは[Pomegranate](https://github.com/atemoyacode-sudo/Pomegranate)の許諾
 - Mac Voice画面から起動→既存cacheからモデル準備→日本語試聴→停止→再起動を確認。
   27文字/3区間すべてをQwenで生成し、アプリ内再生完了。標準音声fallbackなし。
 - 本体終了時に所有するhelper/runtime/子processが終了し、制御用recordを整理することを確認。
-- Coreローカル135件、Python speech9件、配布検査20件（5件OS条件skip）成功。
+- Coreローカル135件とMac/Windows/LinuxのCore CI、Python speech9件、配布検査20件（5件OS条件skip）成功。
 - Windows/Mac Desktop CI、Windows app/Setup/helper梱包、開発用PATHを除いた依存読込成功。
 - helper license inventory: Mac46件、Windows95件、本文の欠落なし。これは包括的な権利監査ではありません。
 - ZIPの容量/SHA-256/CRC検査成功。Mac候補内の4モデルのCPU読込成功。

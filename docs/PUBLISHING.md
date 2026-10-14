@@ -4,8 +4,10 @@ Castor は Pomegranate の後継として、新しい GitHub アカウントに�
 作成しました。管理先は [Methurcoder/Castor](https://github.com/Methurcoder/Castor) です。
 Pomegranate由来とライセンスを残して新しい履歴を開始しました。2026-10-14に監査修正と
 ユーザーによる2段階認証の有効化確認を経て、許可を受けてソースを再公開しました。
-初回アプリReleaseのローカル候補名は `v0.3.0-beta.1` です。
-Mac arm64とWindows x64のQwen対応候補を準備中で、公開区分・配布可否は未確定です。
+初回アプリReleaseは `v0.3.0` の正式版として公開します。
+Mac arm64とWindows x64のQwen対応配布物を用意し、Windowsは公開プレビュー、
+署名・実機確認の未完了事項はREADMEとRelease説明に明記します。
+宣伝は管理者本人の指示により後日にします。
 アカウント切り替えと公開操作の前にユーザーへ声をかけます。
 
 ## ローカルで用意するもの
