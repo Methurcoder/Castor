@@ -24,7 +24,7 @@ Macの機能を削って合わせない。旧公式キャラクターは戻さ�
 |機能|Macの実装・根拠|Windowsの現状と不足|
 |---|---|---|
 |1枚自動リグ・マスク・顔候補|ArilsRig/AutoRigPipeline、SubjectMask、FaceLayoutReview|Apple依存。今回、PNG/テンプレート補正/2Dワープの初期試作を追加。推定品質は未達|
-|2枚Quality・向き・登録・深度|QualityCharacterEngine、QualityHybridTurnModel、QualityPair、MetalAvatarRenderer|PetSourceはfrontのみ抽出。両ビュー合成・深度/alpha pass・品質評価が必要|
+|2枚Quality・向き・登録・深度|QualityCharacterEngine、QualityHybridTurnModel、QualityPair、MetalAvatarRenderer|保存済み両ビュー/首登録/方向制限/深度passを接続。Windows新規作成・視覚parityは未達|
 |顔マーカー・手動リグ・保存読込|ImageRiggingView、RigDocument、PetCharacterStore|今回Win32補正画面と互換保存を追加。Mac全編集項目/手動パーツ編集が不足|
 |呼吸・瞬き・視線・口パク・撫で・自発動作|ArilsMotion、CherryConnection|共有モーションと変形はあり。入力/会話接続・同品質描画が不足|
 |移動・透過・背後クリック|CastorPetController、PetPassThrough|ドラッグ/Alt透過あり。透明部分hit-test、位置保持、OS間設定統一を整備する|
@@ -116,3 +116,29 @@ OSのquarantine/Mark of the Webを適切に扱い、警告が出ないことを�
   2Dの精密瞬き/隠面/品質評価は未達。2枚Qualityと残り全機能の実装へ続く。
 - Mac appの単体テスト42件成功（UIテストを除外）。Windows互換JSONを実際の
   SavedPetCharacterで受け入れ、不完全/破損ペットを拒否する2件も含む。GUIの相互利用確認ではない。
+
+## Quality再生・深度描画の共通化（第2の実装単位）
+
+- `ArilsPlayer/Model/QualityAvatarArchive.swift`: 既存Quality保存形式をApple非依存へ移動。
+  旧キーexpressionConfidenceと表示モード未保存の2D fallbackを保持。Macも同じ型を使う。
+- `QualityTurnModel` / `QualityHybridTurnModel` / `QualityRegistrationLayout`もArilsPlayerへ移動。
+  MacとWindowsで同じspring、方向制限、保存姿勢上限、首の位置合わせを使う。
+- `PetSource.loadAsset`と`PetPlayback`: 正面だけに切り捨てず、Quality優先で両ビューを保持。
+  破損Qualityを古いStandardへ暗黙fallbackしない。元ファイル・保存済み履歴を保持する。
+  bare Qualityと保存JSONを読み、exportは両ビューと現在の表示モードを保持する。
+- Windows右クリックで2D/3D＋横画像を切替。設定変更は現在のセッションだけ。
+  保存モードを保持したいときは別のArilsファイルへexportする。全設定UI/永続化は継続課題。
+- CPU描画: 共通投影・深度bias、opaque/featherの2pass、透明画素は深度を書かない。
+  meshの共有辺を二重合成しないtop-left規則、縦方向clamp-to-zeroを追加。
+  ペット全体の透過は描画後に適用し、奥行き判定のthresholdを変えない。
+- Macの首登録・自動turn・Qualityアーカイブの既存検査13件成功。
+  Mac上のDesktop回帰検査26件成功（前段階14件＋新規12件）。
+  Mac arm64/x86_64 Releaseビルド成功。署名無効のコンパイル確認。
+- WindowsでのQuality新規作成、横顔のvisibility補正、推定器/隠面補修はまだ未実装。
+  CPUのtexture縮小とMetalのfilteringは一致していない。実画像での視覚parity、
+  Windows GUI/性能、Intel GPUの描画、相互利用の実機確認は引き続き未検証。
+  Macの保存JSON importは使えるが、bare Quality exportのMac import画面は未実装。
+  会話/音声/agent/GUI installer等の不足一覧と完了条件は変わらない。
+
+- 深度/alpha描画変更後、同じ1024×1536の単一イラストを260×340で91フレーム描画:
+  Macで0.96秒、平均10.5ms/frame。単一Standardリグの計測で、Windows/Quality性能の証明ではない。

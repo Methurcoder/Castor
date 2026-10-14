@@ -5,11 +5,13 @@ import PetRuntime
 // pet-snapshot PET_FILE OUT_PREFIX [WIDTH HEIGHT]
 //     Writes OUT_PREFIX-<t>.ppm for a few points in time, composited over grey.
 //     Add --wide-head for the wider head movement beta.
+// pet-snapshot QUALITY_FILE OUT_PREFIX WIDTH HEIGHT --turn -1...1
+//     Writes OUT_PREFIX.ppm with a fixed Quality turn.
 // pet-snapshot PET_FILE OUT_PREFIX WIDTH HEIGHT --pose YAW PITCH
 //     Writes OUT_PREFIX.ppm with the head held at YAW/PITCH degrees.
 let arguments = CommandLine.arguments
 guard arguments.count >= 3 else {
-    print("usage: pet-snapshot PET_FILE OUT_PREFIX [WIDTH HEIGHT] [--pose YAW PITCH]")
+    print("usage: pet-snapshot PET_FILE OUT_PREFIX [WIDTH HEIGHT] [--pose YAW PITCH | --turn VALUE]")
     exit(1)
 }
 let width = arguments.count > 3 ? Int(arguments[3]) ?? 260 : 260
@@ -28,10 +30,19 @@ func writePPM(_ canvas: PetCanvas, to path: String) throws {
 }
 
 do {
-    let archive = try PetSource.load(contentsOf: URL(fileURLWithPath: arguments[1]))
-    let player = PetPlayer(archive: archive, wideHeadMovement: arguments.contains("--wide-head"))
+    let asset = try PetSource.loadAsset(contentsOf: URL(fileURLWithPath: arguments[1]))
+    let player = PetPlayback(asset: asset, wideHeadMovement: arguments.contains("--wide-head"))
     var canvas = PetCanvas(width: width, height: height)
 
+    if let turnFlag = arguments.firstIndex(of: "--turn"), arguments.count > turnFlag + 1,
+       let turn = Float(arguments[turnFlag + 1]) {
+        player.automaticTurn = false
+        player.viewTurn = turn
+        player.viewPitch = 0
+        player.render(into: &canvas, time: 0)
+        try writePPM(canvas, to: "\(arguments[2]).ppm")
+        exit(0)
+    }
     if let flag = arguments.firstIndex(of: "--pose"), arguments.count > flag + 2,
        let yaw = Float(arguments[flag + 1]), let pitch = Float(arguments[flag + 2]) {
         // Eyes open and centred, no idle drift: only the pose differs.

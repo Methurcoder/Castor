@@ -65,15 +65,16 @@ public struct PetTexture: Sendable {
         return PetTexture(width: w, height: h, pixels: out)
     }
 
-    /// Bilinear sample at texel-space coordinates (clamped at the edges).
+    /// Bilinear sample matching Metal: x clamps to edge, y clamps to transparent zero.
     @inline(__always)
     func sample(_ x: Float, _ y: Float) -> SIMD4<Float> {
         let fx = min(max(x, 0), Float(width - 1))
-        let fy = min(max(y, 0), Float(height - 1))
-        let x0 = Int(fx), y0 = Int(fy)
-        let x1 = min(x0 + 1, width - 1), y1 = min(y0 + 1, height - 1)
-        let tx = fx - Float(x0), ty = fy - Float(y0)
+        guard x.isFinite, y.isFinite, y > -1, y < Float(height) else { return .zero }
+        let x0 = Int(fx), y0 = Int(floor(y))
+        let x1 = min(x0 + 1, width - 1), y1 = y0 + 1
+        let tx = fx - Float(x0), ty = y - Float(y0)
         func at(_ px: Int, _ py: Int) -> SIMD4<Float> {
+            guard py >= 0, py < height else { return .zero }
             let i = (py * width + px) * 4
             return SIMD4(pixels[i], pixels[i + 1], pixels[i + 2], pixels[i + 3])
         }

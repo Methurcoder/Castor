@@ -15,7 +15,7 @@ public enum QualityHybridTurnModel {
         let supported = max(0, viewTurn * direction)
         let supportedYaw = validatedPoseLimits.yawMagnitude(positive: direction > 0)
         let validatedThreeDLimit = threeDLimit
-            * supportedYaw / max(0.0001, SupportedHeadPose.maximumYawDegrees)
+            * supportedYaw / max(0.0001, ValidatedPoseLimits.legacyDefault.maximumYawDegrees)
         guard fullProfileAt > validatedThreeDLimit else {
             return supported >= fullProfileAt ? 1 : 0
         }

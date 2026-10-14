@@ -154,3 +154,16 @@ New in the Arils API, not yet driven by the app:
   Mac-quality automatic depth/Quality rigging and does not complete the parity contract.
 - Distribution entry is GitHub Releases, as confirmed by the user. GUI installer and complete
   runtime/model packaging remain in progress; no distribution Release is created by this change.
+
+## Portable Quality playback and depth rendering
+
+- Move Quality archives, legacy decoding, view-turn springs and neck registration math into ArilsPlayer;
+  the Mac API re-exports the same types and keys.
+- Retain front/profile views when loading JSON or bare Quality archives on Windows. Honor the
+  saved mode, supported side and validated pose limits; right-click switches 2D/hybrid playback.
+- Export both views and the chosen mode. A mode switch alone is session-local; complete settings
+  persistence and Windows Quality creation are still unfinished.
+- Add CPU opaque/feather depth passes, draw-order bias, transparent vertical gutters and single
+  triangle-edge coverage. Whole-pet opacity no longer changes depth classification.
+- CPU texture filtering and real-image CPU/Metal appearance still need parity work. GUI checks,
+  Windows Quality rig construction and the remaining conversation/input/installer features are pending.

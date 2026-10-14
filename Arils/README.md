@@ -230,3 +230,12 @@ app ターゲットにローカルパッケージとしてリンク済み。橋�
 `MetalAvatarRenderer.renderImage(parameters:size:)` はライブ描画と同じ変形・投影・depth/alpha passを
 オフスクリーンtextureへ描画します。Metal deviceが必要です。画面キャプチャは使いません。
 GIFのエンコードや投稿用UIはホスト（Castor）の責務です。
+
+### Portable Quality data and turning
+
+`ArilsPlayer` also contains `QualityAvatarArchive`, pair assessment/registration,
+`QualityTurnModel`, `QualityHybridTurnModel` and `QualityRegistrationLayout`.
+The Mac facade and ArilsRig re-export them; their Codable keys and legacy mode
+fallback remain unchanged. Apple image inspection/build stays in ArilsRig.
+Windows playback consumes the same saved data and pure turn/registration math.
+This does not provide a portable Quality construction or Metal replacement by itself.

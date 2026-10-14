@@ -42,6 +42,8 @@ private let menuQuit: UINT_PTR = 1
 private let menuNew: UINT_PTR = 2
 private let menuOpen: UINT_PTR = 3
 private let menuExport: UINT_PTR = 4
+private let menuQuality2D: UINT_PTR = 5
+private let menuQuality3D: UINT_PTR = 6
 private let frameMilliseconds: UINT = 33
 
 private func wide(_ string: String) -> [WCHAR] {
@@ -61,8 +63,8 @@ private func showError(_ text: String) {
 private final class PetWindow {
     static var shared: PetWindow?
 
-    var player: PetPlayer
-    var currentArchive: ArilsPlayer.AvatarArchive
+    var player: PetPlayback
+    var currentAsset: PetAsset
     var canvas: PetCanvas
     var hwnd: HWND?
     var screenDC: HDC?
@@ -72,9 +74,9 @@ private final class PetWindow {
     var isSeeingThrough = false
     let startTicks = GetTickCount64()
 
-    init(player: PetPlayer, archive: AvatarArchive, width: Int, height: Int) {
+    init(player: PetPlayback, asset: PetAsset, width: Int, height: Int) {
         self.player = player
-        self.currentArchive = archive
+        self.currentAsset = asset
         canvas = PetCanvas(width: width, height: height)
     }
 
@@ -180,6 +182,12 @@ private final class PetWindow {
             let title = wide(title)
             _ = title.withUnsafeBufferPointer { AppendMenuW(menu, mfString, id, $0.baseAddress) }
         }
+        if case .quality = currentAsset {
+            for (id, title) in [(menuQuality2D, "Quality: 2Dクロスフェード"), (menuQuality3D, "Quality: 3D＋横画像")] {
+                let label = wide(title)
+                _ = label.withUnsafeBufferPointer { AppendMenuW(menu, mfString, id, $0.baseAddress) }
+            }
+        }
         let quit = wide("Quit Castor")
         _ = quit.withUnsafeBufferPointer { AppendMenuW(menu, mfString, menuQuit, $0.baseAddress) }
         var cursor = POINT()
@@ -211,18 +219,25 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
             _ = KillTimer(hwnd, 1)
             defer { _ = SetTimer(hwnd, 1, frameMilliseconds, nil) }
             do {
-                var archive: AvatarArchive?
-                if command == UInt16(menuNew) { archive = try WindowsRiggingFlow.startNewPet() }
+                if command == UInt16(menuQuality2D) { window.player.presentationMode = .twoD }
+                if command == UInt16(menuQuality3D) { window.player.presentationMode = .threeD }
+                var asset: PetAsset?
+                if command == UInt16(menuNew) { asset = try WindowsRiggingFlow.startNewPet().map { .standard($0) } }
                 if command == UInt16(menuOpen), let url = try WindowsRiggingFlow.choose(kind: "pet") {
-                    archive = try PetSource.load(contentsOf: url)
+                    asset = try PetSource.loadAsset(contentsOf: url)
                     try WindowsRiggingFlow.remember(url)
                 }
                 if command == UInt16(menuExport), let url = try WindowsRiggingFlow.choose(kind: "archive", save: true) {
-                    try window.currentArchive.data().write(to: url, options: .atomic)
+                    var exported = window.currentAsset
+                    if case var .quality(quality) = exported {
+                        quality.preferredPresentationMode = window.player.presentationMode
+                        exported = .quality(quality)
+                    }
+                    try exported.data().write(to: url, options: .atomic)
                 }
-                if let archive {
-                    window.currentArchive = archive
-                    window.player = PetPlayer(archive: archive, wideHeadMovement: CommandLine.arguments.contains("--wide-head"))
+                if let asset {
+                    window.currentAsset = asset
+                    window.player = PetPlayback(asset: asset, wideHeadMovement: CommandLine.arguments.contains("--wide-head"))
                     window.tick()
                 }
             } catch { showError("処理を完了できませんでした。既存のペットと保存データは保持しています。\n\n\(error.localizedDescription)") }
@@ -241,24 +256,24 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
 _ = SetProcessDPIAware()
 let arguments = CommandLine.arguments.dropFirst()
 let wideHeadMovement = arguments.contains("--wide-head")
-let archive: AvatarArchive
+let asset: PetAsset
 do {
     if let path = arguments.first(where: { !$0.hasPrefix("--") }) {
-        archive = try PetSource.load(contentsOf: URL(fileURLWithPath: path))
+        asset = try PetSource.loadAsset(contentsOf: URL(fileURLWithPath: path))
     } else if let saved = try WindowsRiggingFlow.defaultPet() {
-        archive = try PetSource.load(contentsOf: saved)
+        asset = try PetSource.loadAsset(contentsOf: saved)
     } else {
         guard let result = try WindowsRiggingFlow.startup() else { exit(0) }
-        archive = result.0
+        asset = result.0
     }
 } catch {
     showError("ペットを開けませんでした。既存データは変更していません。\n\n\(error.localizedDescription)")
     exit(1)
 }
-let player = PetPlayer(archive: archive, wideHeadMovement: wideHeadMovement)
+let player = PetPlayback(asset: asset, wideHeadMovement: wideHeadMovement)
 
 let scale = Double(GetDpiForSystem()) / 96
-private let window = PetWindow(player: player, archive: archive, width: Int(260 * scale), height: Int(340 * scale))
+private let window = PetWindow(player: player, asset: asset, width: Int(260 * scale), height: Int(340 * scale))
 PetWindow.shared = window
 guard window.create() else {
     showError("Could not create the pet window.")

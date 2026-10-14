@@ -73,7 +73,7 @@ enum WindowsRiggingFlow {
         return archive
     }
 
-    static func startup() throws -> (AvatarArchive, URL?)? {
+    static func startup() throws -> (PetAsset, URL?)? {
         let title = Array("Castor".utf16) + [WCHAR(0)]
         let text = Array("新しく画像からペットを作りますか？\n\n「はい」: PNG画像から作成\n「いいえ」: 保存したペットを開く\n「キャンセル」: 終了\n\nWindowsの作成機能は2D試作です。Macとの全機能共通化は開発中です。".utf16) + [WCHAR(0)]
         let choice = text.withUnsafeBufferPointer { body in title.withUnsafeBufferPointer {
@@ -81,11 +81,11 @@ enum WindowsRiggingFlow {
         }}
         if choice == 6 {
             guard let archive = try startNewPet() else { return nil }
-            return (archive, nil)
+            return (.standard(archive), nil)
         }
         if choice == 7 {
             guard let file = try choose(kind: "pet") else { return nil }
-            let archive = try PetSource.load(contentsOf: file)
+            let archive = try PetSource.loadAsset(contentsOf: file)
             try remember(file)
             return (archive, file)
         }

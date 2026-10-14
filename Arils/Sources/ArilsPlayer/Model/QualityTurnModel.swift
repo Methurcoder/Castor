@@ -1,7 +1,7 @@
 import Foundation
 
 import ArilsCore
-import ArilsRig
+import ArilsCore
 
 /// Pure logic behind automatic view turning: maps the gaze target to horizontal
 /// `viewTurn` and vertical `viewPitch` values.
@@ -15,30 +15,30 @@ import ArilsRig
 ///   reveals or mirrors the profile image.
 /// - A soft spring smooths the transitions; losing the target eases back to
 ///   frontal instead of snapping.
-struct QualityTurnModel {
-    var poseLimits: ValidatedPoseLimits
+public struct QualityTurnModel {
+    public var poseLimits: ValidatedPoseLimits
     /// |gazeX| toward the supported side below this stays frontal.
-    var deadZone: Float = 0.3
+    public var deadZone: Float = 0.3
     /// |gazeX| at which the turn saturates to the full profile.
-    var fullTurnAt: Float = 0.75
+    public var fullTurnAt: Float = 0.75
     private var spring = SpringDamper(value: 0, frequency: 1.1, dampingRatio: 1.0)
     /// Vertical tracking starts sooner than a profile turn because it never
     /// crosses to a different reference image.
-    var pitchDeadZone: Float = 0.16
-    var fullPitchAt: Float = 0.72
+    public var pitchDeadZone: Float = 0.16
+    public var fullPitchAt: Float = 0.72
     private var pitchSpring = SpringDamper(value: 0, frequency: 1.1, dampingRatio: 1.0)
 
     /// Current smoothed turn value (matches `QualityCharacterEngine.viewTurn`).
-    var value: Float { spring.value }
+    public var value: Float { spring.value }
 
-    init(poseLimits: ValidatedPoseLimits = .legacyDefault) {
+    public init(poseLimits: ValidatedPoseLimits = .legacyDefault) {
         self.poseLimits = poseLimits
     }
 
     /// Advances the model. `gazeX` is the horizontal gaze target (-1...1,
     /// positive = viewer's right) or nil when nothing is being watched.
     @discardableResult
-    mutating func step(
+    public mutating func step(
         gazeX: Float?,
         sideDirection: QualitySideDirection,
         deltaTime: Float
@@ -58,7 +58,7 @@ struct QualityTurnModel {
                 let positiveYaw = direction < 0
                 let validatedYaw = poseLimits.yawMagnitude(positive: positiveYaw)
                 let normalizedDepthLimit = 0.35
-                    * validatedYaw / max(0.0001, SupportedHeadPose.maximumYawDegrees)
+                    * validatedYaw / max(0.0001, ValidatedPoseLimits.legacyDefault.maximumYawDegrees)
                 target = magnitude * -direction * normalizedDepthLimit
             }
         } else {
@@ -70,7 +70,7 @@ struct QualityTurnModel {
     /// Advances vertical tracking. `gazeY` follows the public gaze convention
     /// (-1...1, positive = up); the result uses the same normalized range.
     @discardableResult
-    mutating func stepPitch(gazeY: Float?, deltaTime: Float) -> Float {
+    public mutating func stepPitch(gazeY: Float?, deltaTime: Float) -> Float {
         let target: Float
         if let gazeY, gazeY.isFinite {
             let sign: Float = gazeY < 0 ? -1 : 1
@@ -86,7 +86,7 @@ struct QualityTurnModel {
         return pitchSpring.step(toward: target, deltaTime: deltaTime)
     }
 
-    mutating func snap(turn: Float, pitch: Float) {
+    public mutating func snap(turn: Float, pitch: Float) {
         spring.snap(to: turn.isFinite ? min(max(turn, -1), 1) : 0)
         pitchSpring.snap(to: pitch.isFinite ? min(max(pitch, -1), 1) : 0)
     }

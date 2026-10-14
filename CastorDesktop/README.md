@@ -4,12 +4,13 @@ The Castor pet on Windows: a saved pet lives in a transparent, always-on-top win
 pointer, and reacts when you move the pointer over its head.
 
 Full Mac/Windows feature parity is in progress. A native PNG → marker review →
-2D-warp creation prototype is included. Mac-quality automatic depth/Quality rigs,
+2D-warp creation prototype is included. Windows creation of Mac-quality automatic depth/Quality rigs,
 conversation, voice, camera and the full settings UI remain unfinished. See the
 [feature inventory and plan](../docs/CROSS_PLATFORM_PARITY.md).
 
 The fixed Castor source passes a Windows x64 Swift 6.4.1 Release
-build and seven portable runtime tests in CI. GUI interaction and real-pet
+build and 14 portable runtime tests at the first milestone. The next Quality/depth
+playback milestone and current check results are tracked in the feature inventory. GUI interaction and real-pet
 rendering remain unverified. Linux cross-build success was recorded before the Castor rename;
 it has not been repeated after renaming. A non-Windows build does not exercise
 the Win32 code.
@@ -71,9 +72,26 @@ container and permissions. If you have not saved a pet with Castor yet, use the
 old `Pomegranate/PomegranatePet.json` under the same Application Support folder.
 Castor reads that old file as a fallback without deleting it.
 
-(In Finder: Go › Go to Folder… and paste the folder path.) A bare Arils
+(In Finder: Go › Go to Folder… and paste the folder path.) A bare single-view or two-view Quality
 archive (`.arils`) also works. The pet must have been built with Arils, not
 the legacy manual rig.
+
+## Two-view Quality playback (in progress)
+
+Saved Quality pets now retain both views, the declared profile direction, neck
+registration and presentation mode. Gaze uses the same turn/pitch springs as the
+Mac engine. Small turns use the front depth rig; supported larger turns blend to
+the profile. The opposite direction never mirrors/reveals the profile. CPU depth
+rendering uses the shared projection, layer bias and opaque/feather alpha passes.
+Right-click a Quality pet to switch between 2D and 3D-plus-profile playback.
+Export writes both views and the chosen mode; changing the mode alone currently
+lasts for the session. Existing input files are not changed.
+
+This adds playback of existing Quality rigs, not native Windows Quality rig
+creation. CPU texture reduction still differs from Metal's texture filtering.
+Real-image CPU/Metal visual matching, performance, Windows menu/GUI and full
+parity remain unverified. The Mac import UI accepts saved JSON; the bare Quality
+export does not yet have a Mac import UI. Keep the original saved JSON for exchange.
 
 ## Developer-only: build on Windows
 
@@ -110,8 +128,9 @@ if ($LASTEXITCODE -ne 0) { throw 'Could not locate the executable' }
 `Join-Path` and the call operator `&` handle executable paths containing spaces.
 The quoted pet path is passed as one argument.
 
-Without an argument it looks for `CastorPet.json` in the current folder, then
-falls back to `PomegranatePet.json`. An explicit path to an old pet also works.
+Without an argument it reloads the last selected library pet, then checks the
+application data/current-folder legacy files, and otherwise offers local creation
+or file selection. An explicit path to an old pet also works.
 Add `--wide-head` to try the wider head movement beta (the head turns about
 twice as far and the body follows; edges can show at the far end of a turn).
 
@@ -129,7 +148,7 @@ swift run -c release pet-snapshot CastorPet.json frame 260 340   # writes frame-
 
 - `PetRuntime` — loads the pet, runs Arils motion (`ArilsMotion`), deforms
   the rig (`ArilsPlayer`, the same evaluator and projection as the macOS
-  Metal renderer) and rasterizes into a premultiplied BGRA canvas on the CPU.
+  Metal renderer), plays both Quality views via `PetPlayback`, and rasterizes into a premultiplied BGRA canvas on the CPU.
 - `CastorPet` — the Win32 shell: a layered window updated with
   `UpdateLayeredWindow`, a 30 fps timer, drag, menu and Alt see-through.
 - `CStbImage` — [stb_image](https://github.com/nothings/stb) v2.30

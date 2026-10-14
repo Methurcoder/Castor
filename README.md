@@ -40,7 +40,7 @@ macOS アプリの Xcode プロジェクトは現在 **macOS 26.5** を deployme
 
 Release 公開後は、macOS では `download/Castor-Download.command`、Windows では `download/Castor-Download.cmd`（同じフォルダに `Castor-Download.ps1` が必要）をダブルクリックします。OS と CPU に合う ZIP だけを取得し、SHA-256 を照合して新しいフォルダへ展開します。既存のインストールは上書きせず、アプリは自動起動しません。
 
-macOS は26.5以上、Windows 配布は現在 x64 向けです。Windows のペット表示には、Mac で作った Arils のペットデータを用意して選ぶ必要があります。非公開 Release の取得には、アクセス権のあるアカウントで手元の `gh auth login` が必要です。ダウンローダーがアカウントを切り替えることはありません。公開 Release の取得には `gh` は不要です。
+macOS は26.5以上、Windows 配布は現在 x64 向けです。WindowsにはPNGから作成する2D試作と保存済みStandard/Qualityの再生を実装しています。Macとの全機能共通化とGUI導入は開発中です。非公開 Release の取得には、アクセス権のあるアカウントで手元の `gh auth login` が必要です。ダウンローダーがアカウントを切り替えることはありません。公開 Release の取得には `gh` は不要です。
 
 最初のダブルクリックで OS の警告が出て止まる場合があります。一方、スクリプトが取得した
 アプリでは警告が出ない場合もあり、SHA-256 の一致だけで安全性や配布者を証明できません。
@@ -125,7 +125,7 @@ Bridge は `stream-json` と専用の MCP permission prompt を使用し、user 
 
 ## Windows プレビュー
 
-Windows 版は、Mac で作った Arils ペットを再生する独立 Swift Package です。Swift と Windows 向けビルド環境の導入手順、ペットのコピー元、操作方法は [CastorDesktop/README.md](CastorDesktop/README.md)を参照してください。
+Windows版は、PNGから作成する2D試作と、Standard/2枚Qualityの保存データを再生する独立Swift Packageです。Qualityの横画像・首登録・向き制限を保持します。WindowsでのQuality新規作成、会話・音声・全設定とGUI導入は未完成です。利用方法と開発者向けビルド手順は [CastorDesktop/README.md](CastorDesktop/README.md)を参照してください。
 
 Windows の PowerShell で、リポジトリルートから実行します。ペットのパスは実際の保存先に置き換えてください。ビルド生成先は `swift build --show-bin-path` で取得し、フォルダ名に空白があっても扱えるよう引用します。
 
@@ -143,7 +143,7 @@ Arils で保存した `CastorPet.json` または単体の `.arils` アーカイ�
 
 2026-10-13〜14 の Windows x64 / Swift 6.4.1 の報告は、改名前の Pomegranate ZIP を対象としています。元 ZIP はトップレベル変数のアクセス修飾子と `GetMessageW` の戻り値処理の2件でビルドが止まり、2行を補正した検証用コピーでは Release ビルドが成功しました。テストは7件成功扱いですが、1件はペットデータ不在で検証せず終了しており、実際にアサーションを実行したのは6件です。
 
-合成データの `pet-snapshot` は画像4枚を出力し、補正コピーの Debug アプリでは赤い図形の表示が確認されました。ドラッグ・右クリック終了・Alt の透過クリック、および実際の Mac 製ペットの動きと描画品質は未検証です。修正後の Castor は [Windows / macOS CI](https://github.com/Methurcoder/Castor/actions/runs/38424052817) で保存データに依存しない7件のテストが成功し、WindowsのWin32実行ファイルもReleaseビルドできました。ダウンローダーと配布準備はWindowsで8件（Mac専用3件は明示的に省略）、Macで11件が成功しました。CIはGUIの操作や実キャラクターの品質検査を行っていません。
+合成データの `pet-snapshot` は画像4枚を出力し、補正コピーの Debug アプリでは赤い図形の表示が確認されました。ドラッグ・右クリック終了・Alt の透過クリック、および実際の Mac 製ペットの動きと描画品質は未検証です。第1段階のCastorは[Windows / macOS CI](https://github.com/Methurcoder/Castor/actions/runs/38526883829)で保存データに依存しない14件の検査とWin32 Releaseビルドが成功しました。続くQuality/深度描画の変更と最新結果は[共通化の記録](docs/CROSS_PLATFORM_PARITY.md)を参照してください。ダウンローダーと配布準備はWindowsで8件（Mac専用3件は明示的に省略）、Macで11件が成功しました。CIはGUIの操作や実キャラクターの品質検査を行っていません。
 
 ## 任意機能とモデル
 

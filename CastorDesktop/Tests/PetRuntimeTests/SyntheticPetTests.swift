@@ -19,8 +19,8 @@ func syntheticArchive() throws -> AvatarArchive {
     let archive = try syntheticArchive()
     let data = try archive.data()
     struct Saved: Encodable { var arilsArchiveData: Data?; var qualityArchiveData: Data? }
-    struct Quality: Encodable { var front: AvatarArchive }
-    let quality = try PropertyListEncoder().encode(Quality(front: archive))
+    let quality = try QualityAvatarArchive(front: archive, side: archive, sideDirection: .right,
+        assessment: .init(sameCharacterConfidence: 0.5, faceReadabilityConfidence: 0.5, warnings: [])).data()
     let sources = [data,
         try JSONEncoder().encode(Saved(arilsArchiveData: data)),
         try JSONEncoder().encode(Saved(qualityArchiveData: quality))]

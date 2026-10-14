@@ -1,7 +1,9 @@
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 import Foundation
 
-import ArilsRig
+import ArilsCore
 
 /// Pure geometry for placing the front/side views of an Arils-2D-Quality
 /// character inside one shared container. Kept separate from
@@ -10,10 +12,10 @@ import ArilsRig
 /// The container this feeds is Y-down (top-left origin, matching image
 /// coordinates and `isFlipped == true`), and every rect below is expressed in
 /// that same Y-down space.
-enum QualityRegistrationLayout {
+public enum QualityRegistrationLayout {
     /// Centers `imageSize` inside `bounds`, scaled uniformly to fit
     /// (letterboxed, matching `AvatarMetalView`'s own aspect-fit draw).
-    static func aspectFitRect(imageSize: CGSize, in bounds: CGRect) -> CGRect {
+    public static func aspectFitRect(imageSize: CGSize, in bounds: CGRect) -> CGRect {
         guard imageSize.width > 0, imageSize.height > 0, bounds.width > 0, bounds.height > 0 else {
             return bounds
         }
@@ -33,7 +35,7 @@ enum QualityRegistrationLayout {
     ///   letterboxing inside the side view itself), and
     /// - the front and side neck points (both normalized image coordinates,
     ///   Y down) land on the same container point.
-    static func sideFrame(
+    public static func sideFrame(
         bounds: CGRect,
         frontImageSize: CGSize,
         sideImageSize: CGSize,
