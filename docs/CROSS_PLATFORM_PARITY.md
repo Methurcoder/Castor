@@ -142,3 +142,33 @@ OSのquarantine/Mark of the Webを適切に扱い、警告が出ないことを�
 
 - 深度/alpha描画変更後、同じ1024×1536の単一イラストを260×340で91フレーム描画:
   Macで0.96秒、平均10.5ms/frame。単一Standardリグの計測で、Windows/Quality性能の証明ではない。
+
+### 次のリギング実装の分離点
+
+Qualityの再生から新規作成へ進むには、単一surfaceの試作をMacのパーツ構築へ置き換える。
+次の順でApple入力と純粋な構築処理を分離する。
+
+1. Bitmap/FloatPlaneのRGBA・premultiplied alpha・原寸/解析mask契約を共有し、
+   CGImage変換はMac adapterへ残す。WindowsのPNG decodeと同じ画素で一致を検査する。
+2. FaceLayout/PartPlan、HeadRegionProfile、EyeShape、LayerFactory、HoleFiller、
+   BindingSynthesizerを共有する。頭/体/目/口/首パッチと元alphaのcoverage上限を再利用する。
+3. Side thickness/depth推定とPoseSweepの安全上限を共有してQualityの新規構築へつなぐ。
+   Windowsも隠れた目を可視教師やテンプレートの確定結果へ変換しない。
+4. AnalysisContextのCGImage、Vision/CoreMLとLaMa adapterを分離し、Windows推定器を接続。
+   ONNX/helperの導入とモデルの配布権確認、GUIでの取得/取消/再試行を同時に整備する。
+
+現在のPNG試作をMac同品質の完成自動リグとして表示しない。既存Mac構築結果を参照し、
+同じ入力・mask・顔補正から作ったarchiveと複数姿勢の描画を比較する。
+
+### 最新の確認記録
+
+実装コミット: `fdfb93b`（`codex/desktop-parity`）。
+[Windows/Mac CI 38530641208](https://github.com/Methurcoder/Castor/actions/runs/38530641208)は両job成功。
+両OSのDesktop検査26件、Windows Swift 6.4.1 x64のWin32 Releaseビルドが成功した。
+配布検査はMac11件、Windows8件（Mac専用3件は明示skip）。
+Macアプリの単体検査も42件成功、失敗/skipなし。UIテストは対象外。
+Macのarm64/x86_64 Releaseビルドは署名無効のコンパイル確認。
+source書出し301ファイルとScreenshotAnswer公開対象24ファイルの既知パターン検査成功。
+包括的セキュリティ監査やGUI/実画像のQuality検証とは扱わない。
+Windows GUIと同品質の新規Quality構築、会話・入力・音声・全設定・GUI導入は継続課題。
+mainへのmerge、配布Releaseの作成は行っていない。
