@@ -87,6 +87,22 @@ class DistributionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'Required compiled model'):
             require_source_models(self.base/'fresh-checkout')
 
+    def test_speech_builder_requires_exact_version_license_text(self):
+        spec = importlib.util.spec_from_file_location('speech_builder', ROOT/'scripts/build-castor-neural-helper.py')
+        builder = importlib.util.module_from_spec(spec); spec.loader.exec_module(builder)
+        supplements = self.base/'licenses'; supplements.mkdir()
+        item = {'name':'fixture','version':'1.0','files':[]}
+        with self.assertRaisesRegex(ValueError,'Required license text'):
+            builder.license_sources(item, supplements)
+        (supplements/'fixture-2.0-LICENSE.txt').write_text('wrong version')
+        with self.assertRaises(ValueError): builder.license_sources(item, supplements)
+        license = supplements/'fixture-1.0-LICENSE.txt'; license.write_text('upstream license')
+        notices = supplements/'fixture-1.0-NOTICES.txt'; notices.write_text('upstream notices')
+        self.assertEqual(builder.license_sources(item, supplements), [str(license),str(notices)])
+        existing = self.base/'wheel-license'; existing.write_text('wheel license')
+        item['files']=[str(existing)]
+        self.assertEqual(builder.license_sources(item, supplements), [str(existing),str(notices)])
+
     def test_optional_neural_helper_has_separate_manifest_hash_and_payload(self):
         helper=self.base/'helper';helper.mkdir()
         shutil.copy2(self.windows/'CastorPet.exe',helper/'CastorNeuralTTS.exe')

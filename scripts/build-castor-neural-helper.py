@@ -21,6 +21,15 @@ ROOT = Path(__file__).resolve().parents[1]
 MODULES = ('qwen_tts', 'torch', 'transformers', 'soundfile', 'librosa', 'numpy', 'accelerate', 'safetensors')
 
 
+def license_sources(item, supplements):
+    originals = list(item['files'])
+    extra = sorted(supplements.glob('%s-%s-*.txt' % (item['name'], item['version'])))
+    originals.extend(str(file) for file in extra if not item['files'] or file.name.endswith('-NOTICES.txt'))
+    if not originals:
+        raise ValueError('Required license text is missing: %s %s' % (item['name'], item['version']))
+    return originals
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--python', type=Path, required=True, help='Prepared build environment Python')
@@ -53,6 +62,8 @@ print(json.dumps({'missing':missing,'system':platform.system(),'machine':platfor
         raise ValueError('Build on the matching supported OS/CPU')
     if inventory['system'] == 'Windows' and inventory['machine'].lower() not in ('amd64','x86_64'):
         raise ValueError('Windows helper requires native x64')
+    for item in inventory['packages']:
+        item['licenseSources'] = license_sources(item, ROOT/'scripts/neural_helper_licenses')
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='castor-neural-build-', dir=output.parent) as temp:
         stage = Path(temp)
@@ -91,10 +102,7 @@ print(json.dumps({'missing':missing,'system':platform.system(),'machine':platfor
             if not name or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-' for c in name):
                 raise ValueError('Unexpected distribution name')
             files = []
-            originals = item['files']
-            if not originals:
-                supplement = ROOT/'scripts/neural_helper_licenses'/('%s-%s-LICENSE.txt' % (name,item['version']))
-                if supplement.is_file(): originals = [str(supplement)]
+            originals = item['licenseSources']
             for index, original in enumerate(originals):
                 source = Path(original)
                 relative = Path(name)/('%03d-%s' % (index, source.name))

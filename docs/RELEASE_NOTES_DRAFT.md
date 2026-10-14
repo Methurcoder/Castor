@@ -218,6 +218,9 @@ UI刷新は後回しとし、既存UIのままQwen 3 TTSと配布前監査への
   「システム設定 › プライバシーとセキュリティ › このまま開く」の案内を維持。
 - 更新時はcurrentとpreviousを保持し、指紋が一致する管理済み旧版だけをごみ箱へ送る。
   変更済み・個人ファイル追加済み・旧指紋なしのフォルダは自動整理しません。
+- Windows Qwen helperの95依存inventoryを確認し、欠けていた3ライブラリのLICENSEと
+  ONNX Runtime第三者NOTICESを正確なupstream tagから追加。ライセンス本文が不足する場合は
+  builderを梱包前に停止させます。CI候補にこの表記だけを補った確認用ZIPを作成。
 - Mac配布候補のdebug情報から開発者home pathを除去し、検査を追加。
   この既知パターン検査は包括的な個人情報・秘密情報監査ではありません。
 - Macはad-hoc署名でDeveloper ID署名・公証なし。Windowsコード署名も未整備。
@@ -229,7 +232,7 @@ UI刷新は後回しとし、既存UIのままQwen 3 TTSと配布前監査への
 ### ローカル確認結果
 
 - CastorCore: 132件成功。Desktop: 57件成功。Mac app既存単体検査成功。
-- Python speech: 8件成功。配布/model/privacy: 18件中5件platform skip、残り成功。
+- Python speech: 8件成功。配布/model/privacy: 19件中5件platform skip、残り成功。
 - Mac候補内の4モデルをCPU Core MLで読み込み成功。顔推定精度の証明ではありません。
 - Mac候補の深い署名検証成功。ad-hoc署名であり配布者の認証・公証を意味しません。
 
