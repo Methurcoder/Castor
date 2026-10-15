@@ -27,7 +27,7 @@ let package = Package(
             .linkedLibrary("Uuid",.when(platforms:[.windows])),
             .linkedFramework("CoreGraphics",.when(platforms:[.macOS])),
             .linkedFramework("ImageIO",.when(platforms:[.macOS]))]),
-        .target(name: "CDesktopUI"),
+        .target(name: "CDesktopUI", exclude: ["vendor/LICENSE-webview2"]),
         .target(name: "CInstallLock"),
         // ONNX Runtime C API bridge (headers MIT, vendored); the runtime
         // library itself is loaded at run time, never linked.
@@ -47,6 +47,7 @@ let package = Package(
         .executableTarget(
             name: "CastorPet",
             dependencies: ["PetRuntime", "CDesktopUI"],
+            resources: [.copy("UI")],
             linkerSettings: [
                 .linkedLibrary("User32", .when(platforms: [.windows])),
                 .linkedLibrary("Gdi32", .when(platforms: [.windows])),
@@ -54,6 +55,7 @@ let package = Package(
                 .linkedLibrary("Shell32", .when(platforms: [.windows])),
                 .linkedLibrary("Ole32", .when(platforms: [.windows])),
                 .linkedLibrary("Winmm", .when(platforms: [.windows])),
+                .linkedLibrary("Dwmapi", .when(platforms: [.windows])),
             ]
         ),
 
@@ -62,7 +64,8 @@ let package = Package(
                 .linkedLibrary("Gdi32", .when(platforms: [.windows])),
                 .linkedLibrary("Comdlg32", .when(platforms: [.windows])),
                 .linkedLibrary("Shell32", .when(platforms: [.windows])),
-                .linkedLibrary("Ole32", .when(platforms: [.windows]))]),
+                .linkedLibrary("Ole32", .when(platforms: [.windows])),
+                .linkedLibrary("Dwmapi", .when(platforms: [.windows]))]),
 
         .executableTarget(name: "CastorNeuralTTS", dependencies: [.product(name: "CastorCore", package: "CastorCore")]),
 
