@@ -36,6 +36,8 @@
       document.head.appendChild(link);
     };
     if (ui === "material") loadMaterialFonts();
+    // Someone who went to star Castor keeps a brighter sky on later visits.
+    try { if (localStorage.getItem("castor.starred") === "1") document.documentElement.dataset.starred = ""; } catch (e) {}
     // The telescope intro: first visit only (or ?intro), never with reduced motion.
     let seen = false;
     try { seen = localStorage.getItem("castor-intro") === "1"; } catch (e) {}
@@ -57,13 +59,13 @@
   <div class="intro-lens" aria-hidden="true"></div>
   <button class="intro-skip" id="introSkip" type="button" data-t="intro.skip">スキップ</button>
 </div>
-<div class="sky" aria-hidden="true"><div class="stars far"></div><div class="stars mid"></div><div class="stars near"></div></div>
+<div class="sky" aria-hidden="true"><div class="meteor"></div><div class="stars far"></div><div class="stars mid"></div><div class="stars near"></div></div>
 
 <header class="nav">
   <a class="brand" href="#top"><img src="assets/castor-icon.svg" alt=""><span>Castor</span></a>
   <nav>
     <a href="#download" data-t="nav.download">ダウンロード</a>
-    <a class="star-pill" href="https://github.com/Methurcoder/Castor" data-star-link>
+    <a class="star-pill" href="https://github.com/Methurcoder/Castor" target="_blank" rel="noopener" data-star-link>
       <span class="star-glyph">★</span><span data-t="star.pill">Star</span><b class="star-count" hidden></b>
     </a>
     <button class="lang" id="lang" type="button">English</button>
@@ -184,11 +186,12 @@
       <text x="120" y="22" class="label">Castor</text><text x="200" y="34" class="label">Pollux</text>
       <g class="yours"><circle cx="350" cy="96" r="6"/><circle class="halo" cx="350" cy="96" r="16"/></g>
       <text x="350" y="76" class="label you" data-t="star.you">あなたの星</text>
+      <text x="350" y="128" class="label thanks-label" data-t="star.thanks">ありがとう</text>
     </svg>
     <div class="constellation-text">
       <h2 data-t="star.title">夜空に、あなたの星をひとつ。</h2>
       <p class="lead" data-t="star.lead">Castor は、ふたご座の明るい星の名前です。GitHub で ★ を押してもらえると、それがそのまま次の機能をつくる力になります。</p>
-      <a class="button primary star-button" href="https://github.com/Methurcoder/Castor" data-star-link>
+      <a class="button primary star-button" href="https://github.com/Methurcoder/Castor" target="_blank" rel="noopener" data-star-link>
         <span>★ <span data-t="star.button">GitHub で Star する</span></span>
         <small class="star-now" hidden></small>
       </a>

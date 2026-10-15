@@ -352,6 +352,29 @@ td .tag.rec { background: rgba(255, 210, 122, .2); color: var(--gold); }
 .intro-skip:hover { color: #fff; background: rgba(255, 255, 255, .14); }
 .intro.leaving { opacity: 0; transition: opacity .55s ease; }
 
+/* =====================================================================
+   After a star: the sky brightens once (a flare and a shooting star),
+   and stays a little brighter, with "your star" lit, from then on.
+   ===================================================================== */
+.sky { transition: filter 1.2s ease; }
+:root[data-starred] .sky { filter: brightness(1.18) saturate(1.1); }
+:root[data-starred] .stars.far { opacity: .95; }
+.sky.flare { animation: flare 2.6s ease-out; }
+@keyframes flare { 0% { filter: brightness(1); } 18% { filter: brightness(2.1) saturate(1.3); } 100% { filter: brightness(1.18) saturate(1.1); } }
+.sky.flare .stars.near { animation: none; opacity: 1; }
+.meteor { position: absolute; top: 12%; left: 78%; width: 180px; height: 2px; opacity: 0; transform: rotate(-32deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 233, 184, .9), #fff); border-radius: 2px; filter: drop-shadow(0 0 6px #ffe9b8); }
+.sky.flare .meteor { animation: meteor 1.4s ease-in .2s; }
+@keyframes meteor { 0% { opacity: 0; transform: translate(0, 0) rotate(-32deg) scaleX(.3); } 15% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-520px, 330px) rotate(-32deg) scaleX(1); } }
+:root[data-starred] .constellation .gemini .yours circle:first-child { fill: var(--gold); stroke-dasharray: none; opacity: 1; filter: drop-shadow(0 0 12px var(--gold)); }
+:root[data-starred] .constellation .gemini .yours .halo { opacity: .5; stroke-dasharray: none; animation: halo 2s ease-out infinite; }
+:root[data-starred] .constellation .gemini .label.you { opacity: 1; }
+.gemini .thanks-label { fill: var(--gold); opacity: 0; transition: opacity .6s ease .4s; font-weight: 600; }
+:root[data-starred] .gemini .thanks-label { opacity: .85; }
+:root[data-starred] .star-pill .star-glyph { text-shadow: 0 0 10px var(--gold), 0 0 20px rgba(255, 210, 122, .6); }
+:root[data-starred] .gemini .dots circle { filter: drop-shadow(0 0 3px rgba(223, 225, 255, .8)); }
+
 /* Browsers without backdrop-filter get an opaque version of the same tint. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .glass, .features article, .platform, details.files, .cards li, .thanks, .faq-list, .nav, .seg { background: rgba(24, 25, 52, .96); }

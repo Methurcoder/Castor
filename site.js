@@ -51,6 +51,7 @@
     "star.title": "Add your star to the night sky.",
     "star.lead": "Castor is the name of a bright star in Gemini. A ★ on GitHub turns straight into energy for the next feature.",
     "star.button": "Star on GitHub", "star.now": "{v} stars so far",
+    "star.thanks": "Thank you",
     "thanks.title": "Your download has started",
     "thanks.text": "While you wait, add a star to Gemini. Stars are free and mean the world to an indie project like Castor.",
     "thanks.star": "Star it", "thanks.later": "Later",
@@ -282,18 +283,27 @@
     setTimeout(() => { thanks.hidden = false; }, 1200);
   }));
   document.getElementById("thanksLater").addEventListener("click", closeThanks);
+  // Going to star Castor brightens the sky once, then it stays a little brighter.
+  const sky = document.querySelector(".sky");
   document.querySelectorAll("[data-star-link]").forEach((link) => link.addEventListener("click", () => {
     remember("castor.starred");
+    document.documentElement.dataset.starred = "";
+    if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      sky.classList.remove("flare");
+      void sky.offsetWidth;
+      sky.classList.add("flare");
+      setTimeout(() => sky.classList.remove("flare"), 2700);
+    }
     if (!thanks.hidden) closeThanks();
   }));
   document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !thanks.hidden) closeThanks(); });
 
   // Touch screens have no hover: light "your star" once the section is in view.
-  const sky = document.getElementById("star");
+  const starSection = document.getElementById("star");
   if ("IntersectionObserver" in window && !matchMedia("(hover: hover)").matches) {
     new IntersectionObserver((entries, observer) => {
-      if (entries.some((e) => e.isIntersecting)) { setTimeout(() => sky.classList.add("lit"), 700); observer.disconnect(); }
-    }, { threshold: 0.6 }).observe(sky);
+      if (entries.some((e) => e.isIntersecting)) { setTimeout(() => starSection.classList.add("lit"), 700); observer.disconnect(); }
+    }, { threshold: 0.6 }).observe(starSection);
   }
 
   render();
