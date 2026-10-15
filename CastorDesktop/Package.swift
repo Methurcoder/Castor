@@ -29,12 +29,16 @@ let package = Package(
             .linkedFramework("ImageIO",.when(platforms:[.macOS]))]),
         .target(name: "CDesktopUI"),
         .target(name: "CInstallLock"),
+        // ONNX Runtime C API bridge (headers MIT, vendored); the runtime
+        // library itself is loaded at run time, never linked.
+        .target(name: "COnnxRuntime", exclude: ["vendor/LICENSE-onnxruntime"],
+                linkerSettings: [.linkedLibrary("dl", .when(platforms: [.linux]))]),
 
         // Platform-independent: archive loading, motion, deformation and a
         // CPU rasterizer into a premultiplied BGRA canvas.
         .target(
             name: "PetRuntime",
-            dependencies: ["CStbImage", "CPlatformImage", "CInstallLock", .product(name: "ArilsPortable", package: "Arils"), .product(name: "CastorCore", package: "CastorCore")],
+            dependencies: ["CStbImage", "CPlatformImage", "CInstallLock", "COnnxRuntime", .product(name: "ArilsPortable", package: "Arils"), .product(name: "CastorCore", package: "CastorCore")],
             swiftSettings: [.unsafeFlags(["-Ounchecked"], .when(configuration: .debug))]
         ),
 

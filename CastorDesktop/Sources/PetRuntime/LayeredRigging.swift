@@ -62,7 +62,8 @@ public enum LayeredRigging {
               let faceContext = AnalysisContext(bitmap: bitmap, analysisMaxDimension: 768) else { throw RigError.subjectNotFound }
         var chosen: SubjectMaskSet?
         var authoritative = true
-        for provider: any SubjectMaskProviding in [AlphaSubjectMaskProvider(), BorderBackgroundSubjectMaskProvider()] {
+        // A real alpha channel is exact; the model beats the flat-background guess.
+        for provider: any SubjectMaskProviding in [AlphaSubjectMaskProvider(), OnnxSubjectMaskProvider(), BorderBackgroundSubjectMaskProvider()] {
             if let masks = await provider.masks(for: context) {
                 chosen = masks; authoritative = provider.isAuthoritativeAlpha; break
             }
@@ -75,13 +76,21 @@ public enum LayeredRigging {
             masks = SubjectMaskSet(analysis: selected, extraction: SubjectCandidates.extractionMask(masks.extraction, supportedBy: selected))
         }
         let faceMask = masks.analysis.resized(width: faceContext.analysis.width, height: faceContext.analysis.height)
-        let estimate = await AnimeFaceEstimator().estimateLayout(context: faceContext, subjectMask: faceMask)
+        var warnings = ["顔の推定結果は自動承認しません。頭・目・口の範囲を確認してください。"]
+        // The Mac's anime landmark model (ONNX) first, then the shared heuristic.
+        var estimate: FaceLayout?
+        var label = "Illustration heuristic"
+        if let model = await OnnxAnimeFaceEstimator().estimateLayout(context: faceContext, subjectMask: faceMask) {
+            estimate = model; label = OnnxAnimeFaceEstimator.sourceLabel
+        } else {
+            if PortableML.face == nil {
+                warnings.append("顔推定モデルが未導入のため、共有のイラスト推定器を使用します。")
+            }
+            estimate = await AnimeFaceEstimator().estimateLayout(context: faceContext, subjectMask: faceMask)
+        }
         let layout: FaceLayout
-        let label: String
-        var warnings = ["顔の推定結果は自動承認しません。頭・目・口の範囲を確認してください。",
-                        "WindowsのVision/Core ML代替モデルは未接続です。現在は共有のイラスト推定器を使用します。"]
         if let estimate {
-            layout = estimate; label = "Illustration heuristic"
+            layout = estimate
         } else {
             // An explicit editable template fallback, never a confirmed AI result.
             let draft = try PortableRigBuilder.prepare(source)
