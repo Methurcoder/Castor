@@ -54,7 +54,7 @@ struct SetupLocalization: Sendable {
             : text("Castorはまだ導入されていません。「取得・更新」で導入してください。", "Castor is not installed. Choose Download / Update to install it.")
     }
     func errorMessage(_ error: Error) -> String {
-        if error is CancellationError {
+        if error is CancellationError || (error as? URLError)?.code == .cancelled {
             return text("キャンセルしました。既存アプリとデータは保持しています。", "Cancelled. Existing apps and data were kept.")
         }
         if let error = error as? DesktopInstaller.InstallError {
@@ -264,7 +264,7 @@ import SwiftUI
             else {HStack{Button(model.strings.text("取得・更新", "Download / Update")){model.install()};Button(model.strings.text("起動", "Launch")){model.launch()};Button(model.strings.text("修復", "Repair")){model.install(repair:true)};Button(model.strings.text("アプリを削除", "Remove App")){model.remove()}}
                 Button(model.strings.cleanupButton){model.cleanOlderVersions()}
                 Divider()
-                Text(model.strings.text("任意のNeural TTS helper。モデルはhelper画面で別途取得します。Pythonの手動導入は不要です。配布候補は検証中です。", "Optional Neural TTS helper. Download models separately from the helper UI. No manual Python installation is required. Distribution candidates are still being validated."))
+                Text(model.strings.text("任意のNeural TTS helper。モデルはhelper画面で別途取得します。Pythonの手動導入は不要です。必要な場合だけ取得してください。", "Optional Neural TTS helper. Download models separately from the helper UI. No manual Python installation is required. Distribution candidates are still being validated."))
                     .font(.caption).foregroundStyle(.secondary)
                 HStack{Button(model.strings.text("Neural TTSを取得・更新", "Download / Update Neural TTS")){model.install(component:.neuralTTS)};Button(model.strings.text("起動", "Launch")){model.launch(component:.neuralTTS)};Button(model.strings.text("修復", "Repair")){model.install(repair:true,component:.neuralTTS)};Button(model.strings.text("削除", "Remove")){model.remove(component:.neuralTTS)}}
                 Button(model.strings.cleanupButton){model.cleanOlderVersions(component:.neuralTTS)}
