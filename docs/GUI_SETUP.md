@@ -1,7 +1,7 @@
 # CastorのGUI導入・更新・修復
 
 2026-10-15。GitHub Releasesを入口とするGUI導入方式を実装しています。
-**[正式リリース v0.3.0](https://github.com/Methurcoder/Castor/releases/tag/v0.3.0)からGUI導入パッケージを取得できます。**
+**[正式リリース v1.0.0](https://github.com/Methurcoder/Castor/releases/tag/v1.0.0)からGUI導入パッケージを取得できます。**
 開発用Mac GUIの起動と「配布Releaseなし」の案内を確認しました。
 Windowsの実機確認は、ダウンローダーから導入できる配布候補ができた段階でまとめます。
 
@@ -9,8 +9,8 @@ Windowsの実機確認は、ダウンローダーから導入できる配布候�
 
 | ZIP | 中に入っている起動ファイル | 用途 |
 | --- | --- | --- |
-| `CastorSetup-v0.3.0-macos_arm64.zip` | `CastorSetup.app` | MacのGUI導入 |
-| `CastorSetup-v0.3.0-windows_x86_64.zip` | `CastorSetup.exe`と必要DLL | WindowsのGUI導入。フォルダごと展開 |
+| `CastorSetup-v1.0.0-macos_arm64.zip` | `CastorSetup.app` | MacのGUI導入 |
+| `CastorSetup-v1.0.0-windows_x86_64.zip` | `CastorSetup.exe`と必要DLL | WindowsのGUI導入。フォルダごと展開 |
 | `Castor-Downloader.zip` | `.command` / `.cmd` / `.ps1` | スクリプト版。GUIを使う場合は上のSetupを選ぶ |
 
 `Castor-Downloader.zip`に`.app`や`.exe`が無いのは仕様です。通常はOS別の**CastorSetup**を使ってください。
@@ -80,7 +80,7 @@ Windowsの初回GUI、実機のOS警告・マイク、開発環境のないPCで
 導入GUIでNeural TTS helperの取得/更新・起動・修復・削除を選べます。本体とは別の
 `CastorHelpers/NeuralTTS`領域へ導入し、失敗・取消でも旧本体/旧helper/ペット/設定を保持します。
 配布manifestの`components.NeuralTTS`にそのOS/CPU用のassetがある場合だけ取得します。
-helperを消してもモデルcacheは削除しません。v0.3.0にOS別のhelper assetを用意しています。
+helperを消してもモデルcacheは削除しません。v1.0.0にOS別のhelper assetを用意しています。
 
 Voice設定から導入GUIを開きます。`build-castor-app.py`の候補はMac ResourcesへCastorSetup.app、
 WindowsはCastorPet.exeの隣へCastorSetup.exeを同梱します。開発用ビルドにはGUIが無いことがあり、
@@ -154,11 +154,15 @@ Mac helper inventory46件にlicense本文欠落なし。4つのCore MLモデル�
 
 ## 音声モデルをロードするタイミング
 
-v0.3.0でも、設定を開く・音声エンジンを選ぶだけではモデルをロードしません。
-Macは「Qwen音声を起動」→「Qwenモデルを取得・準備」、Windowsの補助アプリは
-「モデルを取得・準備」を明示的に選びます。未準備の場合は標準音声へ戻ります。
+v1.0.0では、設定を開く・音声エンジンを選ぶだけではモデルをロードしません。
+Macの音声設定には「音声はQwen 3 TTSでよりリアルになります。ロードしますか？」のバナーがあります。
+「ロード」から補助アプリ起動→応答待ち→モデル取得・ロードを順に実行します。
+Windowsの補助アプリ側も「ロード / Load」で明示的に開始します。未準備の場合は標準音声へ戻ります。
 
-次の更新用のローカル修正では、Macの音声設定へ「音声はQwen 3 TTSでよりリアルになります。
-ロードしますか？」のバナーを追加しました。「ロード」から補助アプリ起動→応答待ち→
-モデル取得・ロードを順に実行します。Mac/Windowsの補助アプリ側にもロード前の案内を表示します。
-この変更はv0.3.0の配布物には未反映です。
+## v1.0.0の最新修正
+
+Windowsの作成画面と導入ウィザードはWebView2を使います。配布ZIPはDLL・UI/SetupUIを含めて展開し、exeだけを移動しないでください。
+WebView2 RuntimeがないWindowsではMicrosoftの公式ランタイムの導入が必要です。
+Macはドラッグ導入用DMGも用意します。
+最新のWindows ML同梱・作成画面・ウィザードと共通ML変更は、管理者の指示により追加テストを省いて正式Releaseへ含めています。
+上記の先行候補の確認記録は、今回の全修正の再検証を意味しません。
