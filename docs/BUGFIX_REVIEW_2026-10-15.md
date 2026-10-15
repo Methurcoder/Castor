@@ -7,7 +7,7 @@
 | 透明ペットの謎の枠 | NSPanel.hasShadowを無効化。吹き出しのSwiftUIの影は保持 | ペットはlayered popup、WNDCLASSEXWのstyleは0。OSのCS_DROPSHADOWを使わず、同じ影のキャッシュ設定はない |
 | GIF画面がタイトルバーだけになる | hostingの自動windowサイズ変更を無効化。content size 490×650、最小490×600、リサイズ可能に | GIFはCreateWindowExWに755×465を直接指定。NSHostingControllerの自動縮小経路はない。高DPI実機は未確認 |
 | Qwen準備後もロード案内が残る | 本体とnative helperでGET-onlyの実モデル状態を確認し、準備済み表示へ変更。停止・切断で戻す | Tk helperにも同じ問題があり修正。backendのready状態を読むだけで自動ロードしない |
-| 音が届くのに空の文字起こし | 終了処理が結果consumerを先にcancelし得る。結果streamをdrainしてからcleanup。asset状態確認、古いsessionの起動抑止、認識言語選択、30秒上限と確定待ち8秒、buffer/peak等の診断を追加 | SAPIではMacのmodern→legacy分岐はない。一方、周囲音のcaptureをoffにするだけで解放完了を待っていなかったため、両OSへcapture解放待ちを追加。SAPIのHRESULT・段階・イベント・無結果timeoutを区別 |
+| 音が届くのに空の文字起こし | 終了処理が結果consumerを先にcancelし得る。結果streamをdrainしてからcleanup。asset状態確認、古いsessionの起動抑止、認識言語選択、30秒上限と確定待ち8秒、buffer/peak等の診断を追加 | SAPIではMacのmodern→legacy分岐はない。一方、周囲音のcaptureをoffにするだけで解放完了を待っていなかったため、両OSへcapture解放待ちを追加。SAPIのHRESULT・段階・認識エンジンの言語・イベント・無結果timeoutを区別 |
 | 定型エラーが英語のまま | アプリ由来エラーにだけ翻訳を適用。会話本文・外部providerエラーは保持 | 音声認識のエラーと進行文を設定言語に合わせて日英化 |
 | 音声認識の許可状態が見えない | InputへSFSpeechRecognizerの許可、認識言語、OS設定リンク、最後の診断を追加 | 認識エンジン一覧、最後のSAPI診断、Windowsのマイク設定を開く入口を追加。マイク許可はAPIから判定できないため不明と明記 |
 
@@ -29,3 +29,6 @@ Python helperのready表示判定1件が成功。モデル取得や録音なし�
 Windowsの修正後ビルドと配布物の更新は別途記録する。
 
 さらに別ブランチのdf9946eにあるSetupUIのresource宣言修正を取り込み、ページはビルドスクリプトで配置する。
+
+Windowsの診断localeは現在のSAPI recognizer tokenのLanguage属性から取得し、OS表示言語ui_localeと区別する（取得不可なら0000）。
+[Microsoft: GetRecognizer](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/ms718610(v=vs.85))、[tokenのLanguage属性](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/ms718134(v=vs.85))。

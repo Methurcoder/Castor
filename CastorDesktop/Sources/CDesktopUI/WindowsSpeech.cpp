@@ -72,10 +72,19 @@ int castor_system_recognize_diagnostic(char *output,size_t capacity,char *diagno
     if(capacity<1)return -1;output[0]=0;
     const char *stage="com"; const char *ending="error";
     int events=0,hypotheses=0,sounds=0,result=-1;
+    unsigned long engineLanguage=0;
     HRESULT apartment=CoInitializeEx(nullptr,COINIT_MULTITHREADED);
     HRESULT hr=apartment;
     ISpRecognizer *recognizer=nullptr;ISpRecoContext *reco=nullptr;ISpRecoGrammar *grammar=nullptr;
     if(SUCCEEDED(hr)) {stage="recognizer";hr=CoCreateInstance(__uuidof(SpSharedRecognizer),nullptr,CLSCTX_ALL,__uuidof(ISpRecognizer),(void**)&recognizer);}
+    if(SUCCEEDED(hr)) {
+        ISpObjectToken *token=nullptr;ISpDataKey *attributes=nullptr;WCHAR *language=nullptr;
+        if(SUCCEEDED(recognizer->GetRecognizer(&token))&&token&&
+           SUCCEEDED(token->OpenKey(L"Attributes",&attributes))&&attributes&&
+           SUCCEEDED(attributes->GetStringValue(L"Language",&language))&&language)
+            engineLanguage=wcstoul(language,nullptr,16);
+        CoTaskMemFree(language);if(attributes)attributes->Release();if(token)token->Release();
+    }
     if(SUCCEEDED(hr)){stage="context";hr=recognizer->CreateRecoContext(&reco);}
     if(SUCCEEDED(hr)){stage="notify";hr=reco->SetNotifyWin32Event();}
     if(SUCCEEDED(hr)) {
@@ -114,8 +123,8 @@ int castor_system_recognize_diagnostic(char *output,size_t capacity,char *diagno
     }
     if(SUCCEEDED(hr)&&result<0&&GetTickCount64()-started>=20000){result=-2;ending="timeout_no_text";}
     if(diagnostic&&diagnosticCapacity)snprintf(diagnostic,diagnosticCapacity,
-        "SAPI1 stage=%s hr=0x%08lx locale=%04x events=%d partial=%d sound=%d end=%s",
-        stage,(unsigned long)hr,(unsigned int)GetUserDefaultUILanguage(),events,hypotheses,sounds,ending);
+        "SAPI1 stage=%s hr=0x%08lx locale=%04lx ui_locale=%04x events=%d partial=%d sound=%d end=%s",
+        stage,(unsigned long)hr,engineLanguage,(unsigned int)GetUserDefaultUILanguage(),events,hypotheses,sounds,ending);
     if(grammar){grammar->SetDictationState(SPRS_INACTIVE);grammar->Release();}
     if(reco)reco->Release();if(recognizer)recognizer->Release();
     if(SUCCEEDED(apartment))CoUninitialize();return result;
