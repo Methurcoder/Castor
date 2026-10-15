@@ -1,6 +1,6 @@
 # 2026-10-15 夜の不具合修正
 
-ユーザー提供の引き継ぎにある6項目をソースから調査。v1.0.0はDraftのまま保持し、修正前の配布物を公開しない。
+ユーザー提供の引き継ぎにある6項目をソースから調査。作業中はv1.0.0をDraftに保持し、修正前の配布物を公開しない方針で進めた。
 
 | 項目 | Macの調査・修正 | Windowsの調査・修正 |
 | --- | --- | --- |
@@ -26,7 +26,7 @@ Macの設定 → 入力、Windowsの設定 → 音声認識の状態とマイク
 
 全体テストは再実行しない。今回の修正を対象に、Coreの診断・翻訳・capture解放順序とGET-onlyモデル状態11件、
 Python helperのready表示判定1件が成功。モデル取得や録音なし。Mac本体とnative音声helperのRelease buildが成功。
-Windowsの修正後ビルドと配布物の更新は別途記録する。
+Windows本体・Setup・Neural TTS helperの修正後Release buildと梱包も[配布ビルド38743488163](https://github.com/Methurcoder/Castor/actions/runs/38743488163)で成功。Windows GUI・実発話は未確認。
 
 さらに別ブランチのdf9946eにあるSetupUIのresource宣言修正を取り込み、ページはビルドスクリプトで配置する。
 
