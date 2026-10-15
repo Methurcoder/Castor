@@ -139,3 +139,10 @@ Mac ad-hoc/Developer ID・公証なし、Windowsコード署名なし、新規�
 変更のないWindows本体・セットアップ・Neural TTSはv1.0.0と同じバイナリを使用し、
 新Releaseに全OSの取得経路とSHA-256 manifestを揃える。Mac本体のビルド・梱包条件を確認し、
 追加テストと修正後GUIは未確認と明記する。v1.0.0の不変Releaseは保持する。
+
+### Windows起動修正の統合（2026-10-16）
+
+本人の指示でclaude/fix-windows-setupの3a375c9・bbe631cを統合し、Windows本体とセットアップも再ビルドする。
+表示名は「Castor v1.0.0 調整版」、識別用タグ・Mac内部バージョンはv1.0.1とする。
+既存のv1.0.1は未公開Draftのため、新しい統合コミット・配布物・manifestへ更新してから公開する。
+v1.0.0は保持する。追加テストは起動せず、Windows patch build workflowで実行ファイルとDLLを作る。

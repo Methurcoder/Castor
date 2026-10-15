@@ -163,6 +163,9 @@ static void web_configure(const WCHAR *folder) {
 typedef HRESULT(STDAPICALLTYPE *CreateEnvironment)(PCWSTR, PCWSTR, ICoreWebView2EnvironmentOptions *,
                                                    ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *);
 
+static long web_last_error = 0;
+long castor_webview_last_error(void) { return web_last_error; }
+
 int castor_webview_open(const char *title, const char *ui_folder, const char *data_folder, int width, int height,
                         int dark, castor_web_message callback, void *context) {
     if (web_window) {
@@ -170,6 +173,9 @@ int castor_webview_open(const char *title, const char *ui_folder, const char *da
         SetForegroundWindow(web_window);
         return 1;
     }
+    // WebView2 lives on a single-threaded apartment; the hosts call this from a worker thread.
+    HRESULT apartment = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    if (apartment == RPC_E_CHANGED_MODE) { web_last_error = apartment; return -1; }
     WCHAR module_path[MAX_PATH];
     DWORD length = GetModuleFileNameW(nullptr, module_path, MAX_PATH);
     if (!length || length >= MAX_PATH) return -1;
@@ -177,7 +183,7 @@ int castor_webview_open(const char *title, const char *ui_folder, const char *da
     if (!slash) return -1;
     wcscpy_s(slash + 1, MAX_PATH - (size_t)(slash + 1 - module_path), L"WebView2Loader.dll");
     HMODULE loader = LoadLibraryExW(module_path, nullptr, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
-    if (!loader) return -1;
+    if (!loader) { web_last_error = HRESULT_FROM_WIN32(GetLastError()); return -1; }
     CreateEnvironment create = (CreateEnvironment)(void *)GetProcAddress(loader, "CreateCoreWebView2EnvironmentWithOptions");
     if (!create) return -1;
 
@@ -216,11 +222,11 @@ int castor_webview_open(const char *title, const char *ui_folder, const char *da
     HRESULT status = create(nullptr, data, nullptr,
         web_handler<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler, HRESULT, ICoreWebView2Environment *>(
             [folder, background](HRESULT result, ICoreWebView2Environment *environment) -> HRESULT {
-                if (FAILED(result) || !environment || !web_window) { web_state = -1; free(folder); return S_OK; }
+                if (FAILED(result) || !environment || !web_window) { web_last_error = result; web_state = -1; free(folder); return S_OK; }
                 environment->CreateCoreWebView2Controller(web_window,
                     web_handler<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler, HRESULT, ICoreWebView2Controller *>(
                         [folder, background](HRESULT result, ICoreWebView2Controller *controller) -> HRESULT {
-                            if (FAILED(result) || !controller || !web_window) { web_state = -1; free(folder); return S_OK; }
+                            if (FAILED(result) || !controller || !web_window) { web_last_error = result; web_state = -1; free(folder); return S_OK; }
                             web_controller = controller;
                             web_controller->AddRef();
                             ICoreWebView2Controller2 *controller2 = nullptr;
@@ -239,9 +245,31 @@ int castor_webview_open(const char *title, const char *ui_folder, const char *da
                 return S_OK;
             }));
     free(data);
-    if (FAILED(status)) { free(folder); DestroyWindow(hwnd); return -1; }
+    if (FAILED(status)) { web_last_error = status; free(folder); DestroyWindow(hwnd); return -1; }
     ShowWindow(hwnd, SW_SHOW);
     UpdateWindow(hwnd);
+    return 1;
+}
+
+struct CastorThreadStart { void (*body)(void *); void *context; };
+
+static DWORD WINAPI castor_ui_thread(LPVOID raw) {
+    CastorThreadStart start = *(CastorThreadStart *)raw;
+    free(raw);
+    HRESULT apartment = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    start.body(start.context);
+    if (SUCCEEDED(apartment)) CoUninitialize();
+    return 0;
+}
+
+int castor_start_ui_thread(void (*body)(void *), void *context) {
+    CastorThreadStart *start = (CastorThreadStart *)malloc(sizeof(CastorThreadStart));
+    if (!start) return -1;
+    start->body = body;
+    start->context = context;
+    HANDLE thread = CreateThread(nullptr, 8u << 20, castor_ui_thread, start, 0, nullptr);
+    if (!thread) { free(start); return -1; }
+    CloseHandle(thread);
     return 1;
 }
 
@@ -269,7 +297,9 @@ void castor_webview_close(void) {
 #else
 int castor_webview_open(const char *, const char *, const char *, int, int, int, castor_web_message, void *) { return -1; }
 int castor_webview_state(void) { return -2; }
+long castor_webview_last_error(void) { return 0; }
 int castor_system_dark(void) { return 1; }
+int castor_start_ui_thread(void (*)(void *), void *) { return -1; }
 int castor_webview_post(const char *) { return 0; }
 void castor_webview_close(void) {}
 #endif

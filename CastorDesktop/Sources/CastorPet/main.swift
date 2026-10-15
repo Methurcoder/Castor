@@ -540,9 +540,13 @@ while GetMessageW(&message, nil, 0, 0) {
 
 // MainActor services use the primary dispatcher. Win32 windows and all shell
 // state stay on one dedicated native thread; callbacks never mutate it elsewhere.
-DispatchQueue.global(qos: .userInteractive).async {
-    runNativeApplication()
-    exit(0)
+// The creation window (WebView2) needs this thread to be a COM single-threaded
+// apartment; dispatch's worker threads are already multithreaded.
+if castor_start_ui_thread({ _ in runNativeApplication(); exit(0) }, nil) != 1 {
+    DispatchQueue.global(qos: .userInteractive).async {
+        runNativeApplication()
+        exit(0)
+    }
 }
 dispatchMain()
 

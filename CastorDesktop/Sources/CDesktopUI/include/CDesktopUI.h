@@ -16,6 +16,12 @@ int castor_webview_state(void);
 /* Posts a JSON message to the page; safe from any thread. */
 int castor_webview_post(const char *json);
 void castor_webview_close(void);
+/* The last WebView2 / loader HRESULT, for diagnostics. */
+long castor_webview_last_error(void);
+/* Runs body on a new thread initialized as a COM single-threaded apartment,
+   which WebView2 requires (worker threads are already multithreaded).
+   Returns 1 when started, -1 otherwise. */
+int castor_start_ui_thread(void (*body)(void *), void *context);
 /* 1 when Windows apps use the dark theme (the default when unknown). */
 int castor_system_dark(void);
 /* UTF-8 paths. Returns 1 for OK, 0 for user cancellation, -1 for API failure. */

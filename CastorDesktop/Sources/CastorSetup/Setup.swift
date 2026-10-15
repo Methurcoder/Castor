@@ -98,6 +98,7 @@ struct SetupLocalization: Sendable {
 
 #if os(Windows)
 import Dispatch
+import WinSDK
 private final class SetupWork: @unchecked Sendable {
     let lock=NSLock();var result: Result<DesktopInstalledApp,Error>?
     var done: Bool { lock.lock();defer {lock.unlock()};return result != nil }
@@ -115,7 +116,16 @@ private func setupUI() {
             let options=strings.text("取得・更新\n導入済みアプリを起動\n修復（旧版を保持）\nCastor本体を削除（ペット・設定は保持）\nNeural TTS helperを取得・更新（任意）\nNeural TTS helperを起動\nNeural TTS helperを修復\nNeural TTS helperを削除（モデルキャッシュ保持）\nCastorの古い版を整理\nNeural TTS helperの古い版を整理\n終了",
                 "Download / Update\nLaunch installed app\nRepair (keep previous version)\nRemove Castor (keep pets/settings)\nDownload / Update Neural TTS helper (optional)\nLaunch Neural TTS helper\nRepair Neural TTS helper\nRemove Neural TTS helper (keep model cache)\nClean up older Castor versions\nClean up older Neural TTS helper versions\nExit")
             let choice=strings.title.withCString { title in options.withCString {castor_choose_option(title,$0)} }
-            if choice<=0 || choice==11 {return}
+            if choice<0 {
+                // Never vanish silently: say what happened and where the log is.
+                SetupWindow.log("native dialog failed")
+                let text=strings.text("セットアップの画面を開けませんでした。%LOCALAPPDATA%\\Castor\\Logs\\setup.log を添えて GitHub の Issues で知らせてください。",
+                    "The setup window could not open. Please report it on GitHub Issues with %LOCALAPPDATA%\\Castor\\Logs\\setup.log.")
+                let body=Array(text.utf16)+[0],title=Array(strings.title.utf16)+[0]
+                _ = body.withUnsafeBufferPointer {b in title.withUnsafeBufferPointer {MessageBoxW(nil,b.baseAddress,$0.baseAddress,0x10)}}
+                return
+            }
+            if choice==0 || choice==11 {return}
             // Existing app/helper actions keep their indices; the app cleanup item is not a helper.
             let component:DesktopHelperComponent?=[5,6,7,8,10].contains(choice) ? .neuralTTS:nil
             if choice==9 || choice==10 {
@@ -177,6 +187,11 @@ private func setupUI() {
         }
     } catch {_ = show(strings.errorMessage(error))}
 }
+private func runSetup() {
+    if SetupWindow.checkOnly {_ = SetupWindow.run();exit(SetupWindow.sawReady ? 0:2)}
+    if !SetupWindow.run() {SetupWindow.log("falling back to the native dialogs");setupUI()}
+    exit(0)
+}
 @main struct CastorWindowsSetup {
     static func main() {
         // Developer-only CI check; ordinary use always opens the GUI.
@@ -194,8 +209,13 @@ private func setupUI() {
             dispatchMain()
         }
         castor_set_ui_language(SettingsDisplayLanguage.systemDefault == .japanese ? 1:0)
-        // The wizard window; the native dialogs remain for systems without WebView2.
-        DispatchQueue.global(qos:.userInteractive).async {if !SetupWindow.run() {setupUI()};exit(0)}
+        SetupWindow.checkOnly=args==["--check-ui"]
+        // The wizard needs an STA thread (WebView2); dispatch's workers are MTA.
+        // The native dialogs remain for systems without WebView2.
+        if castor_start_ui_thread({ _ in runSetup() }, nil) != 1 {
+            SetupWindow.log("could not start the UI thread; using a worker thread")
+            DispatchQueue.global(qos:.userInteractive).async {runSetup()}
+        }
         dispatchMain()
     }
 }

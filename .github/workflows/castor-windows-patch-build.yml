@@ -1,0 +1,29 @@
+name: Castor Windows patch build (no tests)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows-patch:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: compnerd/gha-setup-swift@bbae8ce86bac5a3449f3992b3d88bc4ca25f2057
+        with:
+          swift-version: swift-6.4.1-release
+          swift-build: 6.4.1-RELEASE
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Build app and setup with their runtime DLLs
+        run: python scripts/build-castor-app.py --output "$env:RUNNER_TEMP/CastorPatch/App" --scratch "$env:RUNNER_TEMP/CastorPatchBuild"
+      - name: Collect the separate setup payload
+        run: Move-Item "$env:RUNNER_TEMP/CastorPatchBuild/gui-setup-candidate" "$env:RUNNER_TEMP/CastorPatch/Setup"
+      - name: Save built executables for release assembly
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: windows-patch-runtime
+          path: ${{ runner.temp }}/CastorPatch/
+          retention-days: 7
+          if-no-files-found: error

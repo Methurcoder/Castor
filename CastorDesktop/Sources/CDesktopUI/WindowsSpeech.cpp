@@ -17,7 +17,8 @@ static WCHAR *speech_wide(const char *text) {
     return wide;
 }
 static int speech_tokens(const WCHAR *categoryId,char *output,size_t capacity) {
-    HRESULT apartment=CoInitializeEx(nullptr,COINIT_MULTITHREADED);if(FAILED(apartment))return -1;
+    // The UI thread is already single-threaded for WebView2; SAPI works there too.
+    HRESULT apartment=CoInitializeEx(nullptr,COINIT_MULTITHREADED);if(FAILED(apartment)&&apartment!=RPC_E_CHANGED_MODE)return -1;
     ISpObjectTokenCategory *category=nullptr;IEnumSpObjectTokens *tokens=nullptr;
     HRESULT hr=CoCreateInstance(__uuidof(SpObjectTokenCategory),nullptr,CLSCTX_INPROC_SERVER,
         __uuidof(ISpObjectTokenCategory),(void**)&category);
@@ -44,13 +45,13 @@ static int speech_tokens(const WCHAR *categoryId,char *output,size_t capacity) {
             if(FAILED(hr))break;
         }
     }
-    if(tokens)tokens->Release();if(category)category->Release();CoUninitialize();return SUCCEEDED(hr)?1:-1;
+    if(tokens)tokens->Release();if(category)category->Release();if(SUCCEEDED(apartment))CoUninitialize();return SUCCEEDED(hr)?1:-1;
 }
 int castor_system_voices(char *output,size_t capacity){return speech_tokens(SPCAT_VOICES,output,capacity);}
 int castor_system_recognizers(char *output,size_t capacity){return speech_tokens(SPCAT_RECOGNIZERS,output,capacity);}
 int castor_system_speak(const char *text,const char *tokenId,int (*cancelled)(void*),void *context) {
     WCHAR *words=speech_wide(text),*id=speech_wide(tokenId);if(!words||!id){free(words);free(id);return -1;}
-    HRESULT apartment=CoInitializeEx(nullptr,COINIT_MULTITHREADED);if(FAILED(apartment)){free(words);free(id);return -1;}
+    HRESULT apartment=CoInitializeEx(nullptr,COINIT_MULTITHREADED);if(FAILED(apartment)&&apartment!=RPC_E_CHANGED_MODE){free(words);free(id);return -1;}
     ISpVoice *voice=nullptr;ISpObjectToken *token=nullptr;
     HRESULT hr=CoCreateInstance(__uuidof(SpVoice),nullptr,CLSCTX_INPROC_SERVER,__uuidof(ISpVoice),(void**)&voice);
     if(SUCCEEDED(hr)&&*id) {
@@ -66,7 +67,7 @@ int castor_system_speak(const char *text,const char *tokenId,int (*cancelled)(vo
         hr=voice->WaitUntilDone(100);if(hr==S_OK)break;
     }
     if(FAILED(hr))result=-1;
-    if(token)token->Release();if(voice)voice->Release();CoUninitialize();free(words);free(id);return result;
+    if(token)token->Release();if(voice)voice->Release();if(SUCCEEDED(apartment))CoUninitialize();free(words);free(id);return result;
 }
 int castor_system_recognize_diagnostic(char *output,size_t capacity,char *diagnostic,size_t diagnosticCapacity,int (*cancelled)(void*),void *context) {
     if(capacity<1)return -1;output[0]=0;
@@ -74,7 +75,7 @@ int castor_system_recognize_diagnostic(char *output,size_t capacity,char *diagno
     int events=0,hypotheses=0,sounds=0,result=-1;
     unsigned long engineLanguage=0;
     HRESULT apartment=CoInitializeEx(nullptr,COINIT_MULTITHREADED);
-    HRESULT hr=apartment;
+    HRESULT hr=apartment==RPC_E_CHANGED_MODE?S_OK:apartment;
     ISpRecognizer *recognizer=nullptr;ISpRecoContext *reco=nullptr;ISpRecoGrammar *grammar=nullptr;
     if(SUCCEEDED(hr)) {stage="recognizer";hr=CoCreateInstance(__uuidof(SpSharedRecognizer),nullptr,CLSCTX_ALL,__uuidof(ISpRecognizer),(void**)&recognizer);}
     if(SUCCEEDED(hr)) {
