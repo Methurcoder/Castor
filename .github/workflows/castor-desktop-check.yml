@@ -40,6 +40,12 @@ jobs:
         run: swift build --package-path CastorDesktop --scratch-path "$env:RUNNER_TEMP/CastorDesktop" -c release --product CastorPet
       - name: Build and collect the GUI installer runtime locally
         run: python scripts/build-castor-setup.py --output "$env:RUNNER_TEMP/CastorSetupRuntime" --scratch "$env:RUNNER_TEMP/CastorDesktop"
+      - name: Open the setup wizard and wait for its page (WebView2)
+        timeout-minutes: 3
+        run: |
+          $process = Start-Process "$env:RUNNER_TEMP/CastorSetupRuntime/CastorSetup.exe" -ArgumentList '--check-ui' -Wait -PassThru -NoNewWindow
+          Get-Content "$env:LOCALAPPDATA/Castor/Logs/setup.log" -ErrorAction SilentlyContinue
+          if ($process.ExitCode -ne 0) { throw "The setup wizard page did not become ready (exit $($process.ExitCode))." }
       - name: Collect app runtime with its in-app GUI setup entry
         shell: pwsh
         run: |

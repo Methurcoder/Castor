@@ -18,6 +18,10 @@ final class SetupWindow {
 
     private static var current: SetupWindow?
     private static var unavailable = false
+    /// `--check-ui`: open the wizard, wait for its page, then close (CI and support).
+    static var checkOnly = false
+    private(set) static var sawReady = false
+    private static var openedAt = Date()
     private static let lock = NSLock()
     private static var queue: [() -> Void] = []
     private static var draining = false
@@ -30,7 +34,11 @@ final class SetupWindow {
     /// Shows the wizard until it is closed. False when WebView2 or the page
     /// is unavailable, so the caller can use the native dialogs instead.
     static func run() -> Bool {
-        guard let ui = uiFolder, let local = ProcessInfo.processInfo.environment["LOCALAPPDATA"], !local.isEmpty else { return false }
+        log("start: \(Bundle.main.executableURL?.path ?? "?")")
+        guard let ui = uiFolder, let local = ProcessInfo.processInfo.environment["LOCALAPPDATA"], !local.isEmpty else {
+            log("no SetupUI folder beside the executable or no LOCALAPPDATA")
+            return false
+        }
         let data = URL(fileURLWithPath: local).appendingPathComponent("Castor/WebView2Setup", isDirectory: true)
         try? FileManager.default.createDirectory(at: data, withIntermediateDirectories: true)
         let window = SetupWindow()
@@ -42,14 +50,37 @@ final class SetupWindow {
                 SetupWindow.enqueue { SetupWindow.current?.handle(message) }
             }, nil)
         }
+        log("open: status \(status), last error \(hex(castor_webview_last_error()))")
         guard status == 1 else { current = nil; return false }
+        openedAt = Date()
         window.timer = SetTimer(nil, 0, 40, { _, _, _, _ in SetupWindow.drain() })
         var message = MSG()
-        while current != nil, !unavailable, GetMessageW(&message, nil, 0, 0) {
+        var quit = false
+        while current != nil, !unavailable {
+            guard GetMessageW(&message, nil, 0, 0) else { quit = true; break }
             _ = TranslateMessage(&message)
             _ = DispatchMessageW(&message)
         }
-        return !unavailable
+        log("loop ended: ready \(sawReady), unavailable \(unavailable), quit message \(quit), last error \(hex(castor_webview_last_error()))")
+        // A window that closed before its page answered never showed anything usable.
+        return !unavailable && sawReady
+    }
+
+    private static func hex<T: BinaryInteger>(_ value: T) -> String { "0x" + String(UInt32(truncatingIfNeeded: value), radix: 16) }
+
+    /// One line per step, to stderr and %LOCALAPPDATA%\Castor\Logs\setup.log.
+    static func log(_ text: String) {
+        let line = "\(ISO8601DateFormatter().string(from: Date())) \(text)\n"
+        fputs(line, stderr)
+        guard let local = ProcessInfo.processInfo.environment["LOCALAPPDATA"], !local.isEmpty else { return }
+        let folder = URL(fileURLWithPath: local).appendingPathComponent("Castor/Logs", isDirectory: true)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let file = folder.appendingPathComponent("setup.log")
+        if let handle = try? FileHandle(forWritingTo: file) {
+            _ = try? handle.seekToEnd(); try? handle.write(contentsOf: Data(line.utf8)); try? handle.close()
+        } else {
+            try? Data(line.utf8).write(to: file)
+        }
     }
 
     private static var uiFolder: URL? {
@@ -71,7 +102,12 @@ final class SetupWindow {
         guard !draining else { return }
         draining = true
         defer { draining = false }
+        if checkOnly, !sawReady, current != nil, Date().timeIntervalSince(openedAt) > 45 {
+            log("check: the page did not answer within 45 s (state \(castor_webview_state()))")
+            castor_webview_close()
+        }
         if let window = current, castor_webview_state() == -1 {
+            log("WebView2 failed after the window opened: \(hex(castor_webview_last_error()))")
             unavailable = true
             window.finish()
             castor_webview_close()
@@ -95,7 +131,11 @@ final class SetupWindow {
     private func handle(_ message: [String: Any]) {
         let component: DesktopHelperComponent? = message["component"] is String ? .neuralTTS : nil
         switch message["type"] as? String {
-        case "ready": sendInit()
+        case "ready":
+            SetupWindow.sawReady = true
+            SetupWindow.log("page ready")
+            sendInit()
+            if SetupWindow.checkOnly { castor_webview_close() }
         case "install": install(component: component, repair: message["repair"] as? Bool ?? false)
         case "cancel":
             job?.cancel(); job = nil; generation += 1
@@ -120,7 +160,9 @@ final class SetupWindow {
                 post(["type": "message", "text": strings.cleanupFinished])
             } catch { post(["type": "message", "text": strings.cleanupFailed(error)]) }
         case "close": castor_webview_close()
-        case "closed": finish()
+        case "closed":
+            SetupWindow.log("window closed")
+            finish()
         default: break
         }
     }
