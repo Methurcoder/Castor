@@ -251,6 +251,28 @@ int castor_webview_open(const char *title, const char *ui_folder, const char *da
     return 1;
 }
 
+struct CastorThreadStart { void (*body)(void *); void *context; };
+
+static DWORD WINAPI castor_ui_thread(LPVOID raw) {
+    CastorThreadStart start = *(CastorThreadStart *)raw;
+    free(raw);
+    HRESULT apartment = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    start.body(start.context);
+    if (SUCCEEDED(apartment)) CoUninitialize();
+    return 0;
+}
+
+int castor_start_ui_thread(void (*body)(void *), void *context) {
+    CastorThreadStart *start = (CastorThreadStart *)malloc(sizeof(CastorThreadStart));
+    if (!start) return -1;
+    start->body = body;
+    start->context = context;
+    HANDLE thread = CreateThread(nullptr, 8u << 20, castor_ui_thread, start, 0, nullptr);
+    if (!thread) { free(start); return -1; }
+    CloseHandle(thread);
+    return 1;
+}
+
 int castor_system_dark(void) {
     DWORD light = 0, size = sizeof(light);
     if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
@@ -277,6 +299,7 @@ int castor_webview_open(const char *, const char *, const char *, int, int, int,
 int castor_webview_state(void) { return -2; }
 long castor_webview_last_error(void) { return 0; }
 int castor_system_dark(void) { return 1; }
+int castor_start_ui_thread(void (*)(void *), void *) { return -1; }
 int castor_webview_post(const char *) { return 0; }
 void castor_webview_close(void) {}
 #endif

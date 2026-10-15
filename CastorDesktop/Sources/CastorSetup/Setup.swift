@@ -187,6 +187,11 @@ private func setupUI() {
         }
     } catch {_ = show(strings.errorMessage(error))}
 }
+private func runSetup() {
+    if SetupWindow.checkOnly {_ = SetupWindow.run();exit(SetupWindow.sawReady ? 0:2)}
+    if !SetupWindow.run() {SetupWindow.log("falling back to the native dialogs");setupUI()}
+    exit(0)
+}
 @main struct CastorWindowsSetup {
     static func main() {
         // Developer-only CI check; ordinary use always opens the GUI.
@@ -204,15 +209,12 @@ private func setupUI() {
             dispatchMain()
         }
         castor_set_ui_language(SettingsDisplayLanguage.systemDefault == .japanese ? 1:0)
-        if args==["--check-ui"] {
-            SetupWindow.checkOnly=true
-            DispatchQueue.global(qos:.userInteractive).async {_ = SetupWindow.run();exit(SetupWindow.sawReady ? 0:2)}
-            dispatchMain()
-        }
-        // The wizard window; the native dialogs remain for systems without WebView2.
-        DispatchQueue.global(qos:.userInteractive).async {
-            if !SetupWindow.run() {SetupWindow.log("falling back to the native dialogs");setupUI()}
-            exit(0)
+        SetupWindow.checkOnly=args==["--check-ui"]
+        // The wizard needs an STA thread (WebView2); dispatch's workers are MTA.
+        // The native dialogs remain for systems without WebView2.
+        if castor_start_ui_thread({ _ in runSetup() }, nil) != 1 {
+            SetupWindow.log("could not start the UI thread; using a worker thread")
+            DispatchQueue.global(qos:.userInteractive).async {runSetup()}
         }
         dispatchMain()
     }
