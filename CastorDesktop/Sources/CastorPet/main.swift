@@ -376,7 +376,7 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
                         defer {castor_microphone_enable(window.preferences.microphoneEnabled ? 1:0)}
                         window.player.front.behavior = .listening;window.player.side?.behavior = .listening
                         defer {window.player.front.behavior = .idle;window.player.side?.behavior = .idle}
-                        guard let heard = try WindowsVoiceFlow.recognize() else { return 0 }
+                        guard let heard = try WindowsVoiceFlow.recognize(language: window.preferences.displayLanguage) else { return 0 }
                         prompt = heard
                     }
                     if let reply = try WindowsConversationFlow.chat(preferences: window.preferences, history: &window.chatHistory, initialPrompt: prompt), window.preferences.systemTTSEnabled {

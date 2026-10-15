@@ -7,11 +7,15 @@ import PetRuntime
 /// Speech starts only from a user action/selected setting; cancellation purges SAPI.
 enum WindowsVoiceFlow {
     enum VoiceError: LocalizedError {
-        case unavailable, recognitionUnavailable
+        case unavailable
+        case recognitionFailed(String, SettingsDisplayLanguage)
         var errorDescription: String? {
             switch self {
             case .unavailable: "Windows標準音声を利用できませんでした。Windowsに音声が導入されているか確認してください。"
-            case .recognitionUnavailable: "音声認識できませんでした。Windowsの音声認識エンジンと、デスクトップアプリのマイク許可を確認してください。認識は最大20秒で停止します。"
+            case .recognitionFailed(let diagnostic, let language):
+                (language == .japanese
+                    ? "音声を文字にできませんでした。Windowsの認識エンジンの言語と、デスクトップアプリのマイク許可を確認してください。最大20秒で停止します。"
+                    : "Speech could not be transcribed. Check the Windows recognizer language and microphone access for desktop apps. Listening stops after 20 seconds.") + "\n[" + diagnostic + "]"
             }
         }
     }
@@ -56,14 +60,41 @@ enum WindowsVoiceFlow {
             try Task.checkCancellation()
         })
     }
-    static func recognize() throws -> String? {
-        try WindowsRiggingFlow.work(text: "マイクから聞き取っています（最大20秒）。認識後に内容を確認・編集できます。", operation: {
-            var buffer = [CChar](repeating: 0, count: 131072)
-            let status = buffer.withUnsafeMutableBufferPointer {
-                castor_system_recognize($0.baseAddress, $0.count, { _ in Task<Never, Never>.isCancelled ? 1 : 0 }, nil)
-            }
-            if status < 0 { throw VoiceError.recognitionUnavailable }
+    static func recognitionStatus(language: SettingsDisplayLanguage) -> String {
+        var buffer = [CChar](repeating: 0, count: 131072)
+        let count = buffer.withUnsafeMutableBufferPointer { castor_system_recognizers($0.baseAddress, $0.count) }
+        let names = count > 0 ? String(cString: buffer).split(separator: "\n").map { $0.split(separator: "\t").first.map(String.init) ?? "" }.joined(separator: "\n") : ""
+        let message = language == .japanese
+            ? "認識エンジン（Windowsの設定言語を使用）:\n" + (names.isEmpty ? "未検出" : names) + "\n\nマイク許可はここでは判定できません。Windows設定のプライバシーとセキュリティ → マイク → デスクトップアプリのアクセスを確認してください。"
+            : "Recognition engines (Windows language settings):\n" + (names.isEmpty ? "None detected" : names) + "\n\nMicrophone permission cannot be determined here. Check Windows Settings → Privacy & security → Microphone → Desktop app access."
+        return message + "\n\n" + (UserDefaults.standard.string(forKey: "Castor.SpeechInput.LastDiagnostic") ?? "")
+    }
+    static func recognize(language: SettingsDisplayLanguage) throws -> String? {
+        try WindowsRiggingFlow.work(text: language == .japanese
+            ? "マイクから聞き取っています（最大20秒）。認識後に内容を確認・編集できます。"
+            : "Listening (up to 20 seconds). You can review and edit the transcript.", operation: {
             try Task.checkCancellation()
+            guard castor_microphone_suspend(3000) == 1 else {
+                let code = "SAPI1 stage=microphone_release end=timeout"
+                UserDefaults.standard.set(code, forKey: "Castor.SpeechInput.LastDiagnostic")
+                throw VoiceError.recognitionFailed(code, language)
+            }
+            try Task.checkCancellation()
+            var buffer = [CChar](repeating: 0, count: 131072)
+            var diagnostic = [CChar](repeating: 0, count: 1024)
+            let status = buffer.withUnsafeMutableBufferPointer { output in
+                diagnostic.withUnsafeMutableBufferPointer { detail in
+                    castor_system_recognize_diagnostic(output.baseAddress, output.count, detail.baseAddress, detail.count,
+                        { _ in Task<Never, Never>.isCancelled ? 1 : 0 }, nil)
+                }
+            }
+            let code = String(cString: diagnostic)
+            UserDefaults.standard.set(code, forKey: "Castor.SpeechInput.LastDiagnostic")
+            try Task.checkCancellation()
+            if status == 0 { throw CancellationError() }
+            guard status > 0, !String(cString: buffer).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw VoiceError.recognitionFailed(code, language)
+            }
             return String(cString: buffer)
         })
     }

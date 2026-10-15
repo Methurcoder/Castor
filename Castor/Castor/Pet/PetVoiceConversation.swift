@@ -35,6 +35,7 @@ final class PetVoiceConversation {
     private(set) var transcript = ""
     private(set) var responseText = ""
     private(set) var errorMessage: String?
+    private(set) var errorIsAppMessage = false
     private(set) var generationStatus = ""
     private(set) var activeBrain: CastorBrain = .onDevice
     private(set) var pendingApproval: CastorAgentApprovalRequest?
@@ -257,7 +258,7 @@ final class PetVoiceConversation {
             }
 
             if let inputError = speechInput.errorMessage {
-                fail(inputError)
+                fail(inputError, isAppMessage: true)
                 return
             }
 
@@ -273,14 +274,14 @@ final class PetVoiceConversation {
             }
 
             if let inputError = speechInput.errorMessage {
-                fail(inputError)
+                fail(inputError, isAppMessage: true)
             } else {
                 Self.logger.info(
                     "Speech input finalized in \(Date().timeIntervalSince(startedAt), format: .fixed(precision: 2))s; transcriptChars=\(self.speechInput.transcript.count)"
                 )
                 await submitPrompt(
                     speechInput.transcript,
-                    emptyInputMessage: "I couldn't hear that. Click to try again."
+                    emptyInputMessage: "I couldn't hear that. Click to try again.\n[\(speechInput.diagnostics.code)]"
                 )
             }
         }
@@ -307,7 +308,7 @@ final class PetVoiceConversation {
 
             await submitPrompt(
                 recognizedText,
-                emptyInputMessage: "I couldn't hear that. Click to try again."
+                emptyInputMessage: "I couldn't hear that. Click to try again.\n[\(speechInput.diagnostics.code)]"
             )
         }
     }
@@ -315,7 +316,7 @@ final class PetVoiceConversation {
     private func submitPrompt(_ text: String, emptyInputMessage: String) async {
         let prompt = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty else {
-            fail(emptyInputMessage)
+            fail(emptyInputMessage, isAppMessage: true)
             return
         }
 
@@ -652,7 +653,8 @@ final class PetVoiceConversation {
         return "\(status)\n\(onDeviceOperationNotice)"
     }
 
-    private func fail(_ message: String) {
+    private func fail(_ message: String, isAppMessage: Bool = false) {
+        errorIsAppMessage = isAppMessage
         speechInput.cancel()
         speechOutput.stop()
         errorMessage = message
@@ -663,6 +665,8 @@ final class PetVoiceConversation {
     }
 
     private var preferredRecognitionLocale: Locale {
+        let selected = UserDefaults.standard.string(forKey: "Castor.Input.SpeechLanguage") ?? "auto"
+        if ["ja-JP", "en-US"].contains(selected) { return Locale(identifier: selected) }
         let preferredLanguage = Locale.preferredLanguages.first ?? Locale.current.identifier
         return Locale(identifier: preferredLanguage)
     }

@@ -557,7 +557,10 @@ struct PetFloatingView: View {
     /// Replies, recognized speech and provider errors are content, even when they match a UI label.
     private var localizedVoiceCaption: String {
         let caption = voice.caption
-        if voice.phase == .speaking || voice.phase == .failed || caption.hasPrefix("“") { return caption }
+        if voice.phase == .failed {
+            return voice.errorIsAppMessage ? SpeechInputMessages.localized(caption, language: displayLanguage) : caption
+        }
+        if voice.phase == .speaking || caption.hasPrefix("“") { return caption }
         return L(caption)
     }
 

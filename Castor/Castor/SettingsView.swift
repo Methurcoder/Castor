@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Speech
 import CastorCore
 
 /// macOS 標準の Settings シーンに表示する設定画面。
@@ -616,6 +617,9 @@ private struct InputSettingsPane: View {
     let language: SettingsDisplayLanguage
     let trilobite: TrilobiteEngine
     @Bindable var audioInputSettings: AudioInputSettings
+    @AppStorage("Castor.Input.SpeechLanguage") private var speechLanguage = "auto"
+    @AppStorage("Castor.SpeechInput.LastDiagnostic") private var lastSpeechDiagnostic = ""
+    @State private var speechPermission = SFSpeechRecognizer.authorizationStatus()
 
     private func S(_ key: String, _ arguments: [String: String] = [:]) -> String {
         CastorSettingsStrings.text(key, language: language, arguments: arguments)
@@ -673,9 +677,34 @@ private struct InputSettingsPane: View {
             } footer: {
                 Text(S("settings.input.microphone_help", ["microphonePermission.label": L(trilobite.snapshot.microphonePermission.label)]))
             }
+            Section(language == .japanese ? "音声認識" : "Speech recognition") {
+                LabeledContent(language == .japanese ? "許可" : "Permission") {
+                    Text(speechPermission == .authorized ? (language == .japanese ? "許可済み" : "Allowed")
+                        : speechPermission == .notDetermined ? (language == .japanese ? "未確認（会話開始時に確認します）" : "Not requested (asked when listening starts)")
+                        : (language == .japanese ? "拒否・制限されています" : "Denied or restricted"))
+                }
+                Picker(language == .japanese ? "認識する言語" : "Recognition language", selection: $speechLanguage) {
+                    Text(language == .japanese ? "システムの優先言語" : "System preferred language").tag("auto")
+                    Text("日本語").tag("ja-JP")
+                    Text("English").tag("en-US")
+                }
+                Button(language == .japanese ? "音声認識の許可設定を開く" : "Open speech recognition privacy settings") {
+                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_SpeechRecognition") { NSWorkspace.shared.open(url) }
+                }
+                if !lastSpeechDiagnostic.isEmpty {
+                    Text(lastSpeechDiagnostic).font(.caption.monospaced()).textSelection(.enabled)
+                    Text(language == .japanese ? "診断コードに録音や認識した文章は含みません。" : "Diagnostics contain no recording or transcript.").font(.caption).foregroundStyle(.secondary)
+                }
+            }
         }
         .formStyle(.grouped)
-        .frame(height: 380)
+        .frame(minHeight: 460)
+        .task {
+            while !Task.isCancelled {
+                speechPermission = SFSpeechRecognizer.authorizationStatus()
+                do { try await Task.sleep(for: .seconds(2)) } catch { return }
+            }
+        }
     }
 }
 
@@ -702,15 +731,19 @@ private struct VoiceSettingsPane: View {
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Label(S("settings.voice.qwen_offer"), systemImage: "waveform")
+                    Label(neuralSpeechSettings.isQwenReady
+                        ? (language == .japanese ? "Qwen 3 TTSで話します（helper接続中）" : "Qwen 3 TTS is ready (helper connected)")
+                        : S("settings.voice.qwen_offer"), systemImage: neuralSpeechSettings.isQwenReady ? "checkmark.circle.fill" : "waveform")
                         .font(.headline)
-                    Text(S("settings.voice.qwen_load_help"))
-                        .font(.caption).foregroundStyle(.secondary)
-                    Button(S("settings.voice.qwen_load")) {
-                        neuralSpeechSettings.prepareQwen()
+                    if !neuralSpeechSettings.isQwenReady {
+                        Text(S("settings.voice.qwen_load_help"))
+                            .font(.caption).foregroundStyle(.secondary)
+                        Button(S("settings.voice.qwen_load")) {
+                            neuralSpeechSettings.prepareQwen()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(neuralSpeechSettings.isPreparingQwen || speechLauncher.isLaunching)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(neuralSpeechSettings.isPreparingQwen || speechLauncher.isLaunching)
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -718,6 +751,7 @@ private struct VoiceSettingsPane: View {
 
                 if speechLauncher.canStop {
                     Button(language == .japanese ? "Qwen音声を停止" : "Stop Qwen speech") {
+                        neuralSpeechSettings.resetQwenReadiness(stopping: true)
                         speechLauncher.stop()
                     }
                     .disabled(neuralSpeechSettings.isPreparingQwen)
@@ -773,6 +807,12 @@ private struct VoiceSettingsPane: View {
         }
         .formStyle(.grouped)
         .frame(minHeight: 390)
+        .task {
+            while !Task.isCancelled {
+                await neuralSpeechSettings.refreshQwenReadiness()
+                do { try await Task.sleep(for: .seconds(2)) } catch { return }
+            }
+        }
     }
 }
 

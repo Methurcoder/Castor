@@ -27,6 +27,23 @@ class FakeBackend:
             writer.setnchannels(1); writer.setsampwidth(2); writer.setframerate(24000); writer.writeframes(b'\0\0'*240)
         return data.getvalue()
 
+class GUIReadinessTests(unittest.TestCase):
+    def test_ready_banner_tracks_actual_backend_without_loading(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        backend = SimpleNamespace(alias=None, loading=False, preload=Mock())
+        self.assertFalse(TTS.model_is_ready(backend))
+        backend.loading = True
+        self.assertFalse(TTS.model_is_ready(backend))
+        backend.alias = TTS.DEFAULT_MODEL
+        self.assertFalse(TTS.model_is_ready(backend))
+        backend.loading = False
+        self.assertTrue(TTS.model_is_ready(backend))
+        backend.alias = None
+        self.assertFalse(TTS.model_is_ready(backend))
+        backend.preload.assert_not_called()
+
+
 class NeuralServerTests(unittest.TestCase):
     def test_frozen_entrypoint_handles_multiprocessing_before_server_or_gui(self):
         class WorkerDiverted(Exception): pass

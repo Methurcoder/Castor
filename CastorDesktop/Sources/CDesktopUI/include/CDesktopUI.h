@@ -45,6 +45,7 @@ int castor_native_windows_x64(void);
 int castor_pet_shortcut(const char *executable, const char *root, int remove);
 void castor_update_work_text(const char *text);
 void castor_microphone_enable(int enabled);
+int castor_microphone_suspend(int timeout_ms);
 int castor_microphone_level(float *level);
 float castor_wave_level(void);
 int castor_play_pcm(const int16_t *samples, size_t count, int channels, int sampleRate, int (*cancelled)(void *), void *context);
@@ -52,6 +53,7 @@ int castor_system_voices(char *output, size_t capacity);
 int castor_system_recognizers(char *output, size_t capacity);
 int castor_system_speak(const char *text, const char *tokenId, int (*cancelled)(void *), void *context);
 int castor_system_recognize(char *output, size_t capacity, int (*cancelled)(void *), void *context);
+int castor_system_recognize_diagnostic(char *output, size_t capacity, char *diagnostic, size_t diagnostic_capacity, int (*cancelled)(void *), void *context);
 #ifdef __cplusplus
 }
 #endif

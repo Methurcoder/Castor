@@ -313,6 +313,11 @@ class SpeechHandler(BaseHTTPRequestHandler):
         pass  # No conversation, image, local path or recording logs.
 
 
+def model_is_ready(backend):
+    """Read existing state only: no model acquisition, loading or audio work."""
+    return bool(backend.alias) and not backend.loading
+
+
 def launch_gui(start_on_open=False):
     import locale
     import tkinter as tk
@@ -363,11 +368,23 @@ def launch_gui(start_on_open=False):
             server.shutdown(); server.server_close()
         root.destroy()
     tk.Button(root, text=label('音声helperを起動', 'Start speech helper'), command=start, width=38).pack(pady=4)
-    tk.Label(root, text=label('音声はQwen 3 TTSでよりリアルになります。ロードしますか？',
-        'Qwen 3 TTS can make speech more natural. Load it?'), wraplength=520).pack(pady=(10, 4))
-    tk.Label(root, text=label('「ロード」を押すまでモデルを取得・読込しません。準備できるまでは標準音声を使えます。',
-        'The model downloads / loads only when you press Load. System speech remains available.'), wraplength=520).pack()
-    tk.Button(root, text=label('ロード', 'Load'), command=prepare, width=38).pack(pady=4)
+    offer = tk.StringVar()
+    offer_label = tk.Label(root, textvariable=offer, wraplength=520)
+    offer_label.pack(pady=(10, 4))
+    load_help = tk.Label(root, text=label('「ロード」を押すまでモデルを取得・読込しません。準備できるまでは標準音声を使えます。',
+        'The model downloads / loads only when you press Load. System speech remains available.'), wraplength=520)
+    load_help.pack()
+    load_button = tk.Button(root, text=label('ロード', 'Load'), command=prepare, width=38)
+    load_button.pack(pady=4)
+    def refresh_offer():
+        ready = server is not None and model_is_ready(server.backend)
+        offer.set(label('✓ Qwen 3 TTSで話します（helper接続中）', '✓ Qwen 3 TTS is ready (helper connected)') if ready else label(
+            '音声はQwen 3 TTSでよりリアルになります。ロードしますか？', 'Qwen 3 TTS can make speech more natural. Load it?'))
+        load_button.configure(state='disabled' if ready or preparing else 'normal')
+        load_help.configure(text='' if ready else label('「ロード」を押すまでモデルを取得・読込しません。準備できるまでは標準音声を使えます。',
+            'The model downloads / loads only when you press Load. System speech remains available.'))
+        root.after(500, refresh_offer)
+    root.after(0, refresh_offer)
     tk.Button(root, text=label('停止して閉じる', 'Stop and close'), command=close, width=38).pack(pady=4)
     root.protocol('WM_DELETE_WINDOW', close)
     if start_on_open: root.after(0, start)

@@ -60,7 +60,7 @@ let package = Package(
             ]
         ),
 
-        .executableTarget(name: "CastorSetup", dependencies: ["PetRuntime", "CDesktopUI"], resources: [.copy("SetupUI")],
+        .executableTarget(name: "CastorSetup", dependencies: ["PetRuntime", "CDesktopUI"], exclude: ["SetupUI"],
             linkerSettings: [.linkedLibrary("User32", .when(platforms: [.windows])),
                 .linkedLibrary("Gdi32", .when(platforms: [.windows])),
                 .linkedLibrary("Comdlg32", .when(platforms: [.windows])),

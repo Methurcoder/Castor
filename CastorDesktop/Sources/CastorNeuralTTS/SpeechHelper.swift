@@ -8,8 +8,10 @@ import SwiftUI
     static let shared = SpeechHelperModel()
     @Published var running = false
     @Published var preparing = false
+    @Published var modelReady = false
     @Published var status = ""
     private var process: Process?
+    private var stopping = false
     private var preparation: Task<Void, Never>?
     private var generation = 0
     private var parentWatchdog: Timer?
@@ -45,6 +47,7 @@ import SwiftUI
 
     func start() async {
         guard process == nil else { return }
+        stopping = false
         guard let runtime = Bundle.main.url(forResource: "CastorSpeechRuntime", withExtension: nil),
               FileManager.default.isExecutableFile(atPath: runtime.path) else {
             status = text("音声ランタイムがありません。導入GUIで修復してください。", "Speech runtime is missing. Repair using Setup.")
@@ -59,7 +62,7 @@ import SwiftUI
         task.terminationHandler = { [weak self, weak task] _ in
             Task { @MainActor in
                 guard let self, self.process === task else { return }
-                self.process = nil; self.running = false
+                self.process = nil; self.running = false; self.modelReady = false
                 self.status = self.text("停止しました。起動できない場合はポート8000の使用と導入状態を確認してください。", "Stopped. If startup failed, check port 8000 and repair using Setup.")
             }
         }
@@ -85,8 +88,16 @@ import SwiftUI
         }
     }
 
+    func refreshReadiness() async {
+        let current = generation
+        let ready = (try? await NeuralSpeechTransport().isModelReady(model: "mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit")) == true
+        guard !Task.isCancelled, current == generation else { return }
+        modelReady = running && !stopping && ready
+    }
+
     func prepare() {
         guard !preparing else { return }
+        modelReady = false
         preparing = true; generation += 1
         let current = generation
         preparation = Task {
@@ -97,6 +108,7 @@ import SwiftUI
             do {
                 try await NeuralSpeechTransport().preload(model: "mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit")
                 guard current == generation else { return }
+                await refreshReadiness()
                 status = text("Qwenモデルの準備ができました。", "Qwen model is ready.")
             } catch {
                 guard current == generation else { return }
@@ -108,6 +120,8 @@ import SwiftUI
     }
     func cancel() { preparation?.cancel() }
     func stop() {
+        stopping = true
+        modelReady = false
         generation += 1; preparation?.cancel(); preparation = nil; preparing = false
         if let process, process.isRunning {
             status = text("停止しています…", "Stopping…"); process.terminate()
@@ -140,16 +154,27 @@ import SwiftUI
                         .disabled(model.running)
                     Button(model.text("停止", "Stop")) { model.stop() }.disabled(!model.running)
                 }
+                if model.modelReady {
+                    Label(model.text("Qwen 3 TTSで話します（helper接続中）", "Qwen 3 TTS is ready (helper connected)"), systemImage: "checkmark.circle.fill")
+                        .font(.headline)
+                } else {
                 Text(model.text("音声はQwen 3 TTSでよりリアルになります。ロードしますか？", "Qwen 3 TTS can make speech more natural. Load it?"))
                     .font(.headline)
                 Button(model.text("ロード", "Load")) { model.prepare() }
                     .disabled(model.preparing)
                 Text(model.text("「ロード」を押すまでモデルを取得・読込しません。初回は時間と空き容量が必要です。準備できるまでは標準音声を使えます。", "The model downloads / loads only when you press Load. The first download needs time and free space. System speech remains available."))
                     .font(.caption).foregroundStyle(.secondary)
+                }
                 if model.preparing { Button(model.text("準備をキャンセル", "Cancel preparation")) { model.cancel() } }
             }
             .padding(28).frame(width: 540, alignment: .leading)
-            .task { if model.attachToParent() || CommandLine.arguments.contains("--start") { await model.start() } }
+            .task {
+                if model.attachToParent() || CommandLine.arguments.contains("--start") { await model.start() }
+                while !Task.isCancelled {
+                    await model.refreshReadiness()
+                    do { try await Task.sleep(for: .seconds(2)) } catch { return }
+                }
+            }
         }.windowResizability(.contentSize)
     }
 }

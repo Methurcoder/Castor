@@ -334,6 +334,9 @@ final class NeuralSpeechSettings {
     var voiceEngine: NeuralVoiceEngine {
         didSet { NeuralVoiceEngineStore.selected = voiceEngine }
     }
+    private(set) var isQwenReady = false
+    @ObservationIgnored private var readinessGeneration = 0
+    @ObservationIgnored private var isStoppingQwen = false
     private(set) var isPreparingQwen = false
     private(set) var preparationError: String?
     @ObservationIgnored private var preparationTask: Task<Void, Never>?
@@ -341,9 +344,27 @@ final class NeuralSpeechSettings {
     init() { voiceEngine = NeuralVoiceEngineStore.selected }
     func refresh() { voiceEngine = NeuralVoiceEngineStore.selected }
 
+    func resetQwenReadiness(stopping: Bool = false) {
+        isStoppingQwen = stopping
+        readinessGeneration += 1
+        isQwenReady = false
+    }
+
+    /// GET-only observation. It cannot start the helper or acquire model weights.
+    func refreshQwenReadiness() async {
+        let generation = readinessGeneration
+        let ready = (try? await NeuralSpeechTransport().isModelReady(model: NeuralSpeechClient.qwenEnglishModel)) == true
+        guard generation == readinessGeneration, !Task.isCancelled else { return }
+        if isStoppingQwen {
+            if !ready { isStoppingQwen = false }
+            isQwenReady = false
+        } else { isQwenReady = ready }
+    }
+
     /// Model acquisition is explicitly requested in Voice, never by opening Settings.
     func prepareQwen() {
         guard !isPreparingQwen else { return }
+        resetQwenReadiness()
         isPreparingQwen = true
         preparationError = nil
         preparationTask = Task {
@@ -359,6 +380,8 @@ final class NeuralSpeechSettings {
                 }
                 try Task.checkCancellation()
                 try await transport.preload(model: NeuralSpeechClient.qwenEnglishModel)
+                await refreshQwenReadiness()
+                try Task.checkCancellation()
                 voiceEngine = .qwen
             } catch is CancellationError {
                 preparationError = nil

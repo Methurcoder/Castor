@@ -13,11 +13,15 @@ final class PetGIFShareWindow: NSObject, NSWindowDelegate {
         // Replacing the previous hosting view cancels its in-progress export.
         window?.close()
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 490, height: 650),
-                              styleMask: [.titled, .closable], backing: .buffered, defer: false)
+                              styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         window.title = CastorAppStrings.label("GIFを作ってXで共有", language: SettingsDisplayLanguage(rawValue: UserDefaults.standard.string(forKey: "Castor.SettingsDisplayLanguage") ?? "") ?? .systemDefault)
         window.isReleasedWhenClosed = false
         window.delegate = self
-        window.contentViewController = NSHostingController(rootView: PetGIFShareView(asset: asset))
+        let hosting = NSHostingController(rootView: PetGIFShareView(asset: asset))
+        hosting.sizingOptions = []
+        window.contentViewController = hosting
+        window.setContentSize(NSSize(width: 490, height: 650))
+        window.contentMinSize = NSSize(width: 490, height: 600)
         self.window = window
         window.center()
         window.makeKeyAndOrderFront(nil)
@@ -121,7 +125,7 @@ private struct PetGIFShareView: View {
             }
             .padding(22)
         }
-        .frame(width: 490)
+        .frame(minWidth: 490, minHeight: 600, maxHeight: .infinity)
         .onChange(of: motion) { invalidatePreview() }
         .onChange(of: duration) { invalidatePreview() }
         .onChange(of: background) { invalidatePreview() }

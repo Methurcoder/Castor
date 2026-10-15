@@ -43,6 +43,7 @@ enum WindowsConversationFlow {
                 S("desktop.settings.button_dodge", ["state": state(edited.buttonDodgeEnabled)]),
                 S("desktop.settings.microphone", ["state": state(edited.microphoneEnabled)]),
                 (language == .japanese ? "Neural TTS（失敗時は標準音声）: ":"Neural TTS (system voice fallback): ")+state(edited.neuralTTSEnabled),
+                language == .japanese ? "音声認識の状態とマイク設定" : "Speech recognition status and microphone privacy",
                 S("desktop.settings.save_close"), S("desktop.settings.discard_close")
             ]) else { return nil }
             switch item {
@@ -120,7 +121,14 @@ enum WindowsConversationFlow {
                 case 9:try WindowsRiggingFlow.startSpeechHelper()
                 default:break
                 }
-            case 22: return edited
+            case 22:
+                let ja = language == .japanese
+                if let action = try WindowsRiggingFlow.option(title: ja ? "音声認識" : "Speech recognition", items: ja ? ["認識エンジンと診断を表示", "Windowsのマイク設定を開く"] : ["Show recognizers and diagnostics", "Open Windows microphone privacy settings"]) {
+                    if action == 0 {
+                        _ = try WindowsRiggingFlow.text(title: ja ? "音声認識の状態" : "Recognition status", value: WindowsVoiceFlow.recognitionStatus(language: language), readOnly: true)
+                    } else { _ = "ms-settings:privacy-microphone".withCString { castor_open_url($0) } }
+                }
+            case 23: return edited
             default: return nil
             }
         }

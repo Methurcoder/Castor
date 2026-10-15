@@ -9,16 +9,24 @@
 #include <cmath>
 #include <cstring>
 #include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <chrono>
 
 /* Local RMS only. Samples are never stored or sent to a model/service. */
 struct AudioWorker {
     std::atomic<bool> enabled{false};std::atomic<float> level{0};std::atomic<int> status{0};
+    std::mutex control;std::condition_variable released;bool active=false;
     AudioWorker() {std::thread([this]{run();}).detach();}
     void run() {
         HRESULT initialized=CoInitializeEx(nullptr,COINIT_MULTITHREADED);
         if (FAILED(initialized)) {status=-2;return;}
         for (;;) {
-            if (!enabled.load()) {level=0;status=0;Sleep(50);continue;}
+            {
+                std::unique_lock<std::mutex> lock(control);
+                if (!enabled.load()) {level=0;status=0;lock.unlock();Sleep(50);continue;}
+                active=true;
+            }
             IMMDeviceEnumerator *enumerator=nullptr;IMMDevice *device=nullptr;
             IAudioClient *client=nullptr;IAudioCaptureClient *capture=nullptr;WAVEFORMATEX *format=nullptr;
             HRESULT error=CoCreateInstance(__uuidof(MMDeviceEnumerator),nullptr,CLSCTX_INPROC_SERVER,__uuidof(IMMDeviceEnumerator),(void**)&enumerator);
@@ -66,6 +74,8 @@ struct AudioWorker {
             }
             if (capture) capture->Release();if (format) CoTaskMemFree(format);if (client) client->Release();
             if (device) device->Release();if (enumerator) enumerator->Release();level=0;
+            {std::lock_guard<std::mutex> lock(control);active=false;}
+            released.notify_all();
             if (FAILED(error)) {
                 status=error==E_ACCESSDENIED ? -1:-2;
                 // An explicit off/on retries after the user changes privacy/device settings.
@@ -77,7 +87,15 @@ struct AudioWorker {
 static AudioWorker *audioWorker=nullptr;
 void castor_microphone_enable(int enabled) {
     if (!audioWorker) audioWorker=new AudioWorker();
+    std::lock_guard<std::mutex> lock(audioWorker->control);
     audioWorker->enabled=enabled!=0;
+}
+int castor_microphone_suspend(int timeout_ms) {
+    if (!audioWorker) return 1;
+    std::unique_lock<std::mutex> lock(audioWorker->control);
+    audioWorker->enabled=false;
+    const int bounded=timeout_ms<0?0:(timeout_ms>5000?5000:timeout_ms);
+    return audioWorker->released.wait_for(lock,std::chrono::milliseconds(bounded),[] {return !audioWorker->active;})?1:0;
 }
 int castor_microphone_level(float *level) {
     if (!audioWorker) {*level=0;return 0;}
@@ -85,5 +103,6 @@ int castor_microphone_level(float *level) {
 }
 #else
 void castor_microphone_enable(int enabled) {(void)enabled;}
+int castor_microphone_suspend(int timeout_ms) {(void)timeout_ms;return 1;}
 int castor_microphone_level(float *level) {*level=0;return 0;}
 #endif

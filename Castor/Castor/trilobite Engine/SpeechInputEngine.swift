@@ -15,6 +15,9 @@ final class SpeechInputEngine {
     private(set) var speechAuthorization: SpeechInputAuthorization = .notDetermined
     private(set) var recognitionBackend: SpeechRecognitionBackend = .dictationTranscriber
     private(set) var activeMicrophoneName = ""
+    private(set) var diagnostics = SpeechInputDiagnostics()
+    @ObservationIgnored private var finalizationTask: Task<Void, Never>?
+    @ObservationIgnored private var captureStartedAt: TimeInterval?
 
     @ObservationIgnored private var audioEngine: AVAudioEngine?
     @ObservationIgnored private var speechRecognizer: SFSpeechRecognizer?
@@ -55,6 +58,8 @@ final class SpeechInputEngine {
         let sessionID = UUID()
         activeSessionID = sessionID
         activeLocale = locale
+        diagnostics = SpeechInputDiagnostics()
+        diagnostics.locale = locale.identifier
         finalizationRequested = false
         unexpectedRestartCount = 0
 
@@ -67,6 +72,7 @@ final class SpeechInputEngine {
         }
 
         let microphoneGranted = await requestMicrophoneAuthorization()
+        diagnostics.microphone = microphoneGranted ? "granted" : "denied"
         guard activeSessionID == sessionID else {
             return
         }
@@ -76,6 +82,7 @@ final class SpeechInputEngine {
         }
 
         let speechGranted = await requestSpeechAuthorization()
+        diagnostics.speechPermission = speechGranted ? "granted" : "denied"
         guard activeSessionID == sessionID else {
             return
         }
@@ -87,15 +94,13 @@ final class SpeechInputEngine {
         activeMicrophoneName = AudioInputDeviceStore.availableDevices()
             .first(where: { $0.id == AudioInputDeviceStore.selectedDeviceUID })?.name
             ?? "System default"
-        announceCaptureStarted()
-        try? await Task.sleep(for: .milliseconds(250))
+        await announceCaptureStarted()
         guard activeSessionID == sessionID, !Task.isCancelled else {
             return
         }
 
-        if await beginModernRecognition(locale: locale, sessionID: sessionID) {
-            recognitionBackend = .dictationTranscriber
-        } else {
+        recognitionBackend = .dictationTranscriber
+        if !(await beginModernRecognition(locale: locale, sessionID: sessionID)) {
             try? await Task.sleep(for: .milliseconds(220))
             guard activeSessionID == sessionID, !Task.isCancelled else {
                 return
@@ -129,6 +134,7 @@ final class SpeechInputEngine {
             return
         }
 
+        diagnostics.end = "cancelled"
         finishSession(sessionID: sessionID, cancelRecognition: true)
         errorMessage = nil
     }
@@ -209,6 +215,8 @@ final class SpeechInputEngine {
     }
 
     private func beginLegacyRecognition(locale: Locale, sessionID: UUID) {
+        guard activeSessionID == sessionID, !Task.isCancelled else { return }
+        diagnostics.backend = "legacy"
         guard let recognizer = SFSpeechRecognizer(locale: locale) else {
             fail("Speech recognition is unavailable for \(locale.identifier).", sessionID: sessionID)
             return
@@ -247,12 +255,14 @@ final class SpeechInputEngine {
             let text = result?.bestTranscription.formattedString
             let isFinal = result?.isFinal ?? false
             let errorDescription = error?.localizedDescription
+            let errorCode = (error as NSError?)?.code
 
             Task { @MainActor [weak self] in
                 self?.handleRecognitionResult(
                     text: text,
                     isFinal: isFinal,
                     errorDescription: errorDescription,
+                    errorCode: errorCode,
                     sessionID: sessionID,
                     recognitionID: recognitionID
                 )
@@ -265,11 +275,13 @@ final class SpeechInputEngine {
             format: format
         ) { [weak self, weak request] buffer, _ in
             request?.append(buffer)
+            let delivered = request != nil
             let level = Self.audioLevel(from: buffer)
 
             Task { @MainActor [weak self] in
                 self?.handleAudioLevel(
                     level,
+                    delivered: delivered,
                     sessionID: sessionID,
                     recognitionID: recognitionID
                 )
@@ -281,15 +293,21 @@ final class SpeechInputEngine {
             engine.prepare()
             try engine.start()
             state = .listening
+            captureStartedAt = ProcessInfo.processInfo.systemUptime
         } catch {
             fail("Could not start microphone input: \(error.localizedDescription)", sessionID: sessionID)
         }
     }
 
     private func beginModernRecognition(locale: Locale, sessionID: UUID) async -> Bool {
-        guard let supportedLocale = await DictationTranscriber.supportedLocale(equivalentTo: locale) else {
+        diagnostics.backend = "dictation"
+        let supported = await DictationTranscriber.supportedLocale(equivalentTo: locale)
+        guard activeSessionID == sessionID, !Task.isCancelled else { return false }
+        guard let supportedLocale = supported else {
+            diagnostics.asset = "unsupported_locale"
             return false
         }
+        diagnostics.locale = supportedLocale.identifier
 
         let transcriber = DictationTranscriber(
             locale: supportedLocale,
@@ -302,12 +320,21 @@ final class SpeechInputEngine {
         do {
             let modules: [any SpeechModule] = [transcriber]
             let status = await AssetInventory.status(forModules: modules)
+            guard activeSessionID == sessionID, !Task.isCancelled else { return false }
+            diagnostics.asset = String(describing: status)
+            guard status != .unsupported else { return false }
             if status != .installed,
                let installationRequest = try await AssetInventory.assetInstallationRequest(
                    supporting: modules
                ) {
+                diagnostics.asset = "downloading"
                 try await installationRequest.downloadAndInstall()
             }
+            guard activeSessionID == sessionID, !Task.isCancelled else { return false }
+            let installed = await AssetInventory.status(forModules: modules)
+            guard activeSessionID == sessionID, !Task.isCancelled else { return false }
+            diagnostics.asset = String(describing: installed)
+            guard installed == .installed else { return false }
 
             let engine = AVAudioEngine()
             try AudioInputDeviceStore.applySelectedDevice(to: engine)
@@ -332,9 +359,10 @@ final class SpeechInputEngine {
                 )
             )
             try await analyzer.prepareToAnalyze(in: targetFormat)
+            guard activeSessionID == sessionID, !Task.isCancelled else { return false }
 
             let streamPair = AsyncStream<AnalyzerInput>.makeStream(
-                bufferingPolicy: .bufferingNewest(12)
+                bufferingPolicy: .bufferingNewest(128)
             )
             analyzerInputContinuation = streamPair.continuation
             speechAnalyzer = analyzer
@@ -344,6 +372,11 @@ final class SpeechInputEngine {
                 ? AVAudioConverter(from: naturalFormat, to: targetFormat)
                 : nil
             audioConverter = converter
+            guard naturalFormat == targetFormat || converter != nil else {
+                diagnostics.error = "converter_unavailable"
+                cleanupModernRecognition()
+                return false
+            }
 
             let recognitionID = UUID()
             activeRecognitionID = recognitionID
@@ -396,8 +429,11 @@ final class SpeechInputEngine {
             engine.prepare()
             try engine.start()
             state = .listening
+            captureStartedAt = ProcessInfo.processInfo.systemUptime
             return true
         } catch {
+            guard activeSessionID == sessionID else { return false }
+            diagnostics.error = "modern_\((error as NSError).code)"
             activeRecognitionID = nil
             cleanupModernRecognition()
             cleanupAudioCapture()
@@ -434,13 +470,24 @@ final class SpeechInputEngine {
                 )
             }
 
+            var delivered = false
+            var dropped = false
             if let analyzerBuffer {
-                continuation.yield(AnalyzerInput(buffer: analyzerBuffer))
+                switch continuation.yield(AnalyzerInput(buffer: analyzerBuffer)) {
+                case .enqueued: delivered = true
+                case .dropped: delivered = true; dropped = true
+                case .terminated: break
+                @unknown default: break
+                }
             }
+            let sent = delivered
+            let lost = dropped
             let level = Self.audioLevel(from: buffer)
             Task { @MainActor [weak self] in
                 self?.handleAudioLevel(
                     level,
+                    delivered: sent,
+                    dropped: lost,
                     sessionID: sessionID,
                     recognitionID: recognitionID
                 )
@@ -459,6 +506,7 @@ final class SpeechInputEngine {
             return
         }
 
+        if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { diagnostics.partials += 1 }
         let previousText = transcript
         transcript = progressiveTranscript.accept(text, isFinal: isFinal)
         if transcript != previousText, !transcript.isEmpty {
@@ -475,6 +523,7 @@ final class SpeechInputEngine {
         guard activeSessionID == sessionID, activeRecognitionID == recognitionID else {
             return
         }
+        diagnostics.error = "modern_\((error as NSError).code)"
         if finalizationRequested {
             finishSession(sessionID: sessionID, cancelRecognition: true)
         } else if transcript.isEmpty {
@@ -506,12 +555,20 @@ final class SpeechInputEngine {
             return
         }
 
-        Task { [weak self, analyzer] in
-            try? await analyzer.finalizeAndFinishThroughEndOfInput()
-            guard let self, activeSessionID == sessionID else {
-                return
+        let results = transcriberResultTask
+        finalizationTask = Task { [weak self, analyzer, results] in
+            do {
+                try await analyzer.finalizeAndFinishThroughEndOfInput()
+                // Finishing analysis publishes results; their consumer may still be queued.
+                // Drain the stream before cleanup cancels that consumer.
+                await results?.value
+                guard let self, activeSessionID == sessionID, !Task.isCancelled else { return }
+                finishSession(sessionID: sessionID, cancelRecognition: false)
+            } catch {
+                guard let self, activeSessionID == sessionID else { return }
+                diagnostics.error = "finalize_\((error as NSError).code)"
+                finishSession(sessionID: sessionID, cancelRecognition: true)
             }
-            finishSession(sessionID: sessionID, cancelRecognition: false)
         }
     }
 
@@ -519,6 +576,7 @@ final class SpeechInputEngine {
         text: String?,
         isFinal: Bool,
         errorDescription: String?,
+        errorCode: Int?,
         sessionID: UUID,
         recognitionID: UUID
     ) {
@@ -526,6 +584,8 @@ final class SpeechInputEngine {
             return
         }
 
+        if let errorCode { diagnostics.error = "legacy_\(errorCode)" }
+        if let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { diagnostics.partials += 1 }
         let bestText = transcriptAccumulator.accept(text)
         if !bestText.isEmpty {
             let previousText = transcript
@@ -556,6 +616,8 @@ final class SpeechInputEngine {
 
     private func handleAudioLevel(
         _ level: Double,
+        delivered: Bool,
+        dropped: Bool = false,
         sessionID: UUID,
         recognitionID: UUID
     ) {
@@ -565,6 +627,10 @@ final class SpeechInputEngine {
             return
         }
 
+        diagnostics.buffers += 1
+        if delivered { diagnostics.delivered += 1 }
+        if dropped { diagnostics.dropped += 1 }
+        diagnostics.peak = max(diagnostics.peak, level)
         smoothedAudioLevel = smoothedAudioLevel * 0.72 + level * 0.28
         audioLevel = smoothedAudioLevel
 
@@ -573,7 +639,9 @@ final class SpeechInputEngine {
             hasTranscript: !transcript.isEmpty,
             at: ProcessInfo.processInfo.systemUptime
         )
-        if shouldFinalize {
+        let reachedLimit = captureStartedAt.map { ProcessInfo.processInfo.systemUptime - $0 >= 30 } ?? false
+        if (shouldFinalize || reachedLimit) && !finalizationRequested {
+            diagnostics.end = reachedLimit ? "capture_limit" : "silence"
             requestFinalization(sessionID: sessionID)
         }
     }
@@ -617,10 +685,11 @@ final class SpeechInputEngine {
     private func scheduleFinalResultTimeout(sessionID: UUID) {
         finalResultTimeout?.cancel()
         finalResultTimeout = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(2200))
+            try? await Task.sleep(for: .seconds(8))
             guard !Task.isCancelled else {
                 return
             }
+            self?.diagnostics.end = "final_timeout"
             self?.finishSession(sessionID: sessionID, cancelRecognition: true)
         }
     }
@@ -630,8 +699,10 @@ final class SpeechInputEngine {
             return
         }
 
+        diagnostics.end = "error"
+        UserDefaults.standard.set(diagnostics.code, forKey: "Castor.SpeechInput.LastDiagnostic")
         cleanup(sessionID: sessionID, cancelRecognition: true)
-        errorMessage = message
+        errorMessage = message + "\n[" + diagnostics.code + "]"
         state = .failed
     }
 
@@ -640,6 +711,10 @@ final class SpeechInputEngine {
             return
         }
 
+        if diagnostics.end != "cancelled" && diagnostics.end != "final_timeout" {
+            diagnostics.end = transcript.isEmpty ? (diagnostics.buffers == 0 ? "no_audio" : "no_result") : "final"
+        }
+        UserDefaults.standard.set(diagnostics.code, forKey: "Castor.SpeechInput.LastDiagnostic")
         cleanup(sessionID: sessionID, cancelRecognition: cancelRecognition)
         errorMessage = nil
         state = .idle
@@ -652,6 +727,9 @@ final class SpeechInputEngine {
 
         finalResultTimeout?.cancel()
         finalResultTimeout = nil
+        finalizationTask?.cancel()
+        finalizationTask = nil
+        captureStartedAt = nil
         cleanupAudioCapture()
         cleanupModernRecognition()
         recognitionRequest?.endAudio()
@@ -710,12 +788,14 @@ final class SpeechInputEngine {
         progressiveTranscript.reset()
     }
 
-    private func announceCaptureStarted() {
+    private func announceCaptureStarted() async {
         guard !captureAnnouncementActive else {
             return
         }
         captureAnnouncementActive = true
-        NotificationCenter.default.post(name: .castorSpeechCaptureWillStart, object: nil)
+        let handoff = SpeechCaptureHandoff()
+        NotificationCenter.default.post(name: .castorSpeechCaptureWillStart, object: handoff)
+        await handoff.waitForRelease()
     }
 
     private func announceCaptureStopped() {

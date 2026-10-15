@@ -46,8 +46,10 @@ final class TrilobiteEngine {
                 forName: .castorSpeechCaptureWillStart,
                 object: nil,
                 queue: .main
-            ) { [weak self] _ in
-                self?.setConversationAudioCaptureActive(true)
+            ) { [weak self] notification in
+                let completion = (notification.object as? SpeechCaptureHandoff)?.reserve()
+                if let self { self.setConversationAudioCaptureActive(true, onReady: completion) }
+                else { completion?() }
             },
             notificationCenter.addObserver(
                 forName: .castorSpeechCaptureDidStop,
@@ -105,15 +107,16 @@ final class TrilobiteEngine {
         configureSession()
     }
 
-    func setConversationAudioCaptureActive(_ isActive: Bool) {
+    func setConversationAudioCaptureActive(_ isActive: Bool, onReady: (@Sendable () -> Void)? = nil) {
         guard conversationAudioCaptureActive != isActive else {
+            if let onReady { sessionQueue.async(execute: onReady) }
             return
         }
         conversationAudioCaptureActive = isActive
         if isActive {
             updateAudioLevel(0)
         }
-        configureSession()
+        configureSession(onReady: onReady)
     }
 
     func refreshAuthorizationState() {
@@ -192,7 +195,7 @@ final class TrilobiteEngine {
         }
     }
 
-    private func configureSession() {
+    private func configureSession(onReady: (@Sendable () -> Void)? = nil) {
         let wantsCamera = snapshot.cameraEnabled && snapshot.cameraPermission == .granted
         let wantsMicrophone = snapshot.microphoneEnabled
             && snapshot.microphonePermission == .granted
@@ -203,6 +206,7 @@ final class TrilobiteEngine {
         let audioQueue = audioQueue
 
         sessionQueue.async { [session] in
+            defer { onReady?() }
             session.beginConfiguration()
             session.sessionPreset = .medium
             removeExistingInputsAndOutputs(from: session)
