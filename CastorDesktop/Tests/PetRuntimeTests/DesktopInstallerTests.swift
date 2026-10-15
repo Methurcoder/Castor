@@ -127,6 +127,18 @@ private actor InstallerGate {
         extract:installerExtract,stamp:{_ in},download:download)
 }
 
+@Test func windowsAppZIPAcceptsTheShippedFoldersAndNothingElse() throws {
+    // The v1.0 layout: creation window, setup wizard, ML models and licenses beside the executables.
+    let shipped=["CastorPet.exe","CastorSetup.exe","Castor.ico","swiftCore.dll","WebView2Loader.dll","onnxruntime.dll",
+        "UI/index.html","UI/app.css","UI/app.js","SetupUI/index.html","SetupUI/setup.css","SetupUI/setup.js",
+        "models/AnimeFaceFeatures.onnx","models/AnimeFaceBoxHead.onnx","models/AnimeFaceLandmarks.onnx","models/AnimeSegmentation.onnx",
+        "licenses/onnxruntime-1.30.0-LICENSE.txt","LICENSE","THIRD_PARTY_NOTICES.md","Start-Castor.cmd","Start-Castor.ps1"]
+    try PackageZIP.validate(installerZIP(shipped),platform:"windows_x86_64")
+    try PackageZIP.validate(installerZIP(["CastorPet.exe","UI/","models/","licenses/"]),platform:"windows_x86_64")
+    for name in ["UI/evil.js","UI/sub/app.js","models/other.onnx","licenses/evil.exe","licenses/a/b.txt","pets/CastorPet.json","Other/app.js","UI/../CastorPet.exe"] {
+        #expect(throws:(any Error).self){try PackageZIP.validate(installerZIP(["CastorPet.exe",name]),platform:"windows_x86_64")}
+    }
+}
 @Test func helperZIPRejectsNestedWindowsAliasesAndKeepsAppRules() throws {
     let helper=installerZIP(["CastorNeuralTTS.exe","_internal/python312.dll","licenses/Qwen/LICENSE"])
     try PackageZIP.validate(helper,platform:"windows_x86_64",component:.neuralTTS)

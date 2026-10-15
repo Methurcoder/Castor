@@ -45,6 +45,7 @@ class DistributionTests(unittest.TestCase):
         (self.windows/'CastorPet.exe').write_bytes(data)
         (self.windows/'swiftCore.dll').write_bytes(b'test-runtime')
         (self.windows/'WebView2Loader.dll').write_bytes(b'loader fixture')
+        (self.windows/'Castor.ico').write_bytes(b'icon fixture')
         self.page = self.windows/release.CREATION_WINDOW
         self.page.mkdir(parents=True)
         for name in release.CREATION_WINDOW_FILES:
@@ -225,11 +226,12 @@ class DistributionTests(unittest.TestCase):
 
     @unittest.skipUnless(sys.platform == 'win32' and os.environ.get('CASTOR_SETUP_EXE'), 'Native Windows setup executable is required')
     def test_gui_setup_native_extraction_handles_spaces_unicode_and_quotes(self):
+        # The ZIP that release packaging really builds, so the installer's own
+        # checks (PackageZIP) and the packaging rules can never drift apart.
+        release.prepare(self.output, 'local-test', {'windows_x86_64': self.windows})
         archive=self.base/"Castor 日本語's package.zip"
+        shutil.copy2(next(self.output.glob('Castor-*-windows_x86_64.zip')), archive)
         destination=self.base/"日本語's app folder"
-        with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as z:
-            z.writestr('CastorPet.exe',b'fixture')
-            z.writestr('swiftCore.dll',b'runtime fixture')
         environment=os.environ.copy()
         for key in list(environment):
             if key.upper().startswith('SWIFT') or key.upper() in {'SDKROOT','INCLUDE','LIB','LIBPATH'}:
@@ -238,8 +240,11 @@ class DistributionTests(unittest.TestCase):
         environment['PATH']=os.pathsep.join([str(system/'System32'),str(system/'System32/WindowsPowerShell/v1.0')])
         result=subprocess.run([os.environ['CASTOR_SETUP_EXE'],'--check-extract',str(archive),str(destination)],capture_output=True,text=True,timeout=30,env=environment)
         self.assertEqual(result.returncode,0,result.stderr)
-        self.assertEqual((destination/'CastorPet.exe').read_bytes(),b'fixture')
-        self.assertEqual((destination/'swiftCore.dll').read_bytes(),b'runtime fixture')
+        self.assertEqual((destination/'CastorPet.exe').read_bytes(),(self.windows/'CastorPet.exe').read_bytes())
+        self.assertEqual((destination/'swiftCore.dll').read_bytes(),b'test-runtime')
+        for name in release.WINDOWS_MODELS:
+            self.assertTrue((destination/'models'/name).is_file())
+        self.assertTrue((destination/release.CREATION_WINDOW/'index.html').is_file())
 
     def test_rejects_wrong_cpu_before_output(self):
         with self.assertRaises(ValueError):

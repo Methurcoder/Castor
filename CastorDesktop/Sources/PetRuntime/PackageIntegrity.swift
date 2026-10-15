@@ -60,6 +60,28 @@ public enum PackageIntegrity {
 /// Reject traversal, links, duplicate names, encrypted/Zip64 entries and
 /// unexpected payloads before invoking the OS extractor.
 public enum PackageZIP {
+    /// The Windows app's folders and exactly what may be in them; the same
+    /// rules as scripts/prepare-castor-release.py, which builds the ZIP.
+    static let windowsAppFolders: [String: Set<String>] = [
+        "UI": ["index.html", "app.css", "app.js"],
+        "SetupUI": ["index.html", "setup.css", "setup.js"],
+        "models": ["AnimeFaceFeatures.onnx", "AnimeFaceBoxHead.onnx", "AnimeFaceLandmarks.onnx", "AnimeSegmentation.onnx"],
+    ]
+    static func windowsAppEntry(_ name: String) -> Bool {
+        let parts = name.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
+        switch parts.count {
+        case 1:
+            return ["CastorPet.exe", "CastorSetup.exe", "Castor.ico", "LICENSE", "THIRD_PARTY_NOTICES.md", "Start-Castor.cmd", "Start-Castor.ps1"].contains(name)
+                || name.lowercased().hasSuffix(".dll")
+        case 2:
+            if parts[1].isEmpty { return windowsAppFolders[parts[0]] != nil || parts[0] == "licenses" }
+            if parts[0] == "licenses" { return parts[1].lowercased().hasSuffix(".txt") }
+            return windowsAppFolders[parts[0]]?.contains(parts[1]) ?? false
+        default:
+            return false
+        }
+    }
+
     public enum ZIPError: LocalizedError {
         case invalid
         public var errorDescription: String? { "配布ZIPの形式または内容が不正です。既存アプリは変更していません。" }
@@ -106,7 +128,7 @@ public enum PackageZIP {
                 if platform.hasPrefix("macos") {allowed=name.hasPrefix("\(component.stem).app/")||["LICENSE","THIRD_PARTY_NOTICES.md"].contains(name)}
                 else {allowed=name=="\(component.stem).exe"||name.hasPrefix("_internal/")||name.hasPrefix("licenses/")||["LICENSE","THIRD_PARTY_NOTICES.md"].contains(name)}
             } else if platform.hasPrefix("macos") { allowed=name.hasPrefix("Castor.app/")||name=="LICENSE"||name=="THIRD_PARTY_NOTICES.md" }
-            else { allowed = !name.contains("/") && (name=="CastorPet.exe"||name=="CastorSetup.exe"||name.lowercased().hasSuffix(".dll")||["LICENSE","THIRD_PARTY_NOTICES.md","Start-Castor.cmd","Start-Castor.ps1"].contains(name)) }
+            else { allowed = windowsAppEntry(name) }
             guard allowed else { throw ZIPError.invalid }
             expanded += UInt64(uncompressed);guard expanded<=4_294_967_296 else { throw ZIPError.invalid }
             cursor += 46+length+extra+comment
