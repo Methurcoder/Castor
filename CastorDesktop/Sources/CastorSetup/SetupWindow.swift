@@ -54,8 +54,9 @@ final class SetupWindow {
 
     private static var uiFolder: URL? {
         guard let folder = Bundle.main.executableURL?.deletingLastPathComponent() else { return nil }
-        return [folder.appendingPathComponent("SetupUI"), folder.appendingPathComponent("CastorDesktop_CastorSetup.resources/SetupUI")]
-            .first { FileManager.default.fileExists(atPath: $0.appendingPathComponent("index.html").path) }
+        // The build scripts copy the page from source beside CastorSetup.exe.
+        let page = folder.appendingPathComponent("SetupUI")
+        return FileManager.default.fileExists(atPath: page.appendingPathComponent("index.html").path) ? page : nil
     }
 
     private static func nativePath(_ url: URL) -> String {
