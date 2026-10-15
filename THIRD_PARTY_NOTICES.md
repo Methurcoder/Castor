@@ -102,13 +102,15 @@ revisions; neither is committed. The letterbox preprocessing in
 On Windows the same anime face, landmark and segmentation networks run as
 ONNX exports made by `Arils/Tools/AnimeFaceModels/export_onnx.py` and
 `Arils/Tools/AnimeSegmentationModel/export_onnx.py` from the weights listed
-above, under the same licenses. The model files are not committed.
+above, under the same licenses. The Windows download bundles them in
+`models/` (`scripts/build-castor-windows-models.py`); they are not committed.
 
 ## ONNX Runtime (Windows model inference)
 
 `CastorDesktop/Sources/COnnxRuntime/vendor/` holds the C API headers of ONNX
-Runtime 1.30.0; Castor loads the runtime library at run time when it is
-installed with the models.
+Runtime 1.30.0. The Windows download bundles the official x64 runtime
+(`onnxruntime.dll`, `onnxruntime_providers_shared.dll`) with its license and
+third-party notices in `licenses/`; Castor loads it at run time.
 
 - Project: <https://github.com/microsoft/onnxruntime>
 - License: MIT License, Copyright (c) Microsoft Corporation

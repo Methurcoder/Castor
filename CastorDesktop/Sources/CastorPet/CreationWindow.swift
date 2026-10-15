@@ -62,11 +62,11 @@ final class CreationWindow {
         return true
     }
 
-    /// The page ships as the SwiftPM resource bundle beside the executable,
-    /// or as a plain UI folder in a hand-made layout.
+    /// The page ships as a UI folder beside the executable; development
+    /// builds also find SwiftPM's copy in the resource bundle.
     private static var uiFolder: URL? {
         guard let folder = Bundle.main.executableURL?.deletingLastPathComponent() else { return nil }
-        return [folder.appendingPathComponent("CastorDesktop_CastorPet.resources/UI"), folder.appendingPathComponent("UI")]
+        return [folder.appendingPathComponent("UI"), folder.appendingPathComponent("CastorDesktop_CastorPet.resources/UI")]
             .first { FileManager.default.fileExists(atPath: $0.appendingPathComponent("index.html").path) }
     }
 

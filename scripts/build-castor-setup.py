@@ -58,21 +58,21 @@ def pe_imports(path):
 
 WEBVIEW2_LOADER = ROOT/'CastorDesktop/Redist/WebView2/x64/WebView2Loader.dll'
 WEBVIEW2_LOADER_SHA256 = 'c66e4a92fdc7a216118e43b7a5024ea2200e8c43f9310bf20d96a0084f82c5bc'
-CREATION_WINDOW = 'CastorDesktop_CastorPet.resources'
+CREATION_WINDOW = 'UI'
 CREATION_WINDOW_FILES = ('index.html', 'app.css', 'app.js')
+CREATION_WINDOW_SOURCE = ROOT/'CastorDesktop/Sources/CastorPet/UI'
 
 
-def windows_creation_window(output, bin_path):
-    """The creation window: its page (SwiftPM resource bundle) and the pinned WebView2 loader."""
+def windows_creation_window(output):
+    """The creation window: its page beside CastorPet.exe and the pinned WebView2 loader."""
     if hashlib.sha256(WEBVIEW2_LOADER.read_bytes()).hexdigest() != WEBVIEW2_LOADER_SHA256:
         raise ValueError('WebView2Loader.dll does not match the pinned WebView2 SDK file.')
     shutil.copy2(WEBVIEW2_LOADER, output/'WebView2Loader.dll')
-    page = bin_path/CREATION_WINDOW/'UI'
-    (output/CREATION_WINDOW/'UI').mkdir(parents=True)
+    (output/'licenses').mkdir(exist_ok=True)
+    shutil.copy2(WEBVIEW2_LOADER.parents[1]/'LICENSE', output/'licenses/webview2-1.0.4191.47-LICENSE.txt')
+    (output/CREATION_WINDOW).mkdir()
     for name in CREATION_WINDOW_FILES:
-        if not (page/name).is_file():
-            raise ValueError(f'Missing creation window file: {CREATION_WINDOW}/UI/{name}')
-        shutil.copy2(page/name, output/CREATION_WINDOW/'UI'/name)
+        shutil.copy2(CREATION_WINDOW_SOURCE/name, output/CREATION_WINDOW/name)
 
 
 def windows_runtime(executables, output, bin_path, runtime_dirs):
@@ -135,7 +135,7 @@ def windows_runtime(executables, output, bin_path, runtime_dirs):
     if 'swiftcore.dll' not in copied:
         raise ValueError('Swift runtime was not collected.')
     if 'CastorPet.exe' in executables:
-        windows_creation_window(output, bin_path)
+        windows_creation_window(output)
 
 
 def main():

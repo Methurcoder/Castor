@@ -1,9 +1,9 @@
 name: CastorDesktop checks
 on:
   pull_request:
-    paths: ["CastorDesktop/**", "Arils/**", "CastorCore/**", "download/**", "scripts/prepare-castor-release.py", "scripts/build-castor-setup.py", "scripts/build-castor-app.py", "scripts/windows_neural_tts_server.py", "scripts/build-castor-neural-helper.py", "scripts/tests/**", ".github/workflows/castor-desktop-check.yml"]
+    paths: ["CastorDesktop/**", "Arils/**", "CastorCore/**", "download/**", "scripts/prepare-castor-release.py", "scripts/build-castor-setup.py", "scripts/build-castor-app.py", "scripts/build-castor-windows-models.py", "scripts/windows_neural_tts_server.py", "scripts/build-castor-neural-helper.py", "scripts/tests/**", ".github/workflows/castor-desktop-check.yml"]
   push:
-    paths: ["CastorDesktop/**", "Arils/**", "CastorCore/**", "download/**", "scripts/prepare-castor-release.py", "scripts/build-castor-setup.py", "scripts/build-castor-app.py", "scripts/windows_neural_tts_server.py", "scripts/build-castor-neural-helper.py", "scripts/tests/**", ".github/workflows/castor-desktop-check.yml"]
+    paths: ["CastorDesktop/**", "Arils/**", "CastorCore/**", "download/**", "scripts/prepare-castor-release.py", "scripts/build-castor-setup.py", "scripts/build-castor-app.py", "scripts/build-castor-windows-models.py", "scripts/windows_neural_tts_server.py", "scripts/build-castor-neural-helper.py", "scripts/tests/**", ".github/workflows/castor-desktop-check.yml"]
   workflow_dispatch:
     inputs:
       build_release_candidate:
@@ -97,7 +97,7 @@ jobs:
   windows-qwen-candidate:
     if: github.event_name == 'workflow_dispatch' && inputs.build_release_candidate
     runs-on: windows-2022
-    timeout-minutes: 40
+    timeout-minutes: 60
     env:
       CASTOR_CANDIDATE_VERSION: ${{ inputs.candidate_version }}
     steps:
@@ -118,6 +118,16 @@ jobs:
           python scripts/tests/test_windows_neural_tts.py
       - name: Build app and GUI setup with required runtime DLLs
         run: python scripts/build-castor-app.py --output "$env:RUNNER_TEMP/CastorApp" --scratch "$env:RUNNER_TEMP/CastorAppBuild"
+      - name: Add the ML models (ONNX exports at pinned weights) and ONNX Runtime
+        run: |
+          python -m venv "$env:RUNNER_TEMP/ModelBuild"
+          $py = "$env:RUNNER_TEMP/ModelBuild/Scripts/python.exe"
+          & $py -m pip install --disable-pip-version-check "torch==2.14.1" "torchvision==0.29.1" --index-url https://download.pytorch.org/whl/cpu
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $py -m pip install --disable-pip-version-check "anime-face-detector==0.1.0" "onnx==1.23.2" "onnxruntime==1.31.0" "numpy==2.5.4" "pillow==12.3.0" "safetensors==0.8.0" "opencv-python-headless==5.0.0.93"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $py scripts/build-castor-windows-models.py --app "$env:RUNNER_TEMP/CastorApp"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Prepare isolated CPU speech build environment
         run: |
           python -m venv "$env:RUNNER_TEMP/NeuralBuild"

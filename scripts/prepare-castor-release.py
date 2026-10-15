@@ -21,23 +21,30 @@ from castor_privacy import check_private_home
 ROOT = Path(__file__).resolve().parents[1]
 PLATFORMS = ('macos_arm64', 'macos_x86_64', 'windows_x86_64')
 LICENSES = ('LICENSE', 'THIRD_PARTY_NOTICES.md')
-CREATION_WINDOW = 'CastorDesktop_CastorPet.resources'
+CREATION_WINDOW = 'UI'
 CREATION_WINDOW_FILES = ('index.html', 'app.css', 'app.js')
+WINDOWS_MODELS = ('AnimeFaceFeatures.onnx', 'AnimeFaceBoxHead.onnx', 'AnimeFaceLandmarks.onnx', 'AnimeSegmentation.onnx')
 
 
-def creation_window_files(bundle):
+def creation_window_files(page):
     """The Windows creation window page: exactly the shipped UI files."""
     files = []
-    for p in sorted(bundle.rglob('*')):
-        relative = f'{bundle.name}/{p.relative_to(bundle).as_posix()}'
-        if p.is_symlink():
-            raise ValueError(f'Review symlinks before packaging: {relative}')
-        if p.is_dir():
-            if p != bundle/'UI':
-                raise ValueError(f'Unexpected creation window folder: {relative}')
-            continue
-        if p.parent != bundle/'UI' or p.name not in CREATION_WINDOW_FILES:
+    for p in sorted(page.rglob('*')):
+        relative = f'{page.name}/{p.relative_to(page).as_posix()}'
+        if p.is_symlink() or not p.is_file() or p.parent != page or p.name not in CREATION_WINDOW_FILES:
             raise ValueError(f'Unexpected creation window file: {relative}')
+        valid_file(p)
+        files.append((p, relative))
+    return files
+
+
+def folder_files(folder, allowed):
+    """Regular files directly in `folder`, each accepted by `allowed(name)`."""
+    files = []
+    for p in sorted(folder.rglob('*')):
+        relative = f'{folder.name}/{p.relative_to(folder).as_posix()}'
+        if p.is_symlink() or not p.is_file() or p.parent != folder or not allowed(p.name):
+            raise ValueError(f'Unexpected file in {folder.name}/: {relative}')
         valid_file(p)
         files.append((p, relative))
     return files
@@ -155,13 +162,19 @@ def prepare(output, version, apps, setups=None, neural_helpers=None, installers=
                     valid_file(p)
                 elif p.name == CREATION_WINDOW and p.is_dir() and not p.is_symlink():
                     files.extend(creation_window_files(p))
+                elif p.name == 'models' and p.is_dir() and not p.is_symlink():
+                    files.extend(folder_files(p, lambda name: name in WINDOWS_MODELS))
+                elif p.name == 'licenses' and p.is_dir() and not p.is_symlink():
+                    files.extend(folder_files(p, lambda name: name.endswith('.txt')))
                 else:
                     raise ValueError(f'Unexpected Windows runtime file: {p.name}')
             if not any(p.name.lower() == 'swiftcore.dll' for p, _ in files):
                 raise ValueError('Include the redistributable Swift runtime DLLs beside CastorPet.exe.')
             names = {name for _, name in files}
-            if 'WebView2Loader.dll' not in names or any(f'{CREATION_WINDOW}/UI/{n}' not in names for n in CREATION_WINDOW_FILES):
-                raise ValueError('Include the creation window (WebView2Loader.dll and its UI bundle) beside CastorPet.exe.')
+            if 'WebView2Loader.dll' not in names or any(f'{CREATION_WINDOW}/{n}' not in names for n in CREATION_WINDOW_FILES):
+                raise ValueError('Include the creation window (WebView2Loader.dll and the UI folder) beside CastorPet.exe.')
+            if 'onnxruntime.dll' not in names or any(f'models/{n}' not in names for n in WINDOWS_MODELS):
+                raise ValueError('Include the ML models (models/*.onnx) and onnxruntime.dll; see build-castor-windows-models.py.')
             files.extend((ROOT/'download'/name, name) for name in ('Start-Castor.cmd', 'Start-Castor.ps1'))
         files.extend((ROOT/name, name) for name in LICENSES)
         payloads[platform] = files

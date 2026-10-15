@@ -45,10 +45,16 @@ class DistributionTests(unittest.TestCase):
         (self.windows/'CastorPet.exe').write_bytes(data)
         (self.windows/'swiftCore.dll').write_bytes(b'test-runtime')
         (self.windows/'WebView2Loader.dll').write_bytes(b'loader fixture')
-        self.page = self.windows/release.CREATION_WINDOW/'UI'
+        self.page = self.windows/release.CREATION_WINDOW
         self.page.mkdir(parents=True)
         for name in release.CREATION_WINDOW_FILES:
             (self.page/name).write_text('page fixture')
+        (self.windows/'onnxruntime.dll').write_bytes(b'runtime fixture')
+        (self.windows/'models').mkdir()
+        for name in release.WINDOWS_MODELS:
+            (self.windows/'models'/name).write_bytes(b'model fixture')
+        (self.windows/'licenses').mkdir()
+        (self.windows/'licenses'/'onnxruntime-LICENSE.txt').write_text('license fixture')
         self.output = self.base/'release'
 
     def tearDown(self):
@@ -249,13 +255,32 @@ class DistributionTests(unittest.TestCase):
             names = z.namelist()
         self.assertIn('WebView2Loader.dll', names)
         for name in release.CREATION_WINDOW_FILES:
-            self.assertIn(f'{release.CREATION_WINDOW}/UI/{name}', names)
+            self.assertIn(f'{release.CREATION_WINDOW}/{name}', names)
         shutil.rmtree(self.output)
         (self.page/'notes.txt').write_text('stray')
         with self.assertRaises(ValueError):
             self.package()
         (self.page/'notes.txt').unlink()
         (self.page/'app.js').unlink()
+        with self.assertRaises(ValueError):
+            self.package()
+        self.assertFalse(self.output.exists())
+
+    def test_windows_runtime_requires_exactly_the_ml_models(self):
+        self.package()
+        archive = next(self.output.glob('*windows_x86_64*.zip'))
+        with zipfile.ZipFile(archive) as z:
+            names = z.namelist()
+        self.assertIn('onnxruntime.dll', names)
+        self.assertIn('licenses/onnxruntime-LICENSE.txt', names)
+        for name in release.WINDOWS_MODELS:
+            self.assertIn(f'models/{name}', names)
+        shutil.rmtree(self.output)
+        (self.windows/'models'/'Other.onnx').write_bytes(b'stray')
+        with self.assertRaises(ValueError):
+            self.package()
+        (self.windows/'models'/'Other.onnx').unlink()
+        (self.windows/'models'/'AnimeSegmentation.onnx').unlink()
         with self.assertRaises(ValueError):
             self.package()
         self.assertFalse(self.output.exists())
