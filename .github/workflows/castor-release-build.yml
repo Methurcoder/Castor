@@ -1,0 +1,56 @@
+name: Castor release build (no tests)
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_version:
+        description: Release version
+        type: string
+        default: v1.0.0
+permissions:
+  contents: read
+jobs:
+  windows-release:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    env:
+      CASTOR_CANDIDATE_VERSION: ${{ inputs.candidate_version }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: compnerd/gha-setup-swift@bbae8ce86bac5a3449f3992b3d88bc4ca25f2057
+        with:
+          swift-version: swift-6.4.1-release
+          swift-build: 6.4.1-RELEASE
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Build app and GUI setup with required runtime DLLs
+        run: python scripts/build-castor-app.py --output "$env:RUNNER_TEMP/CastorApp" --scratch "$env:RUNNER_TEMP/CastorAppBuild"
+      - name: Add the ML models (ONNX exports at pinned weights) and ONNX Runtime
+        run: |
+          python -m venv "$env:RUNNER_TEMP/ModelBuild"
+          $py = "$env:RUNNER_TEMP/ModelBuild/Scripts/python.exe"
+          & $py -m pip install --disable-pip-version-check "torch==2.14.1" "torchvision==0.29.1" --index-url https://download.pytorch.org/whl/cpu
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $py -m pip install --disable-pip-version-check "anime-face-detector==0.1.0" "onnx==1.23.2" "onnxruntime==1.31.0" "numpy==2.5.4" "pillow==12.3.0" "safetensors==0.8.0" "opencv-python-headless==5.0.0.93"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $py scripts/build-castor-windows-models.py --app "$env:RUNNER_TEMP/CastorApp"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Prepare isolated CPU speech build environment
+        run: |
+          python -m venv "$env:RUNNER_TEMP/NeuralBuild"
+          $py = "$env:RUNNER_TEMP/NeuralBuild/Scripts/python.exe"
+          & $py -m pip install --disable-pip-version-check "torch==2.9.1" "torchaudio==2.9.1" --index-url https://download.pytorch.org/whl/cpu
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $py -m pip install --disable-pip-version-check "qwen-tts==0.1.1" "pyinstaller==6.22.3"
+      - name: Bundle optional speech GUI without weights
+        run: python scripts/build-castor-neural-helper.py --python "$env:RUNNER_TEMP/NeuralBuild/Scripts/python.exe" --output "$env:RUNNER_TEMP/CastorSpeech"
+      - name: Prepare local candidate ZIPs and integrity manifest
+        run: |
+          python scripts/prepare-castor-release.py --version "$env:CASTOR_CANDIDATE_VERSION" --output "$env:RUNNER_TEMP/CastorCandidate" --windows-x86-64 "$env:RUNNER_TEMP/CastorApp" --setup-windows-x86-64 "$env:RUNNER_TEMP/CastorAppBuild/gui-setup-candidate" --neural-helper-windows-x86-64 "$env:RUNNER_TEMP/CastorSpeech"
+      - name: Save candidate for real device verification (not a public Release)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: windows-release-assets
+          path: ${{ runner.temp }}/CastorCandidate/
+          retention-days: 7
+          if-no-files-found: error

@@ -94,7 +94,9 @@ print(json.dumps({'missing':missing,'system':platform.system(),'machine':platfor
             subprocess.run(['/usr/bin/strip','-S','-x',str(contents/'MacOS/CastorNeuralTTS')],check=True)
             shutil.copy2(stage/'dist/CastorSpeechRuntime', contents/'Resources/CastorSpeechRuntime')
             info={'CFBundleExecutable':'CastorNeuralTTS','CFBundleIdentifier':'dev.castor.neuraltts','CFBundleName':'Castor Neural TTS',
-                  'CFBundlePackageType':'APPL','CFBundleVersion':'1','CFBundleShortVersionString':'0.1.0','LSMinimumSystemVersion':'26.5'}
+                  'CFBundlePackageType':'APPL','CFBundleVersion':'1','CFBundleShortVersionString':'0.1.0','LSMinimumSystemVersion':'26.5',
+                  'CFBundleIconFile':'Castor'}
+            shutil.copy2(ROOT/'assets/icon/Castor.icns', contents/'Resources/Castor.icns')
             (contents/'Info.plist').write_bytes(plistlib.dumps(info))
         else:
             built = stage/'dist/CastorNeuralTTS'

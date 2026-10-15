@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build a native GUI installer locally. Does not upload or bypass OS checks."""
 import argparse
+import hashlib
 import os
 from pathlib import Path
 import plistlib
@@ -53,6 +54,34 @@ def pe_imports(path):
         imports.append(name)
         cursor += 20
     raise ValueError('Unterminated PE import directory')
+
+
+WEBVIEW2_LOADER = ROOT/'CastorDesktop/Redist/WebView2/x64/WebView2Loader.dll'
+WEBVIEW2_LOADER_SHA256 = 'c66e4a92fdc7a216118e43b7a5024ea2200e8c43f9310bf20d96a0084f82c5bc'
+CREATION_WINDOW = 'UI'
+CREATION_WINDOW_FILES = ('index.html', 'app.css', 'app.js')
+SETUP_WINDOW = 'SetupUI'
+SETUP_WINDOW_FILES = ('index.html', 'setup.css', 'setup.js')
+#: The WebView2 page each executable shows, copied from source beside it.
+WEB_PAGES = {
+    'CastorPet.exe': (CREATION_WINDOW, CREATION_WINDOW_FILES, ROOT/'CastorDesktop/Sources/CastorPet/UI'),
+    'CastorSetup.exe': (SETUP_WINDOW, SETUP_WINDOW_FILES, ROOT/'CastorDesktop/Sources/CastorSetup/SetupUI'),
+}
+
+
+def windows_web_pages(output, executables):
+    """The pinned WebView2 loader and the pages of the creation window and setup wizard."""
+    if hashlib.sha256(WEBVIEW2_LOADER.read_bytes()).hexdigest() != WEBVIEW2_LOADER_SHA256:
+        raise ValueError('WebView2Loader.dll does not match the pinned WebView2 SDK file.')
+    shutil.copy2(WEBVIEW2_LOADER, output/'WebView2Loader.dll')
+    shutil.copy2(ROOT/'assets/icon/Castor.ico', output/'Castor.ico')
+    (output/'licenses').mkdir(exist_ok=True)
+    shutil.copy2(WEBVIEW2_LOADER.parents[1]/'LICENSE', output/'licenses/webview2-1.0.4191.47-LICENSE.txt')
+    for executable in executables:
+        folder, names, source = WEB_PAGES[executable]
+        (output/folder).mkdir()
+        for name in names:
+            shutil.copy2(source/name, output/folder/name)
 
 
 def windows_runtime(executables, output, bin_path, runtime_dirs):
@@ -114,6 +143,7 @@ def windows_runtime(executables, output, bin_path, runtime_dirs):
                 raise ValueError(f'Missing redistributable DLL: {name}. Add its approved runtime directory with --runtime-dir.')
     if 'swiftcore.dll' not in copied:
         raise ValueError('Swift runtime was not collected.')
+    windows_web_pages(output, executables)
 
 
 def main():
@@ -140,11 +170,13 @@ def main():
         output.mkdir(parents=True)
         if sys.platform == 'darwin':
             app = output/'CastorSetup.app'/'Contents'
-            (app/'MacOS').mkdir(parents=True)
+            (app/'MacOS').mkdir(parents=True); (app/'Resources').mkdir()
             shutil.copy2(bin_path/'CastorSetup', app/'MacOS'/'CastorSetup')
+            shutil.copy2(ROOT/'assets/icon/Castor.icns', app/'Resources'/'Castor.icns')
             subprocess.run(['/usr/bin/strip','-S','-x',str(app/'MacOS'/'CastorSetup')],check=True)
             info = {'CFBundleExecutable':'CastorSetup', 'CFBundleIdentifier':'dev.castor.setup', 'CFBundleName':'Castor Setup',
-                    'CFBundlePackageType':'APPL', 'CFBundleVersion':'1', 'CFBundleShortVersionString':'0.1.0', 'LSMinimumSystemVersion':'26.5', 'NSHighResolutionCapable':True}
+                    'CFBundlePackageType':'APPL', 'CFBundleVersion':'1', 'CFBundleShortVersionString':'0.1.0', 'LSMinimumSystemVersion':'26.5', 'NSHighResolutionCapable':True,
+                    'CFBundleIconFile':'Castor'}
             (app/'Info.plist').write_bytes(plistlib.dumps(info))
             # Development build only. Production signing/notarization is a separate gate.
             subprocess.run(['/usr/bin/codesign', '--force', '--sign', '-', str(output/'CastorSetup.app')], check=True)

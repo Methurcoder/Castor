@@ -13,7 +13,7 @@ let package = Package(
         .executable(name: "arils-corpus", targets: ["ArilsCorpus"]),
         // The platform-independent part (no Apple frameworks): what a
         // Windows/Linux host needs to play an avatar rigged on a Mac.
-        .library(name: "ArilsPortable", targets: ["ArilsCore", "ArilsMotion", "ArilsPlayer", "ArilsRigPortable"]),
+        .library(name: "ArilsPortable", targets: ["ArilsCore", "ArilsMotion", "ArilsPlayer", "ArilsRigPortable", "ArilsInference"]),
         .executable(name: "arils-motion-eval", targets: ["ArilsMotionEval"]),
     ],
     targets: [
@@ -40,8 +40,18 @@ let package = Package(
         // holds only its README in Git; Arils runs without them. Optimized
         // even in Debug: unoptimized, the per-pixel loops take ~23 s per image
         // instead of ~0.6 s, which would stall face review in a Debug run.
+        // The networks behind one protocol (Core ML on the Mac, ONNX Runtime
+        // on Windows) and everything between them, written once: tensors,
+        // anchors, NMS, RoIAlign, heatmap decoding, letterboxing. Optimized
+        // even in Debug for the per-pixel loops.
+        .target(
+            name: "ArilsInference",
+            swiftSettings: [.unsafeFlags(["-O"], .when(configuration: .debug))]
+        ),
+
         .target(
             name: "ArilsFaceInference",
+            dependencies: ["ArilsInference"],
             resources: [.copy("Resources/AnimeFaceModels")],
             swiftSettings: [.unsafeFlags(["-O"], .when(configuration: .debug))]
         ),
@@ -52,6 +62,7 @@ let package = Package(
         // Optimized even in Debug for the per-pixel letterbox/resize loops.
         .target(
             name: "ArilsSubjectInference",
+            dependencies: ["ArilsInference"],
             resources: [.copy("Resources/AnimeSegmentationModel")],
             swiftSettings: [.unsafeFlags(["-O"], .when(configuration: .debug))]
         ),
@@ -90,7 +101,7 @@ let package = Package(
 
         .testTarget(name: "ArilsCoreTests", dependencies: ["ArilsCore"]),
         .testTarget(name: "ArilsRigTests", dependencies: ["ArilsRig", "ArilsPlayer", "ArilsRigPortable"]),
-        .testTarget(name: "ArilsFaceInferenceTests", dependencies: ["ArilsFaceInference"]),
+        .testTarget(name: "ArilsFaceInferenceTests", dependencies: ["ArilsFaceInference", "ArilsInference"]),
         .testTarget(name: "ArilsSubjectInferenceTests", dependencies: ["ArilsSubjectInference"]),
         .testTarget(name: "ArilsMotionTests", dependencies: ["ArilsMotion"]),
         .testTarget(name: "ArilsTests", dependencies: ["Arils"]),

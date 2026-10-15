@@ -44,6 +44,17 @@ class DistributionTests(unittest.TestCase):
         struct.pack_into('<H', data, 68, 0x8664)
         (self.windows/'CastorPet.exe').write_bytes(data)
         (self.windows/'swiftCore.dll').write_bytes(b'test-runtime')
+        (self.windows/'WebView2Loader.dll').write_bytes(b'loader fixture')
+        self.page = self.windows/release.CREATION_WINDOW
+        self.page.mkdir(parents=True)
+        for name in release.CREATION_WINDOW_FILES:
+            (self.page/name).write_text('page fixture')
+        (self.windows/'onnxruntime.dll').write_bytes(b'runtime fixture')
+        (self.windows/'models').mkdir()
+        for name in release.WINDOWS_MODELS:
+            (self.windows/'models'/name).write_bytes(b'model fixture')
+        (self.windows/'licenses').mkdir()
+        (self.windows/'licenses'/'onnxruntime-LICENSE.txt').write_text('license fixture')
         self.output = self.base/'release'
 
     def tearDown(self):
@@ -170,6 +181,13 @@ class DistributionTests(unittest.TestCase):
         setup_windows.mkdir()
         shutil.copy2(self.windows/'CastorPet.exe',setup_windows/'CastorSetup.exe')
         shutil.copy2(self.windows/'swiftCore.dll',setup_windows/'swiftCore.dll')
+        with self.assertRaises(ValueError):
+            release.prepare(self.output,'local-test',{'windows_x86_64':self.windows},{'windows_x86_64':setup_windows})
+        self.assertFalse(self.output.exists())
+        shutil.copy2(self.windows/'WebView2Loader.dll',setup_windows/'WebView2Loader.dll')
+        (setup_windows/release.SETUP_WINDOW).mkdir()
+        for name in release.SETUP_WINDOW_FILES:
+            (setup_windows/release.SETUP_WINDOW/name).write_text('page fixture')
         release.prepare(self.output,'local-test',{'macos_arm64':self.mac,'windows_x86_64':self.windows},
                         {'macos_arm64':setup_mac,'windows_x86_64':setup_windows})
         manifest=json.loads((self.output/'castor-downloads.json').read_text())
@@ -184,6 +202,26 @@ class DistributionTests(unittest.TestCase):
                     self.assertIn('CastorSetup.exe',z.namelist())
                     self.assertIn('swiftCore.dll',z.namelist())
                     self.assertNotIn('CastorPet.exe',z.namelist())
+                    self.assertIn(f'{release.SETUP_WINDOW}/index.html',z.namelist())
+
+    def test_installers_are_checked_named_and_hashed(self):
+        dmg = self.base/'Castor.dmg'
+        dmg.write_bytes(b'image' * 200 + b'koly' + bytes(508))
+        setup_exe = self.base/'setup.exe'
+        shutil.copy2(self.windows/'CastorPet.exe', setup_exe)
+        release.prepare(self.output, 'local-test', {'macos_arm64': self.mac}, installers={'macos_arm64': dmg, 'windows_x86_64': setup_exe})
+        manifest = json.loads((self.output/'castor-downloads.json').read_text())
+        self.assertEqual(manifest['installers']['macos_arm64']['asset'], 'Castor-local-test-macos_arm64.dmg')
+        self.assertEqual(manifest['installers']['windows_x86_64']['asset'], 'Castor-local-test-windows_x86_64-setup.exe')
+        for asset in manifest['installers'].values():
+            self.assertEqual(asset['sha256'], hashlib.sha256((self.output/asset['asset']).read_bytes()).hexdigest())
+
+    def test_rejects_installers_of_the_wrong_kind(self):
+        not_dmg = self.base/'Castor.dmg'
+        not_dmg.write_bytes(b'not a disk image' * 64)
+        with self.assertRaises(ValueError):
+            release.prepare(self.output, 'local-test', {'macos_arm64': self.mac}, installers={'macos_arm64': not_dmg})
+        self.assertFalse(self.output.exists())
 
     @unittest.skipUnless(sys.platform == 'win32' and os.environ.get('CASTOR_SETUP_EXE'), 'Native Windows setup executable is required')
     def test_gui_setup_native_extraction_handles_spaces_unicode_and_quotes(self):
@@ -216,6 +254,43 @@ class DistributionTests(unittest.TestCase):
         (self.windows/'CastorPet.json').write_text('{}')
         with self.assertRaises(ValueError):
             release.prepare(self.output, 'test', {'windows_x86_64': self.windows})
+        self.assertFalse(self.output.exists())
+
+    def test_windows_runtime_ships_the_creation_window_and_nothing_else(self):
+        self.package()
+        archive = next(self.output.glob('*windows_x86_64*.zip'))
+        with zipfile.ZipFile(archive) as z:
+            names = z.namelist()
+        self.assertIn('WebView2Loader.dll', names)
+        for name in release.CREATION_WINDOW_FILES:
+            self.assertIn(f'{release.CREATION_WINDOW}/{name}', names)
+        shutil.rmtree(self.output)
+        (self.page/'notes.txt').write_text('stray')
+        with self.assertRaises(ValueError):
+            self.package()
+        (self.page/'notes.txt').unlink()
+        (self.page/'app.js').unlink()
+        with self.assertRaises(ValueError):
+            self.package()
+        self.assertFalse(self.output.exists())
+
+    def test_windows_runtime_requires_exactly_the_ml_models(self):
+        self.package()
+        archive = next(self.output.glob('*windows_x86_64*.zip'))
+        with zipfile.ZipFile(archive) as z:
+            names = z.namelist()
+        self.assertIn('onnxruntime.dll', names)
+        self.assertIn('licenses/onnxruntime-LICENSE.txt', names)
+        for name in release.WINDOWS_MODELS:
+            self.assertIn(f'models/{name}', names)
+        shutil.rmtree(self.output)
+        (self.windows/'models'/'Other.onnx').write_bytes(b'stray')
+        with self.assertRaises(ValueError):
+            self.package()
+        (self.windows/'models'/'Other.onnx').unlink()
+        (self.windows/'models'/'AnimeSegmentation.onnx').unlink()
+        with self.assertRaises(ValueError):
+            self.package()
         self.assertFalse(self.output.exists())
 
     def test_rejects_symlinks_and_existing_output(self):

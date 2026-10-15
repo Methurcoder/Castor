@@ -3,20 +3,21 @@ import Foundation
 /// The data-dependent steps of `anime_face_detector` 0.1.0, ported line for
 /// line so the Core ML networks reproduce the Python pipeline the calibration
 /// was fitted against. Everything here is pure and unit tested; the networks
-/// themselves live in `AnimeFaceModels`.
+/// run behind `InferenceModel` (Core ML on the Mac, ONNX Runtime elsewhere)
+/// and `AnimeFacePipeline` strings these steps between them.
 ///
 /// Boxes are `[x1, y1, x2, y2]` in pixels, matching mmdet.
-package enum AnimeFaceMath {
-    package struct Box: Equatable, Sendable {
-        package var x1: Float, y1: Float, x2: Float, y2: Float
+public enum AnimeFaceMath {
+    public struct Box: Equatable, Sendable {
+        public var x1: Float, y1: Float, x2: Float, y2: Float
 
-        package init(x1: Float, y1: Float, x2: Float, y2: Float) {
+        public init(x1: Float, y1: Float, x2: Float, y2: Float) {
             self.x1 = x1; self.y1 = y1; self.x2 = x2; self.y2 = y2
         }
 
-        package var width: Float { x2 - x1 }
-        package var height: Float { y2 - y1 }
-        package var area: Float { width * height }
+        public var width: Float { x2 - x1 }
+        public var height: Float { y2 - y1 }
+        public var area: Float { width * height }
     }
 
     // MARK: Anchors and box coding (mmdet AnchorGenerator, DeltaXYWHBBoxCoder)

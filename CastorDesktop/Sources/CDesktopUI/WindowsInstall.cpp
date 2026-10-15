@@ -88,6 +88,11 @@ int castor_pet_shortcut(const char *executablePath,const char *rootPath,int remo
                 if(SUCCEEDED(status))status=link->SetDescription(L"Castor");
                 auto split=executable.find_last_of(L"\\/");
                 if(SUCCEEDED(status)&&split!=std::wstring::npos)status=link->SetWorkingDirectory(executable.substr(0,split).c_str());
+                // The app icon ships as Castor.ico beside the executable.
+                if(SUCCEEDED(status)&&split!=std::wstring::npos) {
+                    std::wstring icon=executable.substr(0,split)+L"\\Castor.ico";
+                    if(GetFileAttributesW(icon.c_str())!=INVALID_FILE_ATTRIBUTES)link->SetIconLocation(icon.c_str(),0);
+                }
                 if(SUCCEEDED(status)) {
                     std::wstring stage=file+L".new";
                     if(GetFileAttributesW(stage.c_str())==INVALID_FILE_ATTRIBUTES && SUCCEEDED(persist->Save(stage.c_str(),TRUE))) {

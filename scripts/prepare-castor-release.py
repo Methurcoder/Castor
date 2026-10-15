@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import plistlib
 import re
+import shutil
 import stat
 import struct
 import tempfile
@@ -20,6 +21,23 @@ from castor_privacy import check_private_home
 ROOT = Path(__file__).resolve().parents[1]
 PLATFORMS = ('macos_arm64', 'macos_x86_64', 'windows_x86_64')
 LICENSES = ('LICENSE', 'THIRD_PARTY_NOTICES.md')
+CREATION_WINDOW = 'UI'
+CREATION_WINDOW_FILES = ('index.html', 'app.css', 'app.js')
+SETUP_WINDOW = 'SetupUI'
+SETUP_WINDOW_FILES = ('index.html', 'setup.css', 'setup.js')
+WINDOWS_MODELS = ('AnimeFaceFeatures.onnx', 'AnimeFaceBoxHead.onnx', 'AnimeFaceLandmarks.onnx', 'AnimeSegmentation.onnx')
+
+
+def folder_files(folder, allowed):
+    """Regular files directly in `folder`, each accepted by `allowed(name)`."""
+    files = []
+    for p in sorted(folder.rglob('*')):
+        relative = f'{folder.name}/{p.relative_to(folder).as_posix()}'
+        if p.is_symlink() or not p.is_file() or p.parent != folder or not allowed(p.name):
+            raise ValueError(f'Unexpected file in {folder.name}/: {relative}')
+        valid_file(p)
+        files.append((p, relative))
+    return files
 
 
 def valid_file(path, public_ca=False):
@@ -66,8 +84,32 @@ def check_arch(binary, platform):
             raise ValueError('Expected a thin Mach-O executable matching the selected Mac CPU.')
 
 
-def prepare(output, version, apps, setups=None, neural_helpers=None):
+def installer_name(version, platform):
+    return f'Castor-{version}-{platform}.dmg' if platform.startswith('macos') else f'Castor-{version}-{platform}-setup.exe'
+
+
+def check_installer(path, platform):
+    """A drag-to-Applications disk image (Mac) or an x64 setup program (Windows)."""
+    if path.is_symlink() or not path.is_file():
+        raise ValueError(f'Only regular files are allowed: {path.name}')
+    if platform.startswith('macos'):
+        data = path.read_bytes()
+        # UDIF images end with a 512-byte 'koly' trailer.
+        if path.suffix.lower() != '.dmg' or len(data) < 512 or data[-512:-508] != b'koly':
+            raise ValueError('Expected a .dmg disk image for the Mac installer.')
+    else:
+        if path.suffix.lower() != '.exe':
+            raise ValueError('Expected a setup .exe for the Windows installer.')
+        check_arch(path, platform)
+
+
+def prepare(output, version, apps, setups=None, neural_helpers=None, installers=None):
     setups = setups or {}
+    installers = installers or {}
+    for platform, source in installers.items():
+        if platform not in PLATFORMS:
+            raise ValueError('Unexpected installer platform.')
+        check_installer(source.resolve(), platform)
     neural_helpers = neural_helpers or {}
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,63}', version):
         raise ValueError('Version must be a simple Release name.')
@@ -103,15 +145,28 @@ def prepare(output, version, apps, setups=None, neural_helpers=None):
             files = []
             for p in sorted(source.iterdir()):
                 # Only an explicit runtime directory: executable and DLLs, no pets/configs/debug data.
-                if p.name in ('CastorPet.exe','CastorSetup.exe') or p.suffix.lower() == '.dll':
+                if p.name in ('CastorPet.exe','CastorSetup.exe','Castor.ico') or p.suffix.lower() == '.dll':
                     valid_file(p)
                     files.append((p, p.name))
                 elif p.name in LICENSES:
                     valid_file(p)
+                elif p.name == CREATION_WINDOW and p.is_dir() and not p.is_symlink():
+                    files.extend(folder_files(p, lambda name: name in CREATION_WINDOW_FILES))
+                elif p.name == SETUP_WINDOW and p.is_dir() and not p.is_symlink():
+                    files.extend(folder_files(p, lambda name: name in SETUP_WINDOW_FILES))
+                elif p.name == 'models' and p.is_dir() and not p.is_symlink():
+                    files.extend(folder_files(p, lambda name: name in WINDOWS_MODELS))
+                elif p.name == 'licenses' and p.is_dir() and not p.is_symlink():
+                    files.extend(folder_files(p, lambda name: name.endswith('.txt')))
                 else:
                     raise ValueError(f'Unexpected Windows runtime file: {p.name}')
             if not any(p.name.lower() == 'swiftcore.dll' for p, _ in files):
                 raise ValueError('Include the redistributable Swift runtime DLLs beside CastorPet.exe.')
+            names = {name for _, name in files}
+            if 'WebView2Loader.dll' not in names or any(f'{CREATION_WINDOW}/{n}' not in names for n in CREATION_WINDOW_FILES):
+                raise ValueError('Include the creation window (WebView2Loader.dll and the UI folder) beside CastorPet.exe.')
+            if 'onnxruntime.dll' not in names or any(f'models/{n}' not in names for n in WINDOWS_MODELS):
+                raise ValueError('Include the ML models (models/*.onnx) and onnxruntime.dll; see build-castor-windows-models.py.')
             files.extend((ROOT/'download'/name, name) for name in ('Start-Castor.cmd', 'Start-Castor.ps1'))
         files.extend((ROOT/name, name) for name in LICENSES)
         payloads[platform] = files
@@ -134,12 +189,19 @@ def prepare(output, version, apps, setups=None, neural_helpers=None):
             check_arch(source/'CastorSetup.exe', platform)
             files = []
             for p in sorted(source.iterdir()):
-                if p.name == 'CastorSetup.exe' or p.suffix.lower() == '.dll':
+                if p.name in ('CastorSetup.exe','Castor.ico') or p.suffix.lower() == '.dll':
                     valid_file(p);files.append((p,p.name))
+                elif p.name == SETUP_WINDOW and p.is_dir() and not p.is_symlink():
+                    files.extend(folder_files(p, lambda name: name in SETUP_WINDOW_FILES))
+                elif p.name == 'licenses' and p.is_dir() and not p.is_symlink():
+                    files.extend(folder_files(p, lambda name: name.endswith('.txt')))
                 elif p.name not in LICENSES:
                     raise ValueError(f'Unexpected setup runtime file: {p.name}')
             if not any(p.name.lower() == 'swiftcore.dll' for p,_ in files):
                 raise ValueError('The GUI setup needs its own Swift runtime DLLs.')
+            names = {name for _, name in files}
+            if 'WebView2Loader.dll' not in names or any(f'{SETUP_WINDOW}/{n}' not in names for n in SETUP_WINDOW_FILES):
+                raise ValueError('Include the setup wizard (WebView2Loader.dll and the SetupUI folder) beside CastorSetup.exe.')
         files.extend((ROOT/name,name) for name in LICENSES)
         setup_payloads[platform] = files
     helper_payloads = {}
@@ -203,6 +265,13 @@ def prepare(output, version, apps, setups=None, neural_helpers=None):
             with zipfile.ZipFile(archive,'w') as z:
                 for source, relative in files: put(z,source,relative)
             manifest['components']['NeuralTTS'][helper_platform] = {'asset':name,'sha256':hashlib.sha256(archive.read_bytes()).hexdigest(),'bytes':archive.stat().st_size}
+        if installers:
+            manifest['installers'] = {}
+        for platform, source in installers.items():
+            name = installer_name(version, platform)
+            shutil.copy2(source.resolve(), stage/name)
+            manifest['installers'][platform] = {'asset': name, 'sha256': hashlib.sha256((stage/name).read_bytes()).hexdigest(),
+                                                'bytes': (stage/name).stat().st_size}
         (stage/'castor-downloads.json').write_text(json.dumps(manifest, indent=2)+'\n', encoding='utf-8')
         with zipfile.ZipFile(stage/'Castor-Downloader.zip', 'w') as z:
             for name in ('Castor-Download.command', 'Castor-Download.cmd', 'Castor-Download.ps1'):
@@ -223,13 +292,16 @@ def main():
         parser.add_argument('--'+p.replace('_', '-'), dest=p, type=Path,
                             help='Built Castor.app (Mac) or flat executable + runtime DLL directory (Windows)')
         parser.add_argument('--neural-helper-'+p.replace('_','-'),dest='neural_helper_'+p,type=Path,help='Built GUI Neural TTS helper payload directory')
+        parser.add_argument('--installer-'+p.replace('_','-'),dest='installer_'+p,type=Path,
+                            help='Drag-to-Applications .dmg (Mac) or setup .exe (Windows)')
         parser.add_argument('--setup-'+p.replace('_','-'),dest='setup_'+p,type=Path,
                             help='Native GUI setup app (Mac) or setup executable + DLL directory (Windows)')
     args = parser.parse_args()
     try:
         prepare(args.output, args.version, {p: getattr(args, p) for p in PLATFORMS if getattr(args, p)},
                 {p: getattr(args,'setup_'+p) for p in PLATFORMS if getattr(args,'setup_'+p)},
-                {p: getattr(args,'neural_helper_'+p) for p in PLATFORMS if getattr(args,'neural_helper_'+p)})
+                {p: getattr(args,'neural_helper_'+p) for p in PLATFORMS if getattr(args,'neural_helper_'+p)},
+                {p: getattr(args,'installer_'+p) for p in PLATFORMS if getattr(args,'installer_'+p)})
     except (ValueError, OSError, KeyError, plistlib.InvalidFileException) as error:
         parser.exit(1, f'error: {error}\n')
 

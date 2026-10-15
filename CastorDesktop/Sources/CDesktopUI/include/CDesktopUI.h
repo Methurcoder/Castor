@@ -5,6 +5,19 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+/* The creation window (WebView2). `callback` receives each JSON message from the
+   page on the UI thread, and {"type":"closed"} when the window closes.
+   Returns 1 when the window is shown, -1 when WebView2 is unavailable. */
+typedef void (*castor_web_message)(const char *json, void *context);
+int castor_webview_open(const char *title, const char *ui_folder, const char *data_folder, int width, int height,
+                        int dark, castor_web_message callback, void *context);
+/* 1 ready, 0 loading, -1 failed to start, -2 no window. */
+int castor_webview_state(void);
+/* Posts a JSON message to the page; safe from any thread. */
+int castor_webview_post(const char *json);
+void castor_webview_close(void);
+/* 1 when Windows apps use the dark theme (the default when unknown). */
+int castor_system_dark(void);
 /* UTF-8 paths. Returns 1 for OK, 0 for user cancellation, -1 for API failure. */
 int castor_choose_file(int save, const char *kind, char *output, size_t capacity);
 /* Four image-space rectangles (head, left eye, right eye, mouth), x/y/w/h each. */

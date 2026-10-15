@@ -4,11 +4,11 @@
 
 **自分のイラストを、デスクトップで暮らす小さな相棒に。**
 
-**これは正式リリース版です。** — `v0.3.0`
+**これは正式リリース版です。** — `v1.0.0`
 
 呼吸、瞬き、視線、声。少しためらったり目を逸らしたりする、そんな相棒を自分の画像から作れます。
 
-[ダウンロード](https://github.com/Methurcoder/Castor/releases/tag/v0.3.0) · [導入ガイド](docs/GUI_SETUP.md) · [変更点・確認記録](docs/RELEASE_v0.3.0.md) · [機能差と今後の計画](docs/CROSS_PLATFORM_PARITY.md)
+[ダウンロード](https://github.com/Methurcoder/Castor/releases/tag/v1.0.0) · [導入ガイド](docs/GUI_SETUP.md) · [変更点・確認記録](docs/RELEASE_v1.0.0.md) · [機能差と今後の計画](docs/CROSS_PLATFORM_PARITY.md)
 
 Castor は [Pomegranate](https://github.com/atemoyacode-sudo/Pomegranate) の**許諾済みの後継プロジェクト**です。Pomegranate由来の著作権表示とMITライセンスを保持し、Methurcoderが開発を続けています。
 
@@ -16,8 +16,8 @@ Castor は [Pomegranate](https://github.com/atemoyacode-sudo/Pomegranate) の**�
 
 | お使いの環境 | ダウンロード | 展開後に開くもの |
 | --- | --- | --- |
-| Mac / Apple Silicon | [Mac用の導入GUI](https://github.com/Methurcoder/Castor/releases/download/v0.3.0/CastorSetup-v0.3.0-macos_arm64.zip) | `CastorSetup.app` |
-| Windows / x64 | [Windows用の導入GUI](https://github.com/Methurcoder/Castor/releases/download/v0.3.0/CastorSetup-v0.3.0-windows_x86_64.zip) | `CastorSetup.exe` |
+| Mac / Apple Silicon | [Mac用の導入GUI](https://github.com/Methurcoder/Castor/releases/download/v1.0.0/CastorSetup-v1.0.0-macos_arm64.zip) | `CastorSetup.app` |
+| Windows / x64 | [Windows用の導入GUI](https://github.com/Methurcoder/Castor/releases/download/v1.0.0/CastorSetup-v1.0.0-windows_x86_64.zip) | `CastorSetup.exe` |
 
 **`Castor-Downloader.zip`は`.command` / `.cmd`を使うスクリプト版です。GUIで導入する場合は、上のOS別`CastorSetup-…zip`を選んでください。**
 
@@ -45,21 +45,25 @@ Macは**macOS 26.5以上・Apple Silicon**、Windowsは**x64**が対象です。
 
 | 機能 | Mac | Windows |
 | --- | --- | --- |
-| 画像から作成・顔マーカー補正・保存・読み込み | Arilsで1枚 / 2枚Qualityを作成 | 共有レイヤー処理でStandard / Qualityを作成。ML推定の代替と品質確認は継続中 |
+| 画像から作成・顔マーカー補正・保存・読み込み | Arilsで1枚 / 2枚Qualityを作成 | Mac風の作成画面（日本語・英語）でStandardを作成。Macと同じ顔推定・切り抜きモデル（ONNX）を同梱。Qualityは従来の画面。実機確認待ち |
 | 呼吸・瞬き・視線・口パク・撫でる反応 | 実装済み | 共通モーション・CPU描画を実装。実機GUI確認待ち |
 | LM Studio / Ollamaとの会話・性格編集 | 実装済み | 実装済み。実機の会話確認待ち |
 | OS標準音声・任意Qwen 3 TTS | Qwen GUI起動・モデル準備・アプリ内試聴・停止を実機確認 | CPU用helperを梱包。実モデル生成・音声出力の実機確認待ち |
 | Codex / Claude Code・操作ごとの承認 | 実装済み。外部送信は本人の確認後 | 共有接続・承認UIを実装。実アカウント接続の確認待ち |
 | GIF作成・保存・Xへの案内 | 実装済み | 実装済み。実機確認待ち |
-| カメラ・追加ML・全Advanced設定 | 任意の権限 / helperを使用 | Macとの全機能共通化を継続中 |
+| カメラ・追加ML・全Advanced設定 | 任意の権限 / helperを使用 | 未対応部分あり。今後はML移植と品質改善を優先 |
 
-**Windows版は公開プレビューとして扱います。** 実機での初回導入、描画品質、音声、権限付き機能の確認が残っています。Macも、新規のQwenモデル取得・開発環境のない端末での初回導入・各OSの警告・全機能の長時間動作は未確認です。
+**v1.0.0を通常の正式Releaseとして配布します。** Windowsの新しい作成画面・ML・導入ウィザードを含む最新修正は、管理者の希望により追加テストを省いて公開しています。全機能が両OSで同じ品質で動作すると確認した版ではありません。Macの既存候補では画像作成・保存後の読み込み・GIF・Qwen試聴を確認しましたが、今回の最新修正全体の再検証、新規Qwenモデル取得、開発環境のない端末での初回導入、長時間動作は未確認です。
 
-Linuxは共有ロジックとCPU描画の開発対象です。今回のデスクトップアプリ配布には含めません。
+### 今後の対応予定
+
+- **Linux**：デスクトップアプリとしてのネイティブ対応。現在は共有ロジックとCPU描画のみが開発対象で、今回の配布には含めません。
+- **Windows（WinUI 3）**：作成画面をWinUI 3のネイティブUIへ移行します。現在はWebView2でMac版に近い画面を表示しています。
+- **共通エンジンの拡大**：OSごとの実装を減らし、Mac / Windows / Linuxで共有する処理を増やしていきます。
 
 ## Qwen 3 TTSを使う
 
-1. v0.3.0のMacでは **設定 → 音声 → Qwen音声を起動**、続けて **Qwenモデルを取得・準備**を押します。WindowsではVoiceから補助アプリの導入GUIを開き、補助アプリの **モデルを取得・準備**を押します。
+1. Macでは **設定 → 音声 → ロード**を押します。WindowsではVoiceから補助アプリの導入GUIを開き、補助アプリの **ロード / Load**を押します。
 2. 設定を開くだけではモデルを取得・ロードしません。初回のモデル取得には時間と空き容量が必要です。
 3. 声の選択画面で音声サンプルを再生します。
 
