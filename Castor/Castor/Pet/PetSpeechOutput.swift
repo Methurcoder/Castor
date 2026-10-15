@@ -164,11 +164,8 @@ final class PetSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
         synthesizer.delegate = self
     }
 
-    /// Fire-and-forget preload of the neural voice model, meant to be called as soon as a voice
-    /// conversation starts listening so the model is already warm by the time a reply is ready.
-    /// Never throws and never touches `AVSpeechSynthesizer` state; if the local TTS server isn't
-    /// running, this simply has no effect and the normal fallback path in `speakCurrentSegment()`
-    /// still applies once a reply actually needs to be spoken.
+    /// Compatibility call site only. Model loading waits for the Voice Load action;
+    /// opening settings or starting a conversation never prepares a model.
     func warmUpNeuralVoice() {
         neuralClient.warmUp()
     }

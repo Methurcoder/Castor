@@ -74,7 +74,7 @@ import SwiftUI
                 request.timeoutInterval = 0.5
                 if let (_, response) = try? await session.data(for: request),
                    (response as? HTTPURLResponse)?.statusCode == 200 {
-                    status = text("起動しました。CastorのVoiceでQwenを使えます。", "Running. Qwen is available in Castor Voice settings.")
+                    status = text("補助アプリを起動しました。モデルのロードはCastorの音声設定またはこの画面から選べます。", "Helper running. Choose Load in Castor Voice settings or this window to prepare the model.")
                     return
                 }
                 try? await Task.sleep(for: .milliseconds(250))
@@ -140,9 +140,11 @@ import SwiftUI
                         .disabled(model.running)
                     Button(model.text("停止", "Stop")) { model.stop() }.disabled(!model.running)
                 }
-                Button(model.text("モデルを取得・準備（任意）", "Download / prepare model (optional)")) { model.prepare() }
+                Text(model.text("音声はQwen 3 TTSでよりリアルになります。ロードしますか？", "Qwen 3 TTS can make speech more natural. Load it?"))
+                    .font(.headline)
+                Button(model.text("ロード", "Load")) { model.prepare() }
                     .disabled(model.preparing)
-                Text(model.text("初回は大きなモデルを取得します。時間と空き容量が必要です。準備できるまではCastorの標準音声を使えます。", "The initial large model download needs time and free space. Castor system speech remains available."))
+                Text(model.text("「ロード」を押すまでモデルを取得・読込しません。初回は時間と空き容量が必要です。準備できるまでは標準音声を使えます。", "The model downloads / loads only when you press Load. The first download needs time and free space. System speech remains available."))
                     .font(.caption).foregroundStyle(.secondary)
                 if model.preparing { Button(model.text("準備をキャンセル", "Cancel preparation")) { model.cancel() } }
             }

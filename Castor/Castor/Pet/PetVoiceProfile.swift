@@ -349,7 +349,16 @@ final class NeuralSpeechSettings {
         preparationTask = Task {
             defer { isPreparingQwen = false; preparationTask = nil }
             do {
-                try await NeuralSpeechClient.preloadQwen()
+                let transport = try NeuralSpeechTransport()
+                if (try? await transport.isServiceAvailable()) != true {
+                    try Task.checkCancellation()
+                    await NeuralSpeechLauncher.shared.start()
+                    try Task.checkCancellation()
+                    guard !NeuralSpeechLauncher.shared.launchFailed else { throw NeuralSpeechError.modelNotReady }
+                    try await transport.waitUntilAvailable()
+                }
+                try Task.checkCancellation()
+                try await transport.preload(model: NeuralSpeechClient.qwenEnglishModel)
                 voiceEngine = .qwen
             } catch is CancellationError {
                 preparationError = nil

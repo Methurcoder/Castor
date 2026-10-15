@@ -4,9 +4,17 @@ OS と CPU を判別し、対応する Castor の配布 ZIP を取得するロ�
 **[正式リリース v0.3.0](https://github.com/Methurcoder/Castor/releases/tag/v0.3.0)のGUI導入パッケージを使ってください。**
 リポジトリのソースからビルドする手順は [README](../README.md)を参照してください。
 
-## 利用者向けの手順
+## GUI版とスクリプト版の違い
 
-Release が用意された後、対応するランチャーを実行します。
+通常の導入にはOS別の`CastorSetup-…zip`を使ってください。展開後はMacなら`CastorSetup.app`、
+Windowsなら`CastorSetup.exe`を開きます。[ZIPの選び方](GUI_SETUP.md#どのzipを選ぶ)もご覧ください。
+
+`Castor-Downloader.zip`はスクリプト版です。中身が`.command` / `.cmd` / `.ps1`なのは仕様で、
+`.app` / `.exe`のGUIインストーラーとは別ファイルです。
+
+## スクリプト版の手順
+
+スクリプト版を使う場合は、対応するランチャーを実行します。
 
 | 環境 | 起動するファイル | 条件 |
 | --- | --- | --- |

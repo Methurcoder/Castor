@@ -319,7 +319,7 @@ def launch_gui(start_on_open=False):
     from tkinter import messagebox
     ja = (locale.getlocale()[0] or '').lower().startswith('ja')
     def label(japanese, english): return japanese if ja else english
-    root = tk.Tk(); root.title('Castor Neural TTS'); root.geometry('560x310')
+    root = tk.Tk(); root.title('Castor Neural TTS'); root.geometry('560x390')
     server = None; prepare_cancel = threading.Event(); preparing = False
     status = tk.StringVar(value=label('停止中。モデルはまだ取得しません。', 'Stopped. No model download yet.'))
     tk.Label(root, text='Castor Neural TTS (Qwen)', font=('', 17, 'bold')).pack(pady=(20, 10))
@@ -363,7 +363,11 @@ def launch_gui(start_on_open=False):
             server.shutdown(); server.server_close()
         root.destroy()
     tk.Button(root, text=label('音声helperを起動', 'Start speech helper'), command=start, width=38).pack(pady=4)
-    tk.Button(root, text=label('モデルを取得・準備（任意）', 'Download / prepare model (optional)'), command=prepare, width=38).pack(pady=4)
+    tk.Label(root, text=label('音声はQwen 3 TTSでよりリアルになります。ロードしますか？',
+        'Qwen 3 TTS can make speech more natural. Load it?'), wraplength=520).pack(pady=(10, 4))
+    tk.Label(root, text=label('「ロード」を押すまでモデルを取得・読込しません。準備できるまでは標準音声を使えます。',
+        'The model downloads / loads only when you press Load. System speech remains available.'), wraplength=520).pack()
+    tk.Button(root, text=label('ロード', 'Load'), command=prepare, width=38).pack(pady=4)
     tk.Button(root, text=label('停止して閉じる', 'Stop and close'), command=close, width=38).pack(pady=4)
     root.protocol('WM_DELETE_WINDOW', close)
     if start_on_open: root.after(0, start)

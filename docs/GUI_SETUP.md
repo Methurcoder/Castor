@@ -5,6 +5,16 @@
 開発用Mac GUIの起動と「配布Releaseなし」の案内を確認しました。
 Windowsの実機確認は、ダウンローダーから導入できる配布候補ができた段階でまとめます。
 
+## どのZIPを選ぶ？
+
+| ZIP | 中に入っている起動ファイル | 用途 |
+| --- | --- | --- |
+| `CastorSetup-v0.3.0-macos_arm64.zip` | `CastorSetup.app` | MacのGUI導入 |
+| `CastorSetup-v0.3.0-windows_x86_64.zip` | `CastorSetup.exe`と必要DLL | WindowsのGUI導入。フォルダごと展開 |
+| `Castor-Downloader.zip` | `.command` / `.cmd` / `.ps1` | スクリプト版。GUIを使う場合は上のSetupを選ぶ |
+
+`Castor-Downloader.zip`に`.app`や`.exe`が無いのは仕様です。通常はOS別の**CastorSetup**を使ってください。
+
 ## 利用者の流れ
 
 ReleaseからOSに合う`CastorSetup-…zip`を取得して展開し、Macは`CastorSetup.app`、
@@ -141,3 +151,14 @@ frozen Pythonのresource trackerを正しく分岐し、試聴後の停止で子
 
 Mac helper inventory46件にlicense本文欠落なし。4つのCore MLモデルを本体へ同梱し、
 候補のad-hoc署名と既知home path検査も成功。新規model取得/最初のOS警告/Windows実発声は未確認です。
+
+## 音声モデルをロードするタイミング
+
+v0.3.0でも、設定を開く・音声エンジンを選ぶだけではモデルをロードしません。
+Macは「Qwen音声を起動」→「Qwenモデルを取得・準備」、Windowsの補助アプリは
+「モデルを取得・準備」を明示的に選びます。未準備の場合は標準音声へ戻ります。
+
+次の更新用のローカル修正では、Macの音声設定へ「音声はQwen 3 TTSでよりリアルになります。
+ロードしますか？」のバナーを追加しました。「ロード」から補助アプリ起動→応答待ち→
+モデル取得・ロードを順に実行します。Mac/Windowsの補助アプリ側にもロード前の案内を表示します。
+この変更はv0.3.0の配布物には未反映です。

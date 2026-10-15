@@ -60,16 +60,33 @@ public nonisolated struct NeuralSpeechTransport: Sendable {
         _ = try WavePCM(data:data)
         try Task.checkCancellation();return (data,http)
     }
-    /// A status probe never prepares/downloads an optional model.
-    public func isModelReady(model:String) async throws -> Bool {
+    /// These probes never launch a helper or prepare/download a model.
+    private func serviceStatus() async throws -> [String:Any]? {
         var components=URLComponents(url:endpoint,resolvingAgainstBaseURL:false)!
         components.path="/v1/audio/status"
         var request=URLRequest(url:components.url!);request.timeoutInterval=1
         let local=localSession();defer {local.finishTasksAndInvalidate()}
         let(data,response)=try await local.data(for:request)
         guard let http=response as? HTTPURLResponse,http.statusCode==200,data.count<=131072,
-              let object=try JSONSerialization.jsonObject(with:data) as? [String:Any] else {return false}
+              let object=try JSONSerialization.jsonObject(with:data) as? [String:Any] else {return nil}
+        return object
+    }
+    public func isServiceAvailable() async throws -> Bool {
+        try await serviceStatus() != nil
+    }
+    public func isModelReady(model:String) async throws -> Bool {
+        guard let object = try await serviceStatus() else { return false }
         return object["model"] as? String == model && object["status"] as? String == "ready"
+    }
+    /// Called only after the user chooses Load, while the packaged helper starts.
+    public func waitUntilAvailable() async throws {
+        let deadline = Date().addingTimeInterval(90)
+        repeat {
+            try Task.checkCancellation()
+            if (try? await isServiceAvailable()) == true { return }
+            try await Task.sleep(for: .milliseconds(250))
+        } while Date() < deadline
+        throw URLError(.timedOut)
     }
     public func preload(model:String) async throws {
         guard !model.isEmpty,model.count<=1024 else {throw TransportError.invalidRequest}

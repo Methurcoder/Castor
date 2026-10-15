@@ -19,6 +19,8 @@ Castor は [Pomegranate](https://github.com/atemoyacode-sudo/Pomegranate) の**�
 | Mac / Apple Silicon | [Mac用の導入GUI](https://github.com/Methurcoder/Castor/releases/download/v0.3.0/CastorSetup-v0.3.0-macos_arm64.zip) | `CastorSetup.app` |
 | Windows / x64 | [Windows用の導入GUI](https://github.com/Methurcoder/Castor/releases/download/v0.3.0/CastorSetup-v0.3.0-windows_x86_64.zip) | `CastorSetup.exe` |
 
+**`Castor-Downloader.zip`は`.command` / `.cmd`を使うスクリプト版です。GUIで導入する場合は、上のOS別`CastorSetup-…zip`を選んでください。**
+
 Macは**macOS 26.5以上・Apple Silicon**、Windowsは**x64**が対象です。今回の配布にはIntel Mac版を含めません。
 
 導入GUIで「取得・更新」を選び、取得後に「起動」を押してください。アプリ本体と必要なランタイムを配布するため、基本アプリの導入にXcode・Swift・Visual Studio・Pythonの手動導入やコマンド入力は必要ありません。会話には任意のLM Studio / Ollama、外部操作には各エージェントの導入・本人認証が別途必要です。
@@ -57,8 +59,8 @@ Linuxは共有ロジックとCPU描画の開発対象です。今回のデスク
 
 ## Qwen 3 TTSを使う
 
-1. Macでは **設定 → 音声 → Qwen音声を起動**。WindowsではVoiceから補助アプリの導入GUIを開きます。
-2. **モデルを取得・準備**を選びます。初回は大きなモデルの取得に時間と空き容量が必要です。
+1. v0.3.0のMacでは **設定 → 音声 → Qwen音声を起動**、続けて **Qwenモデルを取得・準備**を押します。WindowsではVoiceから補助アプリの導入GUIを開き、補助アプリの **モデルを取得・準備**を押します。
+2. 設定を開くだけではモデルを取得・ロードしません。初回のモデル取得には時間と空き容量が必要です。
 3. 声の選択画面で音声サンプルを再生します。
 
 起動だけではモデルを取得しません。準備できるまではOS標準音声を使えます。MacはMLXのQwen 0.6B CustomVoice、WindowsはローカルPyTorchのCustomVoiceを使用します。音声をこの端末で生成し、マイクの録音や声の複製は行いません。詳細な話し方の指定には制限があります。
