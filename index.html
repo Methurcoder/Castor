@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Castor — 自分のイラストを、デスクトップの相棒に</title>
+<meta name="description" content="イラストを1枚入れるだけで、呼吸して目で追い、話しかけると答えるデスクトップペットになります。Mac / Windows 対応、無料・オープンソース。">
+<meta property="og:title" content="Castor">
+<meta property="og:description" content="自分のイラストを、デスクトップで暮らす小さな相棒に。">
+<meta property="og:image" content="assets/castor-icon-256.png">
+<link rel="icon" href="assets/castor-icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="sky" aria-hidden="true"></div>
+
+<header class="nav">
+  <a class="brand" href="#top"><img src="assets/castor-icon.svg" alt=""><span>Castor</span></a>
+  <nav>
+    <a href="#download" data-t="nav.download">ダウンロード</a>
+    <a href="https://github.com/Methurcoder/Castor" data-t="nav.github">GitHub</a>
+    <button class="lang" id="lang" type="button">English</button>
+  </nav>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <img class="hero-icon" src="assets/castor-icon.svg" alt="">
+    <h1>Castor</h1>
+    <p class="tagline" data-t="hero.tagline">自分のイラストを、デスクトップで暮らす小さな相棒に。</p>
+    <p class="lead" data-t="hero.lead">絵を1枚入れるだけ。呼吸して、目で追って、話しかけると答えます。</p>
+    <div class="hero-actions">
+      <a class="button primary" href="#download" data-t="hero.cta">無料でダウンロード</a>
+      <a class="button" href="https://github.com/Methurcoder/Castor" data-t="hero.github">GitHub で見る</a>
+    </div>
+    <video class="promo" id="promo" src="assets/promo-ja.mp4" autoplay muted loop playsinline></video>
+  </section>
+
+  <section class="features">
+    <article>
+      <h3 data-t="f1.title">1枚の絵から、自動で動く</h3>
+      <p data-t="f1.text">切り抜き、顔の位置、パーツ分けまで自動。崩れたら目印を手で直せます。</p>
+    </article>
+    <article>
+      <h3 data-t="f2.title">目で追う・撫でると反応</h3>
+      <p data-t="f2.text">まばたき、呼吸、視線、口の動き。作業中は ⌥ で透けて下のボタンも押せます。</p>
+    </article>
+    <article>
+      <h3 data-t="f3.title">話しかけると答える</h3>
+      <p data-t="f3.text">手元の AI（LM Studio / Ollama）だけでも会話できます。</p>
+    </article>
+  </section>
+
+  <section class="download" id="download">
+    <h2 data-t="dl.title">ダウンロード</h2>
+    <p class="muted" id="releaseLine" data-t="dl.loading">最新版を確認しています…</p>
+
+    <div class="platforms">
+      <article class="platform" id="card-mac" data-os="mac">
+        <div class="os">Mac</div>
+        <p class="req" data-t="mac.req">macOS 26.5 以降・Apple シリコン（M1 以降）</p>
+        <a class="button primary big" id="btn-mac" href="https://github.com/Methurcoder/Castor/releases/latest">
+          <span data-t="mac.button">Mac 版をダウンロード</span>
+          <small id="file-mac"></small>
+        </a>
+        <ol class="steps">
+          <li data-t="mac.s1">ダウンロードした .dmg を開き、Castor を「アプリケーション」へドラッグ</li>
+          <li data-t="mac.s2">最初の起動だけ、「システム設定 › プライバシーとセキュリティ › このまま開く」で許可</li>
+          <li data-t="mac.s3">Castor が開いたら、絵を1枚入れる</li>
+        </ol>
+        <details>
+          <summary data-t="mac.video">最初の起動の手順を動画で見る</summary>
+          <video id="firstLaunch" src="assets/first-launch-mac-ja.mp4" controls muted playsinline preload="none"></video>
+        </details>
+      </article>
+
+      <article class="platform" id="card-win" data-os="win">
+        <div class="os">Windows</div>
+        <p class="req" data-t="win.req">Windows 10 / 11（64 ビット）</p>
+        <a class="button primary big" id="btn-win" href="https://github.com/Methurcoder/Castor/releases/latest">
+          <span data-t="win.button">Windows 版をダウンロード</span>
+          <small id="file-win"></small>
+        </a>
+        <ol class="steps">
+          <li data-t="win.s1">ダウンロードした zip を展開し、CastorSetup.exe を開く</li>
+          <li data-t="win.s2">「Windows によって PC が保護されました」と出たら「詳細情報 › 実行」</li>
+          <li data-t="win.s3">セットアップの案内に沿ってインストールし、Castor を起動</li>
+        </ol>
+        <p class="note" data-t="win.preview">Windows 版は公開プレビューです。</p>
+      </article>
+    </div>
+
+    <p class="notice" id="mobileNotice" hidden data-t="dl.mobile">Castor はパソコン用のアプリです。Mac か Windows のパソコンで開いてください。</p>
+
+    <details class="files">
+      <summary data-t="files.title">Release に並んでいるファイルの見分け方</summary>
+      <p class="muted" data-t="files.lead">ふつうは上のボタンだけで足ります。GitHub の Release ページには、用途ごとに次のファイルが並んでいます。</p>
+      <table>
+        <thead><tr><th data-t="files.name">ファイル</th><th data-t="files.use">用途</th></tr></thead>
+        <tbody id="fileTable"></tbody>
+      </table>
+    </details>
+
+    <details class="files">
+      <summary data-t="more.title">更新・削除・署名について</summary>
+      <ul class="plain">
+        <li data-t="more.update">更新・修復・削除は、セットアップ（Mac は Castor の設定から開けます）でいつでもできます。作ったペットと設定は残ります。</li>
+        <li data-t="more.sign">いまは Apple・Microsoft の公式署名がないため、最初の起動で OS の確認画面が出ます。ダウンロード内容は配布元の一覧（SHA-256）と照合しています。</li>
+        <li data-t="more.help">うまくいかないときは GitHub の Issues で教えてください。</li>
+      </ul>
+    </details>
+  </section>
+
+  <section class="safety">
+    <h2 data-t="safe.title">安心して使えるように</h2>
+    <ul class="cards">
+      <li><b data-t="safe.free">無料・オープンソース</b><span data-t="safe.free.text">ソースコードはすべて GitHub で公開しています（MIT ライセンス）。</span></li>
+      <li><b data-t="safe.local">絵は外に送りません</b><span data-t="safe.local.text">切り抜きと顔の推定は、この端末の中で処理します。</span></li>
+      <li><b data-t="safe.ai">会話は選べます</b><span data-t="safe.ai.text">手元の AI でも、Codex / Claude Code でも。外部に送るときは毎回確認します。</span></li>
+    </ul>
+  </section>
+
+  <section class="faq">
+    <h2 data-t="faq.title">よくある質問</h2>
+    <details><summary data-t="faq.q1">どんな絵でも動きますか？</summary><p data-t="faq.a1">正面向きで、顔がはっきりした絵が一番きれいに動きます。崩れたときは、顔の目印を手で直せます。</p></details>
+    <details><summary data-t="faq.q2">お金はかかりますか？</summary><p data-t="faq.a2">かかりません。外部の AI サービスを選んだ場合だけ、そのサービスの料金がかかります。</p></details>
+    <details><summary data-t="faq.q3">使う絵の注意は？</summary><p data-t="faq.a3">自分で描いた絵か、使ってよい絵でお願いします。</p></details>
+  </section>
+</main>
+
+<footer class="footer">
+  <a href="https://github.com/Methurcoder/Castor">GitHub</a>
+  <a href="https://github.com/Methurcoder/Castor/blob/main/LICENSE" data-t="foot.license">ライセンス（MIT）</a>
+  <a href="https://github.com/Methurcoder/Castor/issues" data-t="foot.issues">問い合わせ（Issues）</a>
+  <span data-t="foot.lineage">Castor は Pomegranate の後継プロジェクトです</span>
+</footer>
+
+<script src="site.js"></script>
+</body>
+</html>

@@ -1,0 +1,170 @@
+// Castor download page: picks the right file from the latest GitHub Release
+// for this computer, and explains the rest. Japanese text lives in the HTML;
+// English is below. Without the GitHub API the buttons open the Release page.
+(() => {
+  "use strict";
+  const REPO = "Methurcoder/Castor";
+  const RELEASES = `https://github.com/${REPO}/releases/latest`;
+
+  const EN = {
+    "nav.download": "Download", "nav.github": "GitHub",
+    "hero.tagline": "Turn your own illustration into a little companion on your desktop.",
+    "hero.lead": "Drop in one picture. It breathes, follows you with its eyes, and talks back.",
+    "hero.cta": "Download free", "hero.github": "View on GitHub",
+    "f1.title": "Moves from a single picture", "f1.text": "Cut-out, face position and parts are automatic. If something is off, nudge the face markers by hand.",
+    "f2.title": "Watches you, reacts to pets", "f2.text": "Blinking, breathing, gaze and lip movement. Hold ⌥ to see and click through it while you work.",
+    "f3.title": "Talks back", "f3.text": "Chat with a local AI (LM Studio / Ollama) only, if you like.",
+    "dl.title": "Download", "dl.loading": "Checking the latest version…",
+    "dl.release": "Latest: {v}", "dl.failed": "Could not reach GitHub. The buttons open the Release page.",
+    "dl.mobile": "Castor is a desktop app. Open this page on a Mac or Windows PC.",
+    "mac.req": "macOS 26.5 or later · Apple silicon (M1 or later)", "mac.button": "Download for Mac",
+    "mac.s1": "Open the downloaded .dmg and drag Castor into Applications",
+    "mac.s1.setup": "Open the downloaded zip, launch CastorSetup and choose Download / Update",
+    "mac.s2": "On first launch only, allow it in System Settings › Privacy & Security › Open Anyway",
+    "mac.s3": "When Castor opens, drop in a picture",
+    "mac.video": "Watch the first-launch steps",
+    "win.req": "Windows 10 / 11 (64-bit)", "win.button": "Download for Windows",
+    "win.s1": "Extract the downloaded zip and open CastorSetup.exe",
+    "win.s2": "If “Windows protected your PC” appears, choose More info › Run anyway",
+    "win.s3": "Follow the setup to install, then launch Castor",
+    "win.preview": "The Windows version is a public preview.",
+    "files.title": "Which file on the Release page is which",
+    "files.lead": "The buttons above are all most people need. The Release page lists these files by purpose:",
+    "files.name": "File", "files.use": "Purpose",
+    "more.title": "Updates, removal and signing",
+    "more.update": "Update, repair or remove at any time with the setup (on Mac, open it from Castor's settings). Your pets and settings stay.",
+    "more.sign": "Castor is not signed by Apple or Microsoft yet, so the OS asks for confirmation on first launch. Downloads are checked against the publisher's SHA-256 list.",
+    "more.help": "If something goes wrong, tell us in GitHub Issues.",
+    "safe.title": "Made to be safe to use",
+    "safe.free": "Free and open source", "safe.free.text": "All source code is on GitHub (MIT License).",
+    "safe.local": "Your art stays on your computer", "safe.local.text": "Cut-out and face estimation run on this device.",
+    "safe.ai": "You choose the AI", "safe.ai.text": "A local AI, or Codex / Claude Code. Castor asks every time before sending anything out.",
+    "faq.title": "FAQ",
+    "faq.q1": "Does any picture work?", "faq.a1": "Front-facing pictures with a clear face move best. If it goes wrong, you can fix the face markers by hand.",
+    "faq.q2": "Does it cost anything?", "faq.a2": "No. Only an external AI service you choose may charge you.",
+    "faq.q3": "Which pictures can I use?", "faq.a3": "Your own art, or pictures you are allowed to use.",
+    "foot.license": "License (MIT)", "foot.issues": "Contact (Issues)", "foot.lineage": "Castor is the successor to Pomegranate",
+    "badge": "Your computer",
+  };
+  const JA_EXTRA = {
+    "mac.s1.setup": "ダウンロードした zip を開き、CastorSetup を起動して「取得・更新」",
+    "dl.release": "最新版: {v}", "dl.failed": "GitHub に接続できませんでした。ボタンから Release ページを開けます。",
+    "badge": "このパソコン",
+  };
+
+  // What each Release file is for, by name pattern.
+  const FILES = [
+    { match: /^Castor-v.+-macos_arm64\.dmg$/, ja: "Mac 版の本体（ディスクイメージ）。開いてアプリケーションへドラッグ", en: "Mac app (disk image). Open it and drag to Applications", rec: "mac" },
+    { match: /^CastorSetup-v.+-windows_x86_64\.zip$/, ja: "Windows 版のセットアップ。導入・更新・修復・削除", en: "Windows setup: install, update, repair, remove", rec: "win" },
+    { match: /^CastorSetup-v.+-macos_arm64\.zip$/, ja: "Mac 版のセットアップ。導入・更新・修復", en: "Mac setup: install, update, repair" },
+    { match: /^Castor-v.+-macos_arm64\.zip$/, ja: "Mac 版の本体そのもの（zip）。セットアップが内部で使います", en: "Mac app itself (zip); the setup downloads this" },
+    { match: /^Castor-v.+-windows_x86_64\.zip$/, ja: "Windows 版の本体そのもの（zip）。セットアップが内部で使います", en: "Windows app itself (zip); the setup downloads this" },
+    { match: /^CastorNeuralTTS-v.+\.zip$/, ja: "任意の高品質音声（Qwen 3 TTS）の補助アプリ。あとからセットアップで追加できます", en: "Optional high-quality voice helper (Qwen 3 TTS); add it later from the setup" },
+    { match: /^Castor-Downloader\.zip$/, ja: "コマンドで取得する人向けのスクリプト（上級者向け）", en: "Command-line download scripts (advanced)" },
+    { match: /^castor-downloads\.json$/, ja: "ファイルの指紋（SHA-256）の一覧。アプリが照合に使います", en: "SHA-256 list of the files; used by the apps for checking" },
+  ];
+
+  let language = (navigator.language || "ja").toLowerCase().startsWith("ja") ? "ja" : "en";
+  try { language = localStorage.getItem("castor.lang") || language; } catch (_) { /* private mode */ }
+  const JA = {};
+  document.querySelectorAll("[data-t]").forEach((el) => { JA[el.dataset.t] = el.textContent; });
+  Object.assign(JA, JA_EXTRA);
+  const t = (key, v) => ((language === "en" ? EN : JA)[key] || JA[key] || key).replace("{v}", v || "");
+
+  let release = null;
+  let releaseFailed = false;
+
+  function detectOS() {
+    const platform = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
+    const agent = navigator.userAgent || "";
+    if (/android|iphone|ipad|ipod/i.test(agent) || (navigator.userAgentData && navigator.userAgentData.mobile)) return "mobile";
+    if (/mac/i.test(platform) || /Macintosh/.test(agent)) return "mac";
+    if (/win/i.test(platform) || /Windows/.test(agent)) return "win";
+    return "other";
+  }
+
+  function render() {
+    document.documentElement.lang = language;
+    document.querySelectorAll("[data-t]").forEach((el) => { el.textContent = t(el.dataset.t); });
+    document.getElementById("lang").textContent = language === "ja" ? "English" : "日本語";
+    const promo = document.getElementById("promo");
+    const promoSource = `assets/promo-${language}.mp4`;
+    if (!promo.src.endsWith(promoSource)) { promo.src = promoSource; promo.play().catch(() => {}); }
+    document.getElementById("firstLaunch").src = `assets/first-launch-mac-${language}.mp4`;
+    document.querySelectorAll(".platform .os").forEach((title) => title.setAttribute("data-badge", t("badge")));
+
+    const line = document.getElementById("releaseLine");
+    if (release) line.textContent = t("dl.release", release.tag_name);
+    else if (releaseFailed) line.textContent = t("dl.failed");
+
+    const assets = release ? release.assets : [];
+    const pick = (re) => assets.find((a) => re.test(a.name));
+    const mac = pick(FILES[0].match) || pick(FILES[2].match);
+    const win = pick(FILES[1].match);
+    setButton("mac", mac);
+    // The dmg is dragged to Applications; the setup zip installs by itself.
+    const macStep = document.querySelector('[data-t="mac.s1"], [data-t="mac.s1.setup"]');
+    macStep.dataset.t = mac && !mac.name.endsWith(".dmg") ? "mac.s1.setup" : "mac.s1";
+    macStep.textContent = t(macStep.dataset.t);
+    setButton("win", win);
+
+    const table = document.getElementById("fileTable");
+    table.innerHTML = "";
+    const recommended = [mac, win].filter(Boolean).map((a) => a.name);
+    const names = assets.length
+      ? assets.map((a) => a.name).sort((a, b) => recommended.includes(b) - recommended.includes(a))
+      : FILES.map((f) => f.match.source.replace(/\\|\^|\$/g, "").replace(".+", "<version>"));
+    for (const name of names) {
+      const info = FILES.find((f) => f.match.test(name));
+      const row = document.createElement("tr");
+      const file = document.createElement("td");
+      const code = document.createElement("code");
+      code.textContent = name;
+      file.appendChild(code);
+      if (recommended.includes(name)) {
+        const tag = document.createElement("span");
+        tag.className = "tag rec";
+        tag.textContent = language === "ja" ? "おすすめ" : "Recommended";
+        file.appendChild(tag);
+      }
+      const use = document.createElement("td");
+      use.textContent = info ? info[language] : (language === "ja" ? "その他" : "Other");
+      row.append(file, use);
+      table.appendChild(row);
+    }
+  }
+
+  function setButton(os, asset) {
+    const button = document.getElementById(`btn-${os}`);
+    const label = document.getElementById(`file-${os}`);
+    if (asset) {
+      button.href = asset.browser_download_url;
+      label.textContent = `${asset.name} · ${(asset.size / 1e6).toFixed(0)} MB`;
+    } else {
+      button.href = RELEASES;
+      label.textContent = release ? "" : "GitHub Releases";
+    }
+  }
+
+  const os = detectOS();
+  if (os === "mac" || os === "win") {
+    const card = document.getElementById(`card-${os}`);
+    card.classList.add("detected");
+    card.parentElement.prepend(card);
+  } else {
+    document.querySelector(".platforms").classList.add("none");
+    if (os === "mobile") document.getElementById("mobileNotice").hidden = false;
+  }
+
+  document.getElementById("lang").addEventListener("click", () => {
+    language = language === "ja" ? "en" : "ja";
+    try { localStorage.setItem("castor.lang", language); } catch (_) { /* private mode */ }
+    render();
+  });
+
+  render();
+  fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { Accept: "application/vnd.github+json" } })
+    .then((response) => (response.ok ? response.json() : Promise.reject(response.status)))
+    .then((data) => { release = data; render(); })
+    .catch(() => { releaseFailed = true; render(); });
+})();

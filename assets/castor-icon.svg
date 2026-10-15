@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#3a3fb8"/><stop offset="0.55" stop-color="#232674"/><stop offset="1" stop-color="#14163f"/></linearGradient>
+ <radialGradient id="glow" cx="0.43" cy="0.55" r="0.42"><stop offset="0" stop-color="#8e92ff" stop-opacity="0.55"/><stop offset="1" stop-color="#8e92ff" stop-opacity="0"/></radialGradient>
+ <linearGradient id="big" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#c9ccff"/></linearGradient>
+ <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd27a"/><stop offset="1" stop-color="#e7a93b"/></linearGradient>
+ <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#000" flood-opacity="0.28"/></filter>
+ <filter id="soft"><feGaussianBlur stdDeviation="10"/></filter>
+ <clipPath id="clip"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath>
+</defs>
+<rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)" filter="url(#shadow)"/>
+<g clip-path="url(#clip)">
+ <rect x="100" y="100" width="824" height="824" fill="url(#glow)"/>
+ <path d="M250 250 Q250 260 260 260 Q250 260 250 270 Q250 260 240 260 Q250 260 250 250 Z" fill="#c9ccff" opacity="0.55"/><path d="M330 693 Q330 700 337 700 Q330 700 330 707 Q330 700 323 700 Q330 700 330 693 Z" fill="#c9ccff" opacity="0.55"/><path d="M760 771 Q760 780 769 780 Q760 780 760 789 Q760 780 751 780 Q760 780 760 771 Z" fill="#c9ccff" opacity="0.55"/><path d="M700 224 Q700 230 706 230 Q700 230 700 236 Q700 230 694 230 Q700 230 700 224 Z" fill="#c9ccff" opacity="0.55"/><path d="M800 413 Q800 420 807 420 Q800 420 800 427 Q800 420 793 420 Q800 420 800 413 Z" fill="#c9ccff" opacity="0.55"/><path d="M260 514 Q260 520 266 520 Q260 520 260 526 Q260 520 254 520 Q260 520 260 514 Z" fill="#c9ccff" opacity="0.55"/><path d="M560 815 Q560 820 565 820 Q560 820 560 825 Q560 820 555 820 Q560 820 560 815 Z" fill="#c9ccff" opacity="0.55"/>
+ <path d="M440 320 Q440 570 690 570 Q440 570 440 820 Q440 570 190 570 Q440 570 440 320 Z" fill="#a9adff" opacity="0.45" filter="url(#soft)"/>
+ <path d="M440 330 Q440 570 680 570 Q440 570 440 810 Q440 570 200 570 Q440 570 440 330 Z" fill="url(#big)"/>
+ <path d="M700 212 Q700 330 818 330 Q700 330 700 448 Q700 330 582 330 Q700 330 700 212 Z" fill="url(#gold)"/>
+</g>
+<rect x="100.5" y="100.5" width="823" height="823" rx="185" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="2"/>
+</svg>
