@@ -17,11 +17,18 @@ final class PetGIFShareWindow: NSObject, NSWindowDelegate {
         window.title = CastorAppStrings.label("GIFを作ってXで共有", language: SettingsDisplayLanguage(rawValue: UserDefaults.standard.string(forKey: "Castor.SettingsDisplayLanguage") ?? "") ?? .systemDefault)
         window.isReleasedWhenClosed = false
         window.delegate = self
-        let hosting = NSHostingController(rootView: PetGIFShareView(asset: asset))
+        let contentSize = NSSize(width: 490, height: 650)
+        // Keep SwiftUI's ScrollView measurements out of the window's size contract.
+        // Controller sizingOptions alone did not prevent a title-bar-only window.
+        let container = NSView(frame: NSRect(origin: .zero, size: contentSize))
+        let hosting = NSHostingView(rootView: PetGIFShareView(asset: asset))
         hosting.sizingOptions = []
-        window.contentViewController = hosting
-        window.setContentSize(NSSize(width: 490, height: 650))
+        hosting.frame = container.bounds
+        hosting.autoresizingMask = [.width, .height]
+        container.addSubview(hosting)
+        window.contentView = container
         window.contentMinSize = NSSize(width: 490, height: 600)
+        window.setContentSize(contentSize)
         self.window = window
         window.center()
         window.makeKeyAndOrderFront(nil)
@@ -29,7 +36,10 @@ final class PetGIFShareWindow: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
-        window?.contentViewController = nil
+        // A delayed notification from a replaced window must not clear the new one.
+        guard let closingWindow = notification.object as? NSWindow,
+              closingWindow === window else { return }
+        closingWindow.contentView = nil
         window = nil
     }
 }
@@ -125,7 +135,7 @@ private struct PetGIFShareView: View {
             }
             .padding(22)
         }
-        .frame(minWidth: 490, minHeight: 600, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onChange(of: motion) { invalidatePreview() }
         .onChange(of: duration) { invalidatePreview() }
         .onChange(of: background) { invalidatePreview() }

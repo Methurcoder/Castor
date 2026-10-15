@@ -34,3 +34,17 @@ Windowsの診断localeは現在のSAPI recognizer tokenのLanguage属性から�
 [Microsoft: GetRecognizer](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/ms718610(v=vs.85))、[tokenのLanguage属性](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/ms718134(v=vs.85))。
 
 配布用appのResourcesにもLICENSEとTHIRD_PARTY_NOTICES.mdを同梱し、appだけを収めるDMGでも権利表記を保持する。
+
+## 2026-10-16 GIFウインドウ縮小の再報告
+
+公開後の画像で、前回対策後もタイトルバーだけになる事象が再報告された。
+前回のNSHostingController.sizingOptionsと明示サイズ指定だけでは解消を確認できていなかった。
+NSHostingViewもSwiftUI由来のサイズをNSWindowへ伝えるため、通常のNSViewをcontentViewにし、
+その内部にsizingOptions=[]のNSHostingViewを明示frame/autoresizingで配置する。
+初期content 490×650、最小490×600はNSWindow側だけで管理し、SwiftUIのScrollViewはその領域を埋める。
+旧ウインドウの遅延close通知が新しい画面を空にしないよう、close対象の同一性も確認する。
+[Apple: NSHostingView.sizingOptions](https://developer.apple.com/documentation/swiftui/nshostingview/sizingoptions)。
+
+これはサイズ計測の干渉を防ぐソース修正であり、ユーザー環境での原因の確定・解消確認ではない。
+今回テスト追加・実行、ビルド、GUI確認、push、Releaseは行っていない。
+v1.0.0の配布物には未反映。不変Releaseを差し替えない。
