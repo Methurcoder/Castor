@@ -97,6 +97,33 @@ revisions; neither is committed. The letterbox preprocessing in
 - Weights: <https://huggingface.co/skytnt/anime-seg> (`model.safetensors`),
   Apache License 2.0
 
+## ONNX exports of the anime models (Windows)
+
+On Windows the same anime face, landmark and segmentation networks run as
+ONNX exports made by `Arils/Tools/AnimeFaceModels/export_onnx.py` and
+`Arils/Tools/AnimeSegmentationModel/export_onnx.py` from the weights listed
+above, under the same licenses. The model files are not committed.
+
+## ONNX Runtime (Windows model inference)
+
+`CastorDesktop/Sources/COnnxRuntime/vendor/` holds the C API headers of ONNX
+Runtime 1.30.0; Castor loads the runtime library at run time when it is
+installed with the models.
+
+- Project: <https://github.com/microsoft/onnxruntime>
+- License: MIT License, Copyright (c) Microsoft Corporation
+  (`CastorDesktop/Sources/COnnxRuntime/vendor/LICENSE-onnxruntime`)
+
+## Microsoft Edge WebView2 SDK (Windows creation window)
+
+`CastorDesktop/Sources/CDesktopUI/vendor/WebView2.h` and the redistributable
+`WebView2Loader.dll` (`CastorDesktop/Redist/WebView2/`) come from the NuGet
+package Microsoft.Web.WebView2 1.0.4191.47, unmodified.
+
+- Project: <https://learn.microsoft.com/microsoft-edge/webview2/>
+- License: BSD 3-Clause License, Copyright (C) Microsoft Corporation
+  (`CastorDesktop/Redist/WebView2/LICENSE`)
+
 ## stb_image (PNG decoding in the Windows preview)
 
 `CastorDesktop/Sources/CStbImage/include/stb_image.h` is stb_image v2.30

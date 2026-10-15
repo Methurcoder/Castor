@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build a native GUI installer locally. Does not upload or bypass OS checks."""
 import argparse
+import hashlib
 import os
 from pathlib import Path
 import plistlib
@@ -53,6 +54,25 @@ def pe_imports(path):
         imports.append(name)
         cursor += 20
     raise ValueError('Unterminated PE import directory')
+
+
+WEBVIEW2_LOADER = ROOT/'CastorDesktop/Redist/WebView2/x64/WebView2Loader.dll'
+WEBVIEW2_LOADER_SHA256 = 'c66e4a92fdc7a216118e43b7a5024ea2200e8c43f9310bf20d96a0084f82c5bc'
+CREATION_WINDOW = 'CastorDesktop_CastorPet.resources'
+CREATION_WINDOW_FILES = ('index.html', 'app.css', 'app.js')
+
+
+def windows_creation_window(output, bin_path):
+    """The creation window: its page (SwiftPM resource bundle) and the pinned WebView2 loader."""
+    if hashlib.sha256(WEBVIEW2_LOADER.read_bytes()).hexdigest() != WEBVIEW2_LOADER_SHA256:
+        raise ValueError('WebView2Loader.dll does not match the pinned WebView2 SDK file.')
+    shutil.copy2(WEBVIEW2_LOADER, output/'WebView2Loader.dll')
+    page = bin_path/CREATION_WINDOW/'UI'
+    (output/CREATION_WINDOW/'UI').mkdir(parents=True)
+    for name in CREATION_WINDOW_FILES:
+        if not (page/name).is_file():
+            raise ValueError(f'Missing creation window file: {CREATION_WINDOW}/UI/{name}')
+        shutil.copy2(page/name, output/CREATION_WINDOW/'UI'/name)
 
 
 def windows_runtime(executables, output, bin_path, runtime_dirs):
@@ -114,6 +134,8 @@ def windows_runtime(executables, output, bin_path, runtime_dirs):
                 raise ValueError(f'Missing redistributable DLL: {name}. Add its approved runtime directory with --runtime-dir.')
     if 'swiftcore.dll' not in copied:
         raise ValueError('Swift runtime was not collected.')
+    if 'CastorPet.exe' in executables:
+        windows_creation_window(output, bin_path)
 
 
 def main():

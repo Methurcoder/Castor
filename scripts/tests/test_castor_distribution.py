@@ -44,6 +44,11 @@ class DistributionTests(unittest.TestCase):
         struct.pack_into('<H', data, 68, 0x8664)
         (self.windows/'CastorPet.exe').write_bytes(data)
         (self.windows/'swiftCore.dll').write_bytes(b'test-runtime')
+        (self.windows/'WebView2Loader.dll').write_bytes(b'loader fixture')
+        self.page = self.windows/release.CREATION_WINDOW/'UI'
+        self.page.mkdir(parents=True)
+        for name in release.CREATION_WINDOW_FILES:
+            (self.page/name).write_text('page fixture')
         self.output = self.base/'release'
 
     def tearDown(self):
@@ -235,6 +240,24 @@ class DistributionTests(unittest.TestCase):
         (self.windows/'CastorPet.json').write_text('{}')
         with self.assertRaises(ValueError):
             release.prepare(self.output, 'test', {'windows_x86_64': self.windows})
+        self.assertFalse(self.output.exists())
+
+    def test_windows_runtime_ships_the_creation_window_and_nothing_else(self):
+        self.package()
+        archive = next(self.output.glob('*windows_x86_64*.zip'))
+        with zipfile.ZipFile(archive) as z:
+            names = z.namelist()
+        self.assertIn('WebView2Loader.dll', names)
+        for name in release.CREATION_WINDOW_FILES:
+            self.assertIn(f'{release.CREATION_WINDOW}/UI/{name}', names)
+        shutil.rmtree(self.output)
+        (self.page/'notes.txt').write_text('stray')
+        with self.assertRaises(ValueError):
+            self.package()
+        (self.page/'notes.txt').unlink()
+        (self.page/'app.js').unlink()
+        with self.assertRaises(ValueError):
+            self.package()
         self.assertFalse(self.output.exists())
 
     def test_rejects_symlinks_and_existing_output(self):

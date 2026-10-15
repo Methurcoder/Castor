@@ -21,6 +21,26 @@ from castor_privacy import check_private_home
 ROOT = Path(__file__).resolve().parents[1]
 PLATFORMS = ('macos_arm64', 'macos_x86_64', 'windows_x86_64')
 LICENSES = ('LICENSE', 'THIRD_PARTY_NOTICES.md')
+CREATION_WINDOW = 'CastorDesktop_CastorPet.resources'
+CREATION_WINDOW_FILES = ('index.html', 'app.css', 'app.js')
+
+
+def creation_window_files(bundle):
+    """The Windows creation window page: exactly the shipped UI files."""
+    files = []
+    for p in sorted(bundle.rglob('*')):
+        relative = f'{bundle.name}/{p.relative_to(bundle).as_posix()}'
+        if p.is_symlink():
+            raise ValueError(f'Review symlinks before packaging: {relative}')
+        if p.is_dir():
+            if p != bundle/'UI':
+                raise ValueError(f'Unexpected creation window folder: {relative}')
+            continue
+        if p.parent != bundle/'UI' or p.name not in CREATION_WINDOW_FILES:
+            raise ValueError(f'Unexpected creation window file: {relative}')
+        valid_file(p)
+        files.append((p, relative))
+    return files
 
 
 def valid_file(path, public_ca=False):
@@ -133,10 +153,15 @@ def prepare(output, version, apps, setups=None, neural_helpers=None, installers=
                     files.append((p, p.name))
                 elif p.name in LICENSES:
                     valid_file(p)
+                elif p.name == CREATION_WINDOW and p.is_dir() and not p.is_symlink():
+                    files.extend(creation_window_files(p))
                 else:
                     raise ValueError(f'Unexpected Windows runtime file: {p.name}')
             if not any(p.name.lower() == 'swiftcore.dll' for p, _ in files):
                 raise ValueError('Include the redistributable Swift runtime DLLs beside CastorPet.exe.')
+            names = {name for _, name in files}
+            if 'WebView2Loader.dll' not in names or any(f'{CREATION_WINDOW}/UI/{n}' not in names for n in CREATION_WINDOW_FILES):
+                raise ValueError('Include the creation window (WebView2Loader.dll and its UI bundle) beside CastorPet.exe.')
             files.extend((ROOT/'download'/name, name) for name in ('Start-Castor.cmd', 'Start-Castor.ps1'))
         files.extend((ROOT/name, name) for name in LICENSES)
         payloads[platform] = files
