@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import ArilsFaceInference
+@testable import ArilsInference
 
 // Expected values come from the implementations being ported:
 // torchvision.ops.roi_align, mmpose keypoints_from_heatmaps('unbiased'),
