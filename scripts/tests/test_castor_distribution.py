@@ -185,6 +185,25 @@ class DistributionTests(unittest.TestCase):
                     self.assertIn('swiftCore.dll',z.namelist())
                     self.assertNotIn('CastorPet.exe',z.namelist())
 
+    def test_installers_are_checked_named_and_hashed(self):
+        dmg = self.base/'Castor.dmg'
+        dmg.write_bytes(b'image' * 200 + b'koly' + bytes(508))
+        setup_exe = self.base/'setup.exe'
+        shutil.copy2(self.windows/'CastorPet.exe', setup_exe)
+        release.prepare(self.output, 'local-test', {'macos_arm64': self.mac}, installers={'macos_arm64': dmg, 'windows_x86_64': setup_exe})
+        manifest = json.loads((self.output/'castor-downloads.json').read_text())
+        self.assertEqual(manifest['installers']['macos_arm64']['asset'], 'Castor-local-test-macos_arm64.dmg')
+        self.assertEqual(manifest['installers']['windows_x86_64']['asset'], 'Castor-local-test-windows_x86_64-setup.exe')
+        for asset in manifest['installers'].values():
+            self.assertEqual(asset['sha256'], hashlib.sha256((self.output/asset['asset']).read_bytes()).hexdigest())
+
+    def test_rejects_installers_of_the_wrong_kind(self):
+        not_dmg = self.base/'Castor.dmg'
+        not_dmg.write_bytes(b'not a disk image' * 64)
+        with self.assertRaises(ValueError):
+            release.prepare(self.output, 'local-test', {'macos_arm64': self.mac}, installers={'macos_arm64': not_dmg})
+        self.assertFalse(self.output.exists())
+
     @unittest.skipUnless(sys.platform == 'win32' and os.environ.get('CASTOR_SETUP_EXE'), 'Native Windows setup executable is required')
     def test_gui_setup_native_extraction_handles_spaces_unicode_and_quotes(self):
         archive=self.base/"Castor 日本語's package.zip"

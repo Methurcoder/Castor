@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 660px; height: 400px; overflow: hidden; }
+  body { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt";
+    background: radial-gradient(420px 260px at 12% 0%, #e2e4fa 0%, rgba(226,228,250,0) 70%),
+                radial-gradient(380px 240px at 100% 100%, #efe3f7 0%, rgba(239,227,247,0) 70%),
+                linear-gradient(180deg, #fbfbff 0%, #f4f5fd 100%); color: #1a1c2e; position: relative; }
+  .title { position: absolute; top: 34px; left: 0; right: 0; text-align: center; font-size: 21px; font-weight: 800; }
+  .title em { font-style: normal; color: #4b4fd0; }
+  .sub { position: absolute; top: 66px; left: 0; right: 0; text-align: center; font-size: 12px; font-weight: 600; color: #737792;
+    font-family: "SF Pro Text", -apple-system, sans-serif; }
+  svg.arrow { position: absolute; left: 252px; top: 168px; }
+  .note { position: absolute; left: 50px; right: 50px; bottom: 26px; padding: 11px 16px; border-radius: 12px;
+    background: rgba(255,255,255,0.78); border: 1px solid #e2e4f0; font-size: 11.5px; line-height: 1.55; color: #4f5370; text-align: center; }
+  .note b { color: #1a1c2e; }
+  .note .en { font-family: "SF Pro Text", -apple-system, sans-serif; font-size: 10.5px; color: #737792; }
+  .star { position: absolute; }
+</style></head><body>
+  <div class="title"><em>Castor</em> を アプリケーション へドラッグ</div>
+  <div class="sub">Drag Castor to Applications</div>
+  <svg class="arrow" width="156" height="44" viewBox="0 0 156 44">
+    <defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#9ea2e6"/><stop offset="1" stop-color="#4b4fd0"/></linearGradient></defs>
+    <path d="M6 24 C 50 6, 100 6, 140 22" fill="none" stroke="url(#g)" stroke-width="5" stroke-linecap="round"/>
+    <path d="M128 10 L 146 23 L 127 33" fill="none" stroke="#4b4fd0" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <div class="note">
+    はじめて開くときだけ：<b>システム設定 › プライバシーとセキュリティ › このまま開く</b><br>
+    <span class="en">First launch only: System Settings › Privacy &amp; Security › Open Anyway</span>
+  </div>
+  <svg class="star" style="left:40px;top:120px" width="14" height="14" viewBox="0 0 20 20"><path d="M10 0 Q10 10 20 10 Q10 10 10 20 Q10 10 0 10 Q10 10 10 0 Z" fill="#e7a93b" opacity=".75"/></svg>
+  <svg class="star" style="left:604px;top:110px" width="11" height="11" viewBox="0 0 20 20"><path d="M10 0 Q10 10 20 10 Q10 10 10 20 Q10 10 0 10 Q10 10 10 0 Z" fill="#9ea2e6" opacity=".8"/></svg>
+  <svg class="star" style="left:300px;top:118px" width="9" height="9" viewBox="0 0 20 20"><path d="M10 0 Q10 10 20 10 Q10 10 10 20 Q10 10 0 10 Q10 10 10 0 Z" fill="#9ea2e6" opacity=".7"/></svg>
+  <svg class="star" style="left:620px;top:262px" width="12" height="12" viewBox="0 0 20 20"><path d="M10 0 Q10 10 20 10 Q10 10 10 20 Q10 10 0 10 Q10 10 10 0 Z" fill="#e7a93b" opacity=".6"/></svg>
+</body></html>

@@ -140,11 +140,13 @@ def main():
         output.mkdir(parents=True)
         if sys.platform == 'darwin':
             app = output/'CastorSetup.app'/'Contents'
-            (app/'MacOS').mkdir(parents=True)
+            (app/'MacOS').mkdir(parents=True); (app/'Resources').mkdir()
             shutil.copy2(bin_path/'CastorSetup', app/'MacOS'/'CastorSetup')
+            shutil.copy2(ROOT/'assets/icon/Castor.icns', app/'Resources'/'Castor.icns')
             subprocess.run(['/usr/bin/strip','-S','-x',str(app/'MacOS'/'CastorSetup')],check=True)
             info = {'CFBundleExecutable':'CastorSetup', 'CFBundleIdentifier':'dev.castor.setup', 'CFBundleName':'Castor Setup',
-                    'CFBundlePackageType':'APPL', 'CFBundleVersion':'1', 'CFBundleShortVersionString':'0.1.0', 'LSMinimumSystemVersion':'26.5', 'NSHighResolutionCapable':True}
+                    'CFBundlePackageType':'APPL', 'CFBundleVersion':'1', 'CFBundleShortVersionString':'0.1.0', 'LSMinimumSystemVersion':'26.5', 'NSHighResolutionCapable':True,
+                    'CFBundleIconFile':'Castor'}
             (app/'Info.plist').write_bytes(plistlib.dumps(info))
             # Development build only. Production signing/notarization is a separate gate.
             subprocess.run(['/usr/bin/codesign', '--force', '--sign', '-', str(output/'CastorSetup.app')], check=True)
