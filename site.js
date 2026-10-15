@@ -44,6 +44,7 @@
     "faq.q2": "Does it cost anything?", "faq.a2": "No. Only an external AI service you choose may charge you.",
     "faq.q3": "Which pictures can I use?", "faq.a3": "Your own art, or pictures you are allowed to use.",
     "foot.skin": "Change the look", "foot.auto": "Auto",
+    "intro.skip": "Skip",
     "foot.license": "License (MIT)", "foot.issues": "Contact (Issues)", "foot.lineage": "Castor is the successor to Pomegranate",
     "badge": "Your computer",
     "star.pill": "Star", "star.you": "Your star",
@@ -170,6 +171,49 @@
     try { localStorage.setItem("castor.lang", language); } catch (_) { /* private mode */ }
     render();
   });
+
+  // Telescope intro: lower left, then upper right to Castor and Pollux, then open.
+  (() => {
+    const root = document.documentElement;
+    if (root.dataset.intro !== "on") return;
+    const intro = document.getElementById("intro");
+    const style = intro.style;
+    const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+    const vmin = () => Math.min(innerWidth, innerHeight);
+    const lens = () => Math.max(110, vmin() * 0.2);
+    const cover = () => Math.hypot(innerWidth, innerHeight);
+    // [time ms, x %, y %, radius px]
+    const keys = () => [
+      [0, 15, 80, 0], [500, 15, 80, lens()], [1500, 18, 76, lens()],
+      [2900, 78, 26, lens()], [3900, 78, 26, lens() * 1.08], [4800, 78, 26, cover()],
+    ];
+    let done = false, start = null, frame = 0;
+    function set(x, y, r) { style.setProperty("--x", x + "%"); style.setProperty("--y", y + "%"); style.setProperty("--r", r + "px"); }
+    function finish() {
+      if (done) return;
+      done = true;
+      cancelAnimationFrame(frame);
+      try { localStorage.setItem("castor-intro", "1"); } catch (_) { /* private mode */ }
+      intro.classList.add("leaving");
+      setTimeout(() => { delete root.dataset.intro; intro.remove(); }, 560);
+    }
+    function step(now) {
+      if (start === null) start = now;
+      const t = now - start, k = keys();
+      if (t >= 2700) intro.classList.add("found");
+      if (t >= 4000) intro.classList.add("open");
+      if (t >= k[k.length - 1][0]) { set(78, 26, cover()); finish(); return; }
+      let i = 0;
+      while (t > k[i + 1][0]) i++;
+      const [t0, x0, y0, r0] = k[i], [t1, x1, y1, r1] = k[i + 1];
+      const p = ease((t - t0) / (t1 - t0));
+      set(x0 + (x1 - x0) * p, y0 + (y1 - y0) * p, r0 + (r1 - r0) * p);
+      frame = requestAnimationFrame(step);
+    }
+    document.getElementById("introSkip").addEventListener("click", finish);
+    addEventListener("keydown", (event) => { if (event.key === "Escape") finish(); });
+    frame = requestAnimationFrame(step);
+  })();
 
   // Skin switch: Auto follows the device; a choice is remembered.
   const skinInputs = document.querySelectorAll('.seg input[name="ui"]');

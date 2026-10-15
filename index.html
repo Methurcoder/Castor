@@ -36,6 +36,11 @@
       document.head.appendChild(link);
     };
     if (ui === "material") loadMaterialFonts();
+    // The telescope intro: first visit only (or ?intro), never with reduced motion.
+    let seen = false;
+    try { seen = localStorage.getItem("castor-intro") === "1"; } catch (e) {}
+    const wanted = /[?&]intro\b/.test(location.search);
+    if ((wanted || !seen) && !matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.dataset.intro = "on";
     new MutationObserver(() => { if (document.documentElement.dataset.ui === "material") loadMaterialFonts(); })
       .observe(document.documentElement, { attributes: true, attributeFilter: ["data-ui"] });
   })();
@@ -43,6 +48,16 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div class="intro" id="intro">
+  <div class="intro-sky" aria-hidden="true"></div>
+  <div class="intro-twins" aria-hidden="true">
+    <i class="castor"></i><i class="pollux"></i>
+    <b class="castor-label">CASTOR</b><b class="pollux-label">POLLUX</b>
+  </div>
+  <div class="intro-dark" aria-hidden="true"></div>
+  <div class="intro-lens" aria-hidden="true"></div>
+  <button class="intro-skip" id="introSkip" type="button" data-t="intro.skip">スキップ</button>
+</div>
 <div class="sky" aria-hidden="true"></div>
 
 <header class="nav">

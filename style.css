@@ -22,11 +22,16 @@
   --on-accent: #0b0c22;
   --tonal: rgba(255, 255, 255, .14);
   --on-tonal: #fff;
-  --surface: linear-gradient(180deg, rgba(255, 255, 255, .13), rgba(255, 255, 255, .045)), rgba(22, 24, 58, .42);
-  --surface-filter: blur(26px) saturate(180%) brightness(1.06);
-  --surface-edge: inset 0 .5px 0 rgba(255, 255, 255, .55), inset 0 -.5px 0 rgba(255, 255, 255, .16), inset 0 0 0 .5px rgba(255, 255, 255, .12);
-  --surface-shadow: 0 18px 50px rgba(0, 0, 0, .35);
-  --bar: linear-gradient(180deg, rgba(255, 255, 255, .17), rgba(255, 255, 255, .06)), rgba(22, 24, 58, .30);
+  /* Telescope-lens glass: a clear middle, a darker rim, a faint blue/amber
+     fringe at the edge and one curved glint — not a frosted slab. */
+  --surface:
+    radial-gradient(70% 45% at 22% 0%, rgba(255, 255, 255, .085), transparent 70%),
+    radial-gradient(farthest-corner at 50% 42%, rgba(18, 20, 52, .16) 35%, rgba(6, 7, 24, .52) 100%);
+  --surface-filter: blur(10px) saturate(125%);
+  --surface-edge: inset 0 0 0 1px rgba(255, 255, 255, .07), inset 1.5px 1.5px 0 -.5px rgba(150, 176, 255, .32),
+    inset -1.5px -1.5px 0 -.5px rgba(255, 192, 140, .22), inset 0 0 30px rgba(0, 0, 0, .30);
+  --surface-shadow: 0 16px 44px rgba(0, 0, 0, .32);
+  --bar: radial-gradient(60% 120% at 20% 0%, rgba(255, 255, 255, .07), transparent 70%), rgba(10, 11, 32, .46);
   --r-card: 22px;
   --r-button: 999px;
   --button-h: 46px;
@@ -142,7 +147,7 @@ a { color: inherit; }
 .nav nav > a:not(.star-pill):hover, .lang:hover { color: var(--text); background: var(--tonal); }
 .lang { font: inherit; font-size: 13px; border: 0; background: none; cursor: pointer; }
 [data-ui="liquid"] .nav { top: 12px; width: min(1060px, calc(100% - 24px)); margin: 12px auto 0; border-radius: 999px; padding: 6px 8px 6px 16px;
-  background: var(--bar); -webkit-backdrop-filter: blur(22px) saturate(190%) brightness(1.08); backdrop-filter: blur(22px) saturate(190%) brightness(1.08);
+  background: var(--bar); -webkit-backdrop-filter: var(--surface-filter); backdrop-filter: var(--surface-filter);
   box-shadow: var(--surface-edge), 0 12px 32px rgba(0, 0, 0, .32); }
 [data-ui="material"] .nav { min-height: 64px; background: var(--bar); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
 [data-ui="material"] .brand { font-weight: 400; font-size: 22px; }
@@ -167,7 +172,7 @@ h2 { font: var(--h2); margin-bottom: 18px; text-align: center; text-wrap: balanc
 [data-ui="liquid"] .button { transition: transform .35s var(--spring), background .3s; }
 [data-ui="liquid"] .button:hover { transform: scale(1.03); }
 [data-ui="liquid"] .button:active { transform: scale(.97); }
-[data-ui="liquid"] .button:not(.primary) { -webkit-backdrop-filter: blur(22px) saturate(190%); backdrop-filter: blur(22px) saturate(190%); box-shadow: var(--surface-edge); }
+[data-ui="liquid"] .button:not(.primary) { background: var(--bar); -webkit-backdrop-filter: var(--surface-filter); backdrop-filter: var(--surface-filter); box-shadow: var(--surface-edge); }
 [data-ui="material"] .button { transition: border-radius .35s var(--spring); }
 [data-ui="material"] .button:active { border-radius: 12px; }
 [data-ui="material"] .button::before { content: ""; position: absolute; inset: 0; background: currentColor; opacity: 0; transition: opacity .2s; }
@@ -248,6 +253,10 @@ td .tag.rec { background: rgba(255, 210, 122, .2); color: var(--gold); }
 .seg span { display: block; padding: 6px 14px; border-radius: var(--r-button); font-size: 13px; color: var(--text-2); transition: background .25s, color .25s; }
 .seg input:checked + span { background: var(--tonal); color: var(--text); font-weight: 600; }
 .seg input:focus-visible + span { outline: 2px solid var(--accent); }
+/* Material 3 segmented button: a round outlined pill, square segments inside. */
+[data-ui="material"] .seg { padding: 0; gap: 0; border-radius: 999px; overflow: hidden; background: rgba(19, 19, 28, .55);
+  box-shadow: inset 0 0 0 1px #918f9a; }
+[data-ui="material"] .seg span { border-radius: 0; padding: 10px 22px; font-size: 14px; font-weight: 500; color: var(--text); }
 [data-ui="material"] .seg input:checked + span { background: #44455e; color: #e1e0f9; }
 [data-ui="winui"] .seg input:checked + span { background: rgba(255, 255, 255, .0837); box-shadow: inset 0 -2px 0 var(--accent); border-radius: 4px; }
 
@@ -296,6 +305,49 @@ td .tag.rec { background: rgba(255, 210, 122, .2); color: var(--gold); }
 .thanks-actions .button { min-height: 0; padding: 8px 16px; font-size: 14px; flex-direction: row; }
 @keyframes rise { from { transform: translateY(30px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes spin-in { from { transform: rotate(-144deg) scale(.3); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* =====================================================================
+   First visit: a telescope sweeps the dark from the lower left to the
+   upper right, finds Castor and Pollux, then opens onto the page.
+   ===================================================================== */
+.intro { display: none; }
+:root[data-intro="on"] .intro { display: block; position: fixed; inset: 0; z-index: 100; overflow: hidden; background: #02030a; }
+:root[data-intro="on"] body { overflow: hidden; }
+.intro-sky { position: absolute; inset: 0;
+  background:
+    radial-gradient(60% 50% at 80% 22%, rgba(142, 146, 255, .30), transparent 70%),
+    radial-gradient(50% 45% at 16% 80%, rgba(91, 95, 214, .22), transparent 70%),
+    linear-gradient(200deg, #14163f, #070818 70%); }
+.intro-sky::before { content: ""; position: absolute; inset: 0;
+  background-image:
+    radial-gradient(1.3px 1.3px at 30px 40px, #fff, transparent), radial-gradient(1px 1px at 150px 120px, #fffb, transparent),
+    radial-gradient(1.5px 1.5px at 90px 210px, #dfe1ff, transparent), radial-gradient(1px 1px at 230px 70px, #fff9, transparent),
+    radial-gradient(1.2px 1.2px at 270px 250px, #ffe9b8, transparent), radial-gradient(1px 1px at 50px 280px, #fffa, transparent);
+  background-size: 300px 300px; }
+.intro-twins { position: absolute; left: 78%; top: 26%; width: 0; height: 0; opacity: 0; transition: opacity .8s ease; }
+.intro.found .intro-twins { opacity: 1; }
+.intro-twins i { position: absolute; border-radius: 50%; transform: translate(-50%, -50%); }
+.intro-twins .castor { left: -34px; top: -10px; width: 12px; height: 12px; background: #fff; box-shadow: 0 0 18px 4px rgba(169, 173, 255, .9); }
+.intro-twins .pollux { left: 30px; top: 8px; width: 14px; height: 14px; background: var(--gold); box-shadow: 0 0 22px 6px rgba(255, 210, 122, .85); }
+.intro-twins b { position: absolute; font: 600 12px/1 var(--font); letter-spacing: .12em; color: rgba(235, 235, 245, .75); white-space: nowrap; transform: translateX(-50%); }
+.intro-twins .castor-label { left: -34px; top: -38px; }
+.intro-twins .pollux-label { left: 30px; top: 26px; }
+.intro-dark { position: absolute; inset: 0; background: #000;
+  -webkit-mask: radial-gradient(circle var(--r, 0px) at var(--x, 15%) var(--y, 80%), transparent 97%, #000 100%);
+  mask: radial-gradient(circle var(--r, 0px) at var(--x, 15%) var(--y, 80%), transparent 97%, #000 100%); }
+.intro-lens { position: absolute; left: var(--x, 15%); top: var(--y, 80%); width: calc(var(--r, 0px) * 2); height: calc(var(--r, 0px) * 2);
+  transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none;
+  background: radial-gradient(closest-side, transparent 72%, rgba(0, 0, 0, .55) 100%), radial-gradient(40% 25% at 32% 18%, rgba(255, 255, 255, .10), transparent 70%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .10), inset 2px 2px 0 rgba(150, 176, 255, .35), inset -2px -2px 0 rgba(255, 192, 140, .25); }
+.intro-lens::before, .intro-lens::after { content: ""; position: absolute; background: rgba(200, 210, 255, .16); }
+.intro-lens::before { left: 50%; top: 18%; bottom: 18%; width: 1px; }
+.intro-lens::after { top: 50%; left: 18%; right: 18%; height: 1px; }
+.intro.open .intro-lens { opacity: 0; transition: opacity .6s ease; }
+.intro-skip { position: absolute; top: max(16px, env(safe-area-inset-top)); right: 16px; z-index: 2; cursor: pointer;
+  font: 600 14px/1 var(--font); color: rgba(235, 235, 245, .82); padding: 9px 16px; border-radius: 999px; border: 0;
+  background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); }
+.intro-skip:hover { color: #fff; background: rgba(255, 255, 255, .14); }
+.intro.leaving { opacity: 0; transition: opacity .55s ease; }
 
 /* Browsers without backdrop-filter get an opaque version of the same tint. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
