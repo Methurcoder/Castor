@@ -94,7 +94,9 @@ private struct PetGIFShareView: View {
                         }.padding().background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
                             .padding(30)
                     }
-                }.frame(height: 280)
+                }
+                .frame(height: 280)
+                .clipped()
                 HStack {
                     if isWorking {
                         Button(L("キャンセル")) {
@@ -214,6 +216,12 @@ private struct AnimatedGIFPreview: NSViewRepresentable {
         view.animates = true
         return view
     }
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSImageView, context: Context) -> CGSize? {
+        // The preview frame owns the size; a GIF's intrinsic pixel size must not
+        // make NSImageView draw over the surrounding controls.
+        proposal.replacingUnspecifiedDimensions(by: .zero)
+    }
+
     func updateNSView(_ view: NSImageView, context: Context) {
         if context.coordinator.data != data {
             view.image = NSImage(data: data)
