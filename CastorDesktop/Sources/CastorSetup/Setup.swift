@@ -194,7 +194,8 @@ private func setupUI() {
             dispatchMain()
         }
         castor_set_ui_language(SettingsDisplayLanguage.systemDefault == .japanese ? 1:0)
-        DispatchQueue.global(qos:.userInteractive).async {setupUI();exit(0)}
+        // The wizard window; the native dialogs remain for systems without WebView2.
+        DispatchQueue.global(qos:.userInteractive).async {if !SetupWindow.run() {setupUI()};exit(0)}
         dispatchMain()
     }
 }

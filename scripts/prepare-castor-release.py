@@ -23,19 +23,9 @@ PLATFORMS = ('macos_arm64', 'macos_x86_64', 'windows_x86_64')
 LICENSES = ('LICENSE', 'THIRD_PARTY_NOTICES.md')
 CREATION_WINDOW = 'UI'
 CREATION_WINDOW_FILES = ('index.html', 'app.css', 'app.js')
+SETUP_WINDOW = 'SetupUI'
+SETUP_WINDOW_FILES = ('index.html', 'setup.css', 'setup.js')
 WINDOWS_MODELS = ('AnimeFaceFeatures.onnx', 'AnimeFaceBoxHead.onnx', 'AnimeFaceLandmarks.onnx', 'AnimeSegmentation.onnx')
-
-
-def creation_window_files(page):
-    """The Windows creation window page: exactly the shipped UI files."""
-    files = []
-    for p in sorted(page.rglob('*')):
-        relative = f'{page.name}/{p.relative_to(page).as_posix()}'
-        if p.is_symlink() or not p.is_file() or p.parent != page or p.name not in CREATION_WINDOW_FILES:
-            raise ValueError(f'Unexpected creation window file: {relative}')
-        valid_file(p)
-        files.append((p, relative))
-    return files
 
 
 def folder_files(folder, allowed):
@@ -155,13 +145,15 @@ def prepare(output, version, apps, setups=None, neural_helpers=None, installers=
             files = []
             for p in sorted(source.iterdir()):
                 # Only an explicit runtime directory: executable and DLLs, no pets/configs/debug data.
-                if p.name in ('CastorPet.exe','CastorSetup.exe') or p.suffix.lower() == '.dll':
+                if p.name in ('CastorPet.exe','CastorSetup.exe','Castor.ico') or p.suffix.lower() == '.dll':
                     valid_file(p)
                     files.append((p, p.name))
                 elif p.name in LICENSES:
                     valid_file(p)
                 elif p.name == CREATION_WINDOW and p.is_dir() and not p.is_symlink():
-                    files.extend(creation_window_files(p))
+                    files.extend(folder_files(p, lambda name: name in CREATION_WINDOW_FILES))
+                elif p.name == SETUP_WINDOW and p.is_dir() and not p.is_symlink():
+                    files.extend(folder_files(p, lambda name: name in SETUP_WINDOW_FILES))
                 elif p.name == 'models' and p.is_dir() and not p.is_symlink():
                     files.extend(folder_files(p, lambda name: name in WINDOWS_MODELS))
                 elif p.name == 'licenses' and p.is_dir() and not p.is_symlink():
@@ -197,12 +189,19 @@ def prepare(output, version, apps, setups=None, neural_helpers=None, installers=
             check_arch(source/'CastorSetup.exe', platform)
             files = []
             for p in sorted(source.iterdir()):
-                if p.name == 'CastorSetup.exe' or p.suffix.lower() == '.dll':
+                if p.name in ('CastorSetup.exe','Castor.ico') or p.suffix.lower() == '.dll':
                     valid_file(p);files.append((p,p.name))
+                elif p.name == SETUP_WINDOW and p.is_dir() and not p.is_symlink():
+                    files.extend(folder_files(p, lambda name: name in SETUP_WINDOW_FILES))
+                elif p.name == 'licenses' and p.is_dir() and not p.is_symlink():
+                    files.extend(folder_files(p, lambda name: name.endswith('.txt')))
                 elif p.name not in LICENSES:
                     raise ValueError(f'Unexpected setup runtime file: {p.name}')
             if not any(p.name.lower() == 'swiftcore.dll' for p,_ in files):
                 raise ValueError('The GUI setup needs its own Swift runtime DLLs.')
+            names = {name for _, name in files}
+            if 'WebView2Loader.dll' not in names or any(f'{SETUP_WINDOW}/{n}' not in names for n in SETUP_WINDOW_FILES):
+                raise ValueError('Include the setup wizard (WebView2Loader.dll and the SetupUI folder) beside CastorSetup.exe.')
         files.extend((ROOT/name,name) for name in LICENSES)
         setup_payloads[platform] = files
     helper_payloads = {}

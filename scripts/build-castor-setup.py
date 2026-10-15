@@ -60,19 +60,28 @@ WEBVIEW2_LOADER = ROOT/'CastorDesktop/Redist/WebView2/x64/WebView2Loader.dll'
 WEBVIEW2_LOADER_SHA256 = 'c66e4a92fdc7a216118e43b7a5024ea2200e8c43f9310bf20d96a0084f82c5bc'
 CREATION_WINDOW = 'UI'
 CREATION_WINDOW_FILES = ('index.html', 'app.css', 'app.js')
-CREATION_WINDOW_SOURCE = ROOT/'CastorDesktop/Sources/CastorPet/UI'
+SETUP_WINDOW = 'SetupUI'
+SETUP_WINDOW_FILES = ('index.html', 'setup.css', 'setup.js')
+#: The WebView2 page each executable shows, copied from source beside it.
+WEB_PAGES = {
+    'CastorPet.exe': (CREATION_WINDOW, CREATION_WINDOW_FILES, ROOT/'CastorDesktop/Sources/CastorPet/UI'),
+    'CastorSetup.exe': (SETUP_WINDOW, SETUP_WINDOW_FILES, ROOT/'CastorDesktop/Sources/CastorSetup/SetupUI'),
+}
 
 
-def windows_creation_window(output):
-    """The creation window: its page beside CastorPet.exe and the pinned WebView2 loader."""
+def windows_web_pages(output, executables):
+    """The pinned WebView2 loader and the pages of the creation window and setup wizard."""
     if hashlib.sha256(WEBVIEW2_LOADER.read_bytes()).hexdigest() != WEBVIEW2_LOADER_SHA256:
         raise ValueError('WebView2Loader.dll does not match the pinned WebView2 SDK file.')
     shutil.copy2(WEBVIEW2_LOADER, output/'WebView2Loader.dll')
+    shutil.copy2(ROOT/'assets/icon/Castor.ico', output/'Castor.ico')
     (output/'licenses').mkdir(exist_ok=True)
     shutil.copy2(WEBVIEW2_LOADER.parents[1]/'LICENSE', output/'licenses/webview2-1.0.4191.47-LICENSE.txt')
-    (output/CREATION_WINDOW).mkdir()
-    for name in CREATION_WINDOW_FILES:
-        shutil.copy2(CREATION_WINDOW_SOURCE/name, output/CREATION_WINDOW/name)
+    for executable in executables:
+        folder, names, source = WEB_PAGES[executable]
+        (output/folder).mkdir()
+        for name in names:
+            shutil.copy2(source/name, output/folder/name)
 
 
 def windows_runtime(executables, output, bin_path, runtime_dirs):
@@ -134,8 +143,7 @@ def windows_runtime(executables, output, bin_path, runtime_dirs):
                 raise ValueError(f'Missing redistributable DLL: {name}. Add its approved runtime directory with --runtime-dir.')
     if 'swiftcore.dll' not in copied:
         raise ValueError('Swift runtime was not collected.')
-    if 'CastorPet.exe' in executables:
-        windows_creation_window(output)
+    windows_web_pages(output, executables)
 
 
 def main():

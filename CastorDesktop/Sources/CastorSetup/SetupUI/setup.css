@@ -1,0 +1,119 @@
+/* Castor Setup for Windows: a wizard in the app's look (dark by default,
+   light follows the system), for WebView2. */
+:root {
+  --bg-1: #0f0f13;
+  --bg-2: #0b0b0e;
+  --text: #f7f5f5;
+  --sub: #a3a3ad;
+  --panel: rgba(26, 26, 31, 0.78);
+  --panel-border: rgba(255, 255, 255, 0.12);
+  --track: rgba(255, 255, 255, 0.08);
+  --accent: #ed5466;
+  --accent-strong: #cc2940;
+  --side-1: #2b2f8f;
+  --side-2: #14163f;
+  --ok: #34c759;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg-1: #f7f7f9;
+    --bg-2: #ededf0;
+    --text: #212124;
+    --sub: #6b6b73;
+    --panel: rgba(255, 255, 255, 0.85);
+    --panel-border: rgba(0, 0, 0, 0.08);
+    --track: rgba(0, 0, 0, 0.05);
+    --accent: #b81730;
+    --accent-strong: #b81730;
+    color-scheme: light;
+  }
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: "Yu Gothic UI", "Meiryo UI", "Hiragino Sans", "Segoe UI Variable Text", "Segoe UI", sans-serif;
+  font-feature-settings: "palt";
+  color: var(--text);
+  background: linear-gradient(180deg, var(--bg-1), var(--bg-2));
+  user-select: none;
+  display: flex;
+}
+:lang(en) body, body:lang(en) { font-family: "Segoe UI Variable Text", "Segoe UI", -apple-system, "Yu Gothic UI", sans-serif; }
+
+/* The starry side panel, like a classic installer's banner. */
+.side {
+  position: relative; width: 236px; flex: none; overflow: hidden;
+  background: radial-gradient(120% 60% at 30% 40%, rgba(142, 146, 255, 0.45), transparent 70%),
+              linear-gradient(170deg, var(--side-1), var(--side-2));
+  color: #fff; padding: 34px 26px; display: flex; flex-direction: column; gap: 14px;
+}
+.side .logo { width: 84px; height: 84px; }
+.side h1 { font-size: 26px; font-weight: 800; letter-spacing: 0.02em; }
+.side p { font-size: 13px; line-height: 1.6; opacity: 0.82; }
+.side .steps { list-style: none; margin-top: 18px; display: grid; gap: 10px; }
+.side .steps li { font-size: 13px; opacity: 0.55; display: flex; align-items: center; gap: 9px; }
+.side .steps li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: 0.6; }
+.side .steps li.on { opacity: 1; font-weight: 700; }
+.side .steps li.on::before { background: #ffd27a; opacity: 1; box-shadow: 0 0 10px #ffd27a; }
+.stars { position: absolute; inset: 0; pointer-events: none; }
+.stars i { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #fff; opacity: 0.6; }
+.side .version { margin-top: auto; font-size: 12px; opacity: 0.6; }
+
+/* Pages */
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.page { flex: 1; display: flex; flex-direction: column; padding: 30px 36px 4px; gap: 14px; min-height: 0; overflow-y: auto; }
+.page h2 { font-size: 22px; font-weight: 800; }
+.lead { color: var(--sub); font-size: 14px; line-height: 1.7; }
+.status { font-size: 13px; padding: 9px 12px; border-radius: 10px; background: var(--track); color: var(--sub); }
+.status.installed { color: var(--text); }
+.scroll {
+  flex: 1; min-height: 0; overflow: auto; user-select: text; white-space: pre-wrap; font-size: 12px; line-height: 1.6;
+  padding: 14px 16px; border-radius: 12px; background: var(--panel); border: 1px solid var(--panel-border);
+  font-family: "Cascadia Mono", Consolas, "Yu Gothic UI", monospace;
+}
+.tabs { display: inline-flex; gap: 4px; padding: 3px; border-radius: 10px; background: var(--track); align-self: flex-start; }
+.tabs button { border: 0; background: transparent; color: var(--text); font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 8px; cursor: pointer; opacity: 0.8; }
+.tabs button.on { background: rgba(255, 255, 255, 0.14); opacity: 1; font-weight: 700; }
+.check { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.check input { width: 18px; height: 18px; accent-color: var(--accent-strong); }
+.points { list-style: none; display: grid; gap: 9px; }
+.points li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; font-size: 13px; line-height: 1.55; }
+.points li b { display: block; font-size: 14px; }
+.points li span { color: var(--sub); }
+.points li::before { content: "★"; color: #ffd27a; font-size: 13px; line-height: 1.7; }
+.path { font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; user-select: text; }
+
+.center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px; }
+.spinner { width: 42px; height: 42px; border-radius: 50%; border: 4px solid var(--track); border-top-color: var(--accent); animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.progress-text { font-size: 14px; font-weight: 600; max-width: 420px; line-height: 1.6; }
+.note { font-size: 12px; color: var(--sub); max-width: 440px; line-height: 1.6; }
+.done-mark { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--ok) 20%, transparent); color: var(--ok); font-size: 30px; font-weight: 800; }
+.error-mark { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
+
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.card { text-align: left; border: 1px solid var(--panel-border); background: var(--panel); color: var(--text); font: inherit; border-radius: 12px; padding: 11px 13px; cursor: pointer; }
+.card:hover { border-color: var(--accent); }
+.card b { display: block; font-size: 14px; }
+.card span { display: block; font-size: 12px; color: var(--sub); margin-top: 3px; line-height: 1.5; }
+.card.danger b { color: var(--accent); }
+.section-title { font-size: 13px; font-weight: 800; color: var(--sub); margin-top: 6px; }
+
+/* Footer buttons */
+.footer { display: flex; justify-content: flex-end; align-items: center; gap: 10px; padding: 18px 36px 24px; }
+.footer .spacer { flex: 1; }
+.button { font: inherit; font-size: 14px; font-weight: 700; padding: 9px 20px; border-radius: 11px; cursor: pointer; border: 1px solid var(--panel-border); background: var(--track); color: var(--text); }
+.button.primary { background: var(--accent-strong); color: #fff; border-color: transparent; }
+.button:disabled { opacity: 0.35; cursor: default; }
+.link { font: inherit; font-size: 13px; color: var(--sub); background: none; border: 0; cursor: pointer; text-decoration: underline; }
+
+/* Confirmation */
+.modal { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(4px); z-index: 5; }
+.modal .box { width: min(440px, 90vw); background: var(--bg-1); border: 1px solid var(--panel-border); border-radius: 16px; padding: 22px; display: grid; gap: 14px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4); }
+.modal h3 { font-size: 17px; }
+.modal p { font-size: 13px; color: var(--sub); line-height: 1.6; }
+.modal .row { display: flex; justify-content: flex-end; gap: 10px; }
+.toast { position: fixed; left: calc(50% + 118px); bottom: 84px; transform: translateX(-50%); padding: 10px 16px; border-radius: 12px; background: var(--panel); border: 1px solid var(--panel-border); font-size: 13px; font-weight: 600; max-width: 460px; line-height: 1.5; z-index: 6; }
+.hidden { display: none !important; }

@@ -188,7 +188,10 @@ int castor_webview_open(const char *title, const char *ui_folder, const char *da
     cls.hCursor = LoadCursorW(nullptr, IDC_ARROW);
     cls.hbrBackground = CreateSolidBrush(dark ? RGB(15, 15, 19) : RGB(247, 247, 249));
     cls.lpszClassName = L"CastorCreationWindow";
-    cls.hIcon = LoadIconW(instance, MAKEINTRESOURCEW(1));
+    // The app icon ships as Castor.ico beside the executable.
+    wcscpy_s(slash + 1, MAX_PATH - (size_t)(slash + 1 - module_path), L"Castor.ico");
+    cls.hIcon = (HICON)LoadImageW(nullptr, module_path, IMAGE_ICON, GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), LR_LOADFROMFILE);
+    cls.hIconSm = (HICON)LoadImageW(nullptr, module_path, IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_LOADFROMFILE);
     RegisterClassExW(&cls);
 
     WCHAR *wide_title = web_wide(title);

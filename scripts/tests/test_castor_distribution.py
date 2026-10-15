@@ -181,6 +181,13 @@ class DistributionTests(unittest.TestCase):
         setup_windows.mkdir()
         shutil.copy2(self.windows/'CastorPet.exe',setup_windows/'CastorSetup.exe')
         shutil.copy2(self.windows/'swiftCore.dll',setup_windows/'swiftCore.dll')
+        with self.assertRaises(ValueError):
+            release.prepare(self.output,'local-test',{'windows_x86_64':self.windows},{'windows_x86_64':setup_windows})
+        self.assertFalse(self.output.exists())
+        shutil.copy2(self.windows/'WebView2Loader.dll',setup_windows/'WebView2Loader.dll')
+        (setup_windows/release.SETUP_WINDOW).mkdir()
+        for name in release.SETUP_WINDOW_FILES:
+            (setup_windows/release.SETUP_WINDOW/name).write_text('page fixture')
         release.prepare(self.output,'local-test',{'macos_arm64':self.mac,'windows_x86_64':self.windows},
                         {'macos_arm64':setup_mac,'windows_x86_64':setup_windows})
         manifest=json.loads((self.output/'castor-downloads.json').read_text())
@@ -195,6 +202,7 @@ class DistributionTests(unittest.TestCase):
                     self.assertIn('CastorSetup.exe',z.namelist())
                     self.assertIn('swiftCore.dll',z.namelist())
                     self.assertNotIn('CastorPet.exe',z.namelist())
+                    self.assertIn(f'{release.SETUP_WINDOW}/index.html',z.namelist())
 
     def test_installers_are_checked_named_and_hashed(self):
         dmg = self.base/'Castor.dmg'
