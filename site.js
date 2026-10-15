@@ -43,6 +43,7 @@
     "faq.q1": "Does any picture work?", "faq.a1": "Front-facing pictures with a clear face move best. If it goes wrong, you can fix the face markers by hand.",
     "faq.q2": "Does it cost anything?", "faq.a2": "No. Only an external AI service you choose may charge you.",
     "faq.q3": "Which pictures can I use?", "faq.a3": "Your own art, or pictures you are allowed to use.",
+    "foot.skin": "Change the look", "foot.auto": "Auto",
     "foot.license": "License (MIT)", "foot.issues": "Contact (Issues)", "foot.lineage": "Castor is the successor to Pomegranate",
     "badge": "Your computer",
     "star.pill": "Star", "star.you": "Your star",
@@ -168,6 +169,20 @@
     language = language === "ja" ? "en" : "ja";
     try { localStorage.setItem("castor.lang", language); } catch (_) { /* private mode */ }
     render();
+  });
+
+  // Skin switch: Auto follows the device; a choice is remembered.
+  const skinInputs = document.querySelectorAll('.seg input[name="ui"]');
+  let savedSkin = null;
+  try { savedSkin = localStorage.getItem("castor-ui"); } catch (_) { /* private mode */ }
+  const hashSkin = ["liquid", "material", "winui"].includes(location.hash.slice(1)) ? location.hash.slice(1) : null;
+  skinInputs.forEach((input) => {
+    input.checked = input.value === (hashSkin || savedSkin || "auto");
+    input.addEventListener("change", () => {
+      const skin = input.value === "auto" ? window.__castorDevice : input.value;
+      document.documentElement.dataset.ui = skin;
+      try { input.value === "auto" ? localStorage.removeItem("castor-ui") : localStorage.setItem("castor-ui", input.value); } catch (_) { /* private mode */ }
+    });
   });
 
   // Stars: shown with the live count, offered once after a download, never required.

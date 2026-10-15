@@ -8,7 +8,38 @@
 <meta property="og:title" content="Castor">
 <meta property="og:description" content="自分のイラストを、デスクトップで暮らす小さな相棒に。">
 <meta property="og:image" content="assets/castor-icon-256.png">
+<meta name="theme-color" content="#070818">
 <link rel="icon" href="assets/castor-icon.svg" type="image/svg+xml">
+<script>
+  /* Pick the skin before first paint, like arils.jp: #hash > saved choice > device. */
+  (() => {
+    const ua = navigator.userAgent;
+    const plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
+    let device = "liquid";
+    if (/Android/i.test(ua)) device = "material";
+    else if (/iPhone|iPad|iPod/.test(ua) || /Mac/i.test(plat) || /Macintosh/.test(ua)) device = "liquid";
+    else if (/Win/i.test(plat) || /Windows/.test(ua)) device = "winui";
+    else if (/CrOS|Linux/i.test(ua)) device = "material";
+    const skins = ["liquid", "material", "winui"];
+    let saved = null;
+    try { saved = localStorage.getItem("castor-ui"); } catch (e) {}
+    const hash = location.hash.slice(1);
+    const ui = skins.includes(hash) ? hash : skins.includes(saved) ? saved : device;
+    document.documentElement.dataset.ui = ui;
+    window.__castorDevice = device;
+    // Material's own typography, fetched only when that skin is shown.
+    const loadMaterialFonts = () => {
+      if (document.getElementById("material-fonts")) return;
+      const link = document.createElement("link");
+      link.id = "material-fonts"; link.rel = "stylesheet";
+      link.href = "https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Roboto+Flex:opsz,wght@8..144,400..700&display=swap";
+      document.head.appendChild(link);
+    };
+    if (ui === "material") loadMaterialFonts();
+    new MutationObserver(() => { if (document.documentElement.dataset.ui === "material") loadMaterialFonts(); })
+      .observe(document.documentElement, { attributes: true, attributeFilter: ["data-ui"] });
+  })();
+</script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -152,16 +183,30 @@
 
   <section class="faq">
     <h2 data-t="faq.title">よくある質問</h2>
+    <div class="faq-list">
     <details><summary data-t="faq.q1">どんな絵でも動きますか？</summary><p data-t="faq.a1">正面向きで、顔がはっきりした絵が一番きれいに動きます。崩れたときは、顔の目印を手で直せます。</p></details>
     <details><summary data-t="faq.q2">お金はかかりますか？</summary><p data-t="faq.a2">かかりません。外部の AI サービスを選んだ場合だけ、そのサービスの料金がかかります。</p></details>
     <details><summary data-t="faq.q3">使う絵の注意は？</summary><p data-t="faq.a3">自分で描いた絵か、使ってよい絵でお願いします。</p></details>
+    </div>
   </section>
 </main>
 
 <footer class="footer">
-  <a href="https://github.com/Methurcoder/Castor">GitHub</a>
-  <a href="https://github.com/Methurcoder/Castor/blob/main/LICENSE" data-t="foot.license">ライセンス（MIT）</a>
-  <a href="https://github.com/Methurcoder/Castor/issues" data-t="foot.issues">問い合わせ（Issues）</a>
+  <div class="links">
+    <a href="https://github.com/Methurcoder/Castor">GitHub</a>
+    <a href="https://github.com/Methurcoder/Castor/blob/main/LICENSE" data-t="foot.license">ライセンス（MIT）</a>
+    <a href="https://github.com/Methurcoder/Castor/issues" data-t="foot.issues">問い合わせ（Issues）</a>
+    <a href="https://arils.jp/">arils.jp</a>
+  </div>
+  <div class="switch">
+    <p id="switch-note" data-t="foot.skin">見た目を切り替える</p>
+    <div class="seg" role="radiogroup" aria-labelledby="switch-note">
+      <label><input type="radio" name="ui" value="auto"><span data-t="foot.auto">自動</span></label>
+      <label><input type="radio" name="ui" value="liquid"><span>Liquid Glass</span></label>
+      <label><input type="radio" name="ui" value="material"><span>Material 3</span></label>
+      <label><input type="radio" name="ui" value="winui"><span>WinUI</span></label>
+    </div>
+  </div>
   <span data-t="foot.lineage">Castor は Pomegranate の後継プロジェクトです</span>
 </footer>
 
