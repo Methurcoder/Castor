@@ -48,3 +48,15 @@ NSHostingViewもSwiftUI由来のサイズをNSWindowへ伝えるため、通常�
 これはサイズ計測の干渉を防ぐソース修正であり、ユーザー環境での原因の確定・解消確認ではない。
 2026-10-16、本人がソースのpushと配布物更新を依頼。MacのReleaseビルドが成功。
 追加テストと修正後のGUI確認は未実施。v1.0.1で配布し、v1.0.0の不変Releaseは差し替えない。
+
+## 2026-10-16 Windowsセットアップの起動失敗
+
+Claudeの`claude/fix-windows-setup`（3a375c9、bbe631c）をGIF修正側へ統合しました。
+Claude側の先行CIではWebView2がRPC_E_CHANGED_MODE（0x80010106）で失敗していました。
+Windowsのペット本体とセットアップは、COMをSTAとして初期化する専用ネイティブスレッドを使用します。
+SAPIは同じスレッドの既存COM設定を受け入れ、初期化に成功した場合だけCoUninitializeします。
+セットアップには起動段階のログ、ページが応答しなかった場合のfallback、native dialog失敗時の案内を追加しました。
+
+統合コミットcc6973fの[Windows配布ビルド38764301838](https://github.com/Methurcoder/Castor/actions/runs/38764301838)は成功。
+本体・セットアップ・必要DLLを再生成し、v1.0.0のモデル/ONNX Runtime/ライセンスを指紋確認後に引き継ぎました。
+この公開作業では追加テストやWindows実機の導入確認を実施していません。
