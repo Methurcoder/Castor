@@ -45,11 +45,19 @@
     "faq.q3": "Which pictures can I use?", "faq.a3": "Your own art, or pictures you are allowed to use.",
     "foot.license": "License (MIT)", "foot.issues": "Contact (Issues)", "foot.lineage": "Castor is the successor to Pomegranate",
     "badge": "Your computer",
+    "star.pill": "Star", "star.you": "Your star",
+    "star.title": "Add your star to the night sky.",
+    "star.lead": "Castor is the name of a bright star in Gemini. A ★ on GitHub turns straight into energy for the next feature.",
+    "star.button": "Star on GitHub", "star.now": "{v} stars so far",
+    "thanks.title": "Your download has started",
+    "thanks.text": "While you wait, add a star to Gemini. Stars are free and mean the world to an indie project like Castor.",
+    "thanks.star": "Star it", "thanks.later": "Later",
   };
   const JA_EXTRA = {
     "mac.s1.setup": "ダウンロードした zip を開き、CastorSetup を起動して「取得・更新」",
     "dl.release": "最新版: {v}", "dl.failed": "GitHub に接続できませんでした。ボタンから Release ページを開けます。",
     "badge": "このパソコン",
+    "star.now": "いま ★ {v}",
   };
 
   // What each Release file is for, by name pattern.
@@ -83,7 +91,7 @@
     return "other";
   }
 
-  function render() {
+  let render = function () {
     document.documentElement.lang = language;
     document.querySelectorAll("[data-t]").forEach((el) => { el.textContent = t(el.dataset.t); });
     document.getElementById("lang").textContent = language === "ja" ? "English" : "日本語";
@@ -162,7 +170,45 @@
     render();
   });
 
+  // Stars: shown with the live count, offered once after a download, never required.
+  let stars = null;
+  function renderStars() {
+    // A tiny count reads as "nobody uses this"; show it only once it helps.
+    if (stars === null || stars < 10) return;
+    document.querySelectorAll(".star-count").forEach((el) => { el.textContent = stars.toLocaleString(); el.hidden = false; });
+    document.querySelectorAll(".star-now").forEach((el) => { el.textContent = t("star.now", stars.toLocaleString()); el.hidden = false; });
+  }
+  const renderPage = render;
+  render = () => { renderPage(); renderStars(); };
+
+  const thanks = document.getElementById("thanks");
+  const remembered = (key) => { try { return localStorage.getItem(key) === "1"; } catch (_) { return false; } };
+  const remember = (key) => { try { localStorage.setItem(key, "1"); } catch (_) { /* private mode */ } };
+  const closeThanks = () => { thanks.hidden = true; remember("castor.thanks"); };
+  ["btn-mac", "btn-win"].forEach((id) => document.getElementById(id).addEventListener("click", () => {
+    if (remembered("castor.thanks") || remembered("castor.starred")) return;
+    setTimeout(() => { thanks.hidden = false; }, 1200);
+  }));
+  document.getElementById("thanksLater").addEventListener("click", closeThanks);
+  document.querySelectorAll("[data-star-link]").forEach((link) => link.addEventListener("click", () => {
+    remember("castor.starred");
+    if (!thanks.hidden) closeThanks();
+  }));
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !thanks.hidden) closeThanks(); });
+
+  // Touch screens have no hover: light "your star" once the section is in view.
+  const sky = document.getElementById("star");
+  if ("IntersectionObserver" in window && !matchMedia("(hover: hover)").matches) {
+    new IntersectionObserver((entries, observer) => {
+      if (entries.some((e) => e.isIntersecting)) { setTimeout(() => sky.classList.add("lit"), 700); observer.disconnect(); }
+    }, { threshold: 0.6 }).observe(sky);
+  }
+
   render();
+  fetch(`https://api.github.com/repos/${REPO}`, { headers: { Accept: "application/vnd.github+json" } })
+    .then((response) => (response.ok ? response.json() : Promise.reject(response.status)))
+    .then((data) => { if (typeof data.stargazers_count === "number") { stars = data.stargazers_count; renderStars(); } })
+    .catch(() => { /* the links still work without the count */ });
   fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { Accept: "application/vnd.github+json" } })
     .then((response) => (response.ok ? response.json() : Promise.reject(response.status)))
     .then((data) => { release = data; render(); })
