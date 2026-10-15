@@ -46,5 +46,5 @@ NSHostingViewもSwiftUI由来のサイズをNSWindowへ伝えるため、通常�
 [Apple: NSHostingView.sizingOptions](https://developer.apple.com/documentation/swiftui/nshostingview/sizingoptions)。
 
 これはサイズ計測の干渉を防ぐソース修正であり、ユーザー環境での原因の確定・解消確認ではない。
-今回テスト追加・実行、ビルド、GUI確認、push、Releaseは行っていない。
-v1.0.0の配布物には未反映。不変Releaseを差し替えない。
+2026-10-16、本人がソースのpushと配布物更新を依頼。MacのReleaseビルドが成功。
+追加テストと修正後のGUI確認は未実施。v1.0.1で配布し、v1.0.0の不変Releaseは差し替えない。

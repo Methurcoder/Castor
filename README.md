@@ -4,11 +4,11 @@
 
 **自分のイラストを、デスクトップで暮らす小さな相棒に。**
 
-**これは正式リリース版です。** — `v1.0.0`
+**これは正式リリース版です。** — `v1.0.1`
 
 呼吸、瞬き、視線、声。少しためらったり目を逸らしたりする、そんな相棒を自分の画像から作れます。
 
-[ダウンロード](https://github.com/Methurcoder/Castor/releases/tag/v1.0.0) · [導入ガイド](docs/GUI_SETUP.md) · [変更点・確認記録](docs/RELEASE_v1.0.0.md) · [機能差と今後の計画](docs/CROSS_PLATFORM_PARITY.md)
+[ダウンロード](https://github.com/Methurcoder/Castor/releases/tag/v1.0.1) · [導入ガイド](docs/GUI_SETUP.md) · [変更点・確認記録](docs/RELEASE_NOTES_v1.0.1.md) · [機能差と今後の計画](docs/CROSS_PLATFORM_PARITY.md)
 
 Castor は [Pomegranate](https://github.com/atemoyacode-sudo/Pomegranate) の**許諾済みの後継プロジェクト**です。Pomegranate由来の著作権表示とMITライセンスを保持し、Methurcoderが開発を続けています。
 
@@ -16,9 +16,9 @@ Castor は [Pomegranate](https://github.com/atemoyacode-sudo/Pomegranate) の**�
 
 | お使いの環境 | ダウンロード | 展開後に開くもの |
 | --- | --- | --- |
-| Mac / Apple Silicon（ドラッグ導入） | [Mac用DMG](https://github.com/Methurcoder/Castor/releases/download/v1.0.0/Castor-v1.0.0-macos_arm64.dmg) | 開いてCastorをApplicationsへドラッグ |
-| Mac / Apple Silicon（更新・修復GUI） | [Mac用の導入GUI](https://github.com/Methurcoder/Castor/releases/download/v1.0.0/CastorSetup-v1.0.0-macos_arm64.zip) | `CastorSetup.app` |
-| Windows / x64 | [Windows用の導入GUI](https://github.com/Methurcoder/Castor/releases/download/v1.0.0/CastorSetup-v1.0.0-windows_x86_64.zip) | `CastorSetup.exe` |
+| Mac / Apple Silicon（ドラッグ導入） | [Mac用DMG](https://github.com/Methurcoder/Castor/releases/download/v1.0.1/Castor-v1.0.1-macos_arm64.dmg) | 開いてCastorをApplicationsへドラッグ |
+| Mac / Apple Silicon（更新・修復GUI） | [Mac用の導入GUI](https://github.com/Methurcoder/Castor/releases/download/v1.0.1/CastorSetup-v1.0.1-macos_arm64.zip) | `CastorSetup.app` |
+| Windows / x64 | [Windows用の導入GUI](https://github.com/Methurcoder/Castor/releases/download/v1.0.1/CastorSetup-v1.0.1-windows_x86_64.zip) | `CastorSetup.exe` |
 
 **`Castor-Downloader.zip`は`.command` / `.cmd`を使うスクリプト版です。GUIで導入する場合は、上のOS別`CastorSetup-…zip`を選んでください。**
 
@@ -54,7 +54,7 @@ Macは**macOS 26.5以上・Apple Silicon**、Windowsは**x64**が対象です。
 | GIF作成・保存・Xへの案内 | 実装済み | 実装済み。実機確認待ち |
 | カメラ・追加ML・全Advanced設定 | 任意の権限 / helperを使用 | 未対応部分あり。今後はML移植と品質改善を優先 |
 
-**v1.0.0を通常の正式Releaseとして配布します。** Windowsの新しい作成画面・ML・導入ウィザードを含む最新修正の全体テストは、管理者の希望により省いて公開しています。音声/GIF等の追加修正と限定確認は[修正記録](docs/BUGFIX_REVIEW_2026-10-15.md)を参照してください。全機能が両OSで同じ品質で動作すると確認した版ではありません。Macの既存候補では画像作成・保存後の読み込み・GIF・Qwen試聴を確認しましたが、今回の最新修正全体の再検証、新規Qwenモデル取得、開発環境のない端末での初回導入、長時間動作は未確認です。
+**v1.0.1はMacのGIF共有ウインドウが小さくなる問題への修正版です。** Windows本体・セットアップ・Qwen補助アプリはv1.0.0と同じバイナリです。Mac本体のReleaseビルドと梱包条件を確認していますが、修正後のGIF画面の実機GUI確認は未実施です。 Windowsの新しい作成画面・ML・導入ウィザードを含む最新修正の全体テストは、管理者の希望により省いて公開しています。音声/GIF等の追加修正と限定確認は[修正記録](docs/BUGFIX_REVIEW_2026-10-15.md)を参照してください。全機能が両OSで同じ品質で動作すると確認した版ではありません。Macの既存候補では画像作成・保存後の読み込み・GIF・Qwen試聴を確認しましたが、今回の最新修正全体の再検証、新規Qwenモデル取得、開発環境のない端末での初回導入、長時間動作は未確認です。
 
 ### 今後の対応予定
 
