@@ -105,7 +105,8 @@
     document.querySelectorAll(".platform .os").forEach((title) => title.setAttribute("data-badge", t("badge")));
 
     const line = document.getElementById("releaseLine");
-    if (release) line.textContent = t("dl.release", release.tag_name);
+    // The Release title is the public name; tags can be bookkeeping numbers.
+    if (release) line.textContent = t("dl.release", release.name || release.tag_name);
     else if (releaseFailed) line.textContent = t("dl.failed");
 
     const assets = release ? release.assets : [];
