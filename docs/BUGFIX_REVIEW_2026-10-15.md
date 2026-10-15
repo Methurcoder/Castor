@@ -32,3 +32,5 @@ Windowsの修正後ビルドと配布物の更新は別途記録する。
 
 Windowsの診断localeは現在のSAPI recognizer tokenのLanguage属性から取得し、OS表示言語ui_localeと区別する（取得不可なら0000）。
 [Microsoft: GetRecognizer](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/ms718610(v=vs.85))、[tokenのLanguage属性](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/ms718134(v=vs.85))。
+
+配布用appのResourcesにもLICENSEとTHIRD_PARTY_NOTICES.mdを同梱し、appだけを収めるDMGでも権利表記を保持する。

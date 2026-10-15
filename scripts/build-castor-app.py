@@ -53,6 +53,9 @@ def main():
         stage = scratch/'app-candidate'; stage.mkdir()
         app = stage/'Castor.app'; shutil.copytree(built,app)
         resources=app/'Contents/Resources';resources.mkdir(exist_ok=True)
+        # The DMG contains only the app, so its license and notices travel inside it.
+        for name in ('LICENSE', 'THIRD_PARTY_NOTICES.md'):
+            shutil.copy2(ROOT/name, resources/name)
         shutil.copytree(setup_output/'CastorSetup.app',resources/'CastorSetup.app')
         if args.neural_helper:
             helper=args.neural_helper/'CastorNeuralTTS.app'
