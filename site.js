@@ -195,13 +195,14 @@
       cancelAnimationFrame(frame);
       try { localStorage.setItem("castor-intro", "1"); } catch (_) { /* private mode */ }
       intro.classList.add("leaving");
-      setTimeout(() => { delete root.dataset.intro; intro.remove(); }, 560);
+      root.dataset.introOpen = "";
+      setTimeout(() => { delete root.dataset.intro; delete root.dataset.introOpen; intro.remove(); }, 560);
     }
     function step(now) {
       if (start === null) start = now;
       const t = now - start, k = keys();
       if (t >= 2700) intro.classList.add("found");
-      if (t >= 4000) intro.classList.add("open");
+      if (t >= 4000) { intro.classList.add("open"); root.dataset.introOpen = ""; }
       if (t >= k[k.length - 1][0]) { set(78, 26, cover()); finish(); return; }
       let i = 0;
       while (t > k[i + 1][0]) i++;
@@ -213,6 +214,38 @@
     document.getElementById("introSkip").addEventListener("click", finish);
     addEventListener("keydown", (event) => { if (event.key === "Escape") finish(); });
     frame = requestAnimationFrame(step);
+  })();
+
+  // The night sky flows: slowly on its own, and further as the page scrolls.
+  (() => {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const layers = [["far", 340, 0.05, 3], ["mid", 520, 0.12, 6], ["near", 760, 0.26, 10]].map(([name, tile, scroll, drift]) =>
+      ({ el: document.querySelector(`.stars.${name}`), tile, scroll, drift }));
+    function frame(now) {
+      const y = scrollY, t = now / 1000;
+      for (const layer of layers) {
+        // Up and a little left, like the sky turning; wrapped by the tile size so it never runs out.
+        const dx = layer.tile - ((y * layer.scroll * 0.4 + t * layer.drift) % layer.tile);
+        const dy = layer.tile - ((y * layer.scroll + t * layer.drift * 0.35) % layer.tile);
+        layer.el.style.transform = `translate3d(${dx.toFixed(1)}px, ${dy.toFixed(1)}px, 0)`;
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  })();
+
+  // Sections rise in once as they come into view.
+  (() => {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches || !("IntersectionObserver" in window)) return;
+    const targets = document.querySelectorAll(".features article, .download > *, .constellation > *, .safety, .faq");
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) if (entry.isIntersecting) { entry.target.classList.add("in"); observer.unobserve(entry.target); }
+    }, { threshold: 0.12, rootMargin: "0px 0px -6% 0px" });
+    targets.forEach((target, i) => {
+      target.classList.add("reveal");
+      target.style.transitionDelay = `${(i % 3) * 80}ms`;
+      observer.observe(target);
+    });
   })();
 
   // Skin switch: Auto follows the device; a choice is remembered.

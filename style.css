@@ -98,7 +98,8 @@ body {
   font: 400 16px/1.7 var(--font);
   font-feature-settings: "palt";
   color: var(--text);
-  background: var(--sky-1);
+  /* Transparent so the fixed sky (z-index -1) shows; the root carries the colour. */
+  background: transparent;
   -webkit-font-smoothing: antialiased;
   overflow-x: clip;
 }
@@ -113,20 +114,30 @@ a { color: inherit; }
     radial-gradient(45% 40% at 88% 30%, rgba(204, 41, 64, .13), transparent 70%),
     radial-gradient(55% 45% at 8% 70%, rgba(91, 95, 214, .18), transparent 70%),
     linear-gradient(180deg, var(--sky-2), var(--sky-1) 60%); }
-.sky::before, .sky::after { content: ""; position: absolute; inset: -10%; background-repeat: repeat; }
-.sky::before {
+/* Three star layers; site.js moves them with scrolling and time (nearer is faster). */
+.stars { position: absolute; top: -760px; left: -760px; right: 0; bottom: 0; background-repeat: repeat; will-change: transform; }
+.stars.far {
   background-image:
-    radial-gradient(1.4px 1.4px at 20px 30px, #fff, transparent), radial-gradient(1px 1px at 160px 80px, #fffc, transparent),
-    radial-gradient(1.2px 1.2px at 90px 190px, #fffb, transparent), radial-gradient(1px 1px at 230px 140px, #fff9, transparent),
-    radial-gradient(1.6px 1.6px at 300px 260px, #fff, transparent), radial-gradient(1px 1px at 40px 300px, #fffa, transparent);
-  background-size: 340px 340px; opacity: .55; animation: drift 180s linear infinite; }
-.sky::after {
+    radial-gradient(1.5px 1.5px at 20px 30px, #fffb, transparent), radial-gradient(1.5px 1.5px at 160px 80px, #fff9, transparent),
+    radial-gradient(1.5px 1.5px at 90px 190px, #dfe1ff, transparent), radial-gradient(1.2px 1.2px at 230px 140px, #fff8, transparent),
+    radial-gradient(1.5px 1.5px at 300px 260px, #fffa, transparent), radial-gradient(1.2px 1.2px at 40px 300px, #fff8, transparent);
+  background-size: 340px 340px; opacity: .75; }
+.stars.mid {
   background-image:
-    radial-gradient(1.8px 1.8px at 70px 110px, #ffe9b8, transparent), radial-gradient(1.2px 1.2px at 250px 40px, #fff, transparent),
-    radial-gradient(1.4px 1.4px at 420px 330px, #dfe1ff, transparent), radial-gradient(1px 1px at 330px 470px, #fff, transparent);
-  background-size: 520px 520px; animation: twinkle-field 6s ease-in-out infinite, drift 260s linear infinite reverse; }
-@keyframes drift { to { transform: translate3d(-340px, -120px, 0); } }
-@keyframes twinkle-field { 0%, 100% { opacity: .9; } 50% { opacity: .35; } }
+    radial-gradient(2.1px 2.1px at 70px 110px, #fff, transparent), radial-gradient(1.8px 1.8px at 250px 40px, #fffc, transparent),
+    radial-gradient(2.1px 2.1px at 420px 330px, #dfe1ff, transparent), radial-gradient(1.7px 1.7px at 330px 470px, #fff, transparent),
+    radial-gradient(2.0px 2.0px at 140px 400px, #ffe9b8, transparent);
+  background-size: 520px 520px; opacity: .95; }
+.stars.near {
+  background-image:
+    radial-gradient(3.0px 3.0px at 120px 160px, #fff, transparent), radial-gradient(2.7px 2.7px at 560px 90px, #ffe9b8, transparent),
+    radial-gradient(3.3px 3.3px at 380px 520px, #dfe1ff, transparent), radial-gradient(2.4px 2.4px at 660px 640px, #fff, transparent);
+  background-size: 760px 760px; animation: twinkle-field 6s ease-in-out infinite; }
+@keyframes twinkle-field { 0%, 100% { opacity: .95; } 50% { opacity: .4; } }
+
+/* Sections rise in as they scroll into view. */
+.reveal { opacity: 0; transform: translateY(26px); transition: opacity .9s var(--ease), transform .9s var(--ease); }
+.reveal.in { opacity: 1; transform: none; }
 
 /* ---------- shared glass surface ---------- */
 .glass, .features article, .platform, details.files, .cards li, .thanks, .faq-list {
@@ -311,19 +322,11 @@ td .tag.rec { background: rgba(255, 210, 122, .2); color: var(--gold); }
    upper right, finds Castor and Pollux, then opens onto the page.
    ===================================================================== */
 .intro { display: none; }
-:root[data-intro="on"] .intro { display: block; position: fixed; inset: 0; z-index: 100; overflow: hidden; background: #02030a; }
+:root[data-intro="on"] .intro { display: block; position: fixed; inset: 0; z-index: 100; overflow: hidden; }
+/* The lens looks at the page's own sky; the page itself appears when it opens. */
+.nav, main, .footer { transition: opacity .9s ease; }
+:root[data-intro="on"]:not([data-intro-open]) :is(.nav, main, .footer) { opacity: 0; }
 :root[data-intro="on"] body { overflow: hidden; }
-.intro-sky { position: absolute; inset: 0;
-  background:
-    radial-gradient(60% 50% at 80% 22%, rgba(142, 146, 255, .30), transparent 70%),
-    radial-gradient(50% 45% at 16% 80%, rgba(91, 95, 214, .22), transparent 70%),
-    linear-gradient(200deg, #14163f, #070818 70%); }
-.intro-sky::before { content: ""; position: absolute; inset: 0;
-  background-image:
-    radial-gradient(1.3px 1.3px at 30px 40px, #fff, transparent), radial-gradient(1px 1px at 150px 120px, #fffb, transparent),
-    radial-gradient(1.5px 1.5px at 90px 210px, #dfe1ff, transparent), radial-gradient(1px 1px at 230px 70px, #fff9, transparent),
-    radial-gradient(1.2px 1.2px at 270px 250px, #ffe9b8, transparent), radial-gradient(1px 1px at 50px 280px, #fffa, transparent);
-  background-size: 300px 300px; }
 .intro-twins { position: absolute; left: 78%; top: 26%; width: 0; height: 0; opacity: 0; transition: opacity .8s ease; }
 .intro.found .intro-twins { opacity: 1; }
 .intro-twins i { position: absolute; border-radius: 50%; transform: translate(-50%, -50%); }
@@ -332,7 +335,7 @@ td .tag.rec { background: rgba(255, 210, 122, .2); color: var(--gold); }
 .intro-twins b { position: absolute; font: 600 12px/1 var(--font); letter-spacing: .12em; color: rgba(235, 235, 245, .75); white-space: nowrap; transform: translateX(-50%); }
 .intro-twins .castor-label { left: -34px; top: -38px; }
 .intro-twins .pollux-label { left: 30px; top: 26px; }
-.intro-dark { position: absolute; inset: 0; background: #000;
+.intro-dark { position: absolute; inset: 0; background: #010208;
   -webkit-mask: radial-gradient(circle var(--r, 0px) at var(--x, 15%) var(--y, 80%), transparent 97%, #000 100%);
   mask: radial-gradient(circle var(--r, 0px) at var(--x, 15%) var(--y, 80%), transparent 97%, #000 100%); }
 .intro-lens { position: absolute; left: var(--x, 15%); top: var(--y, 80%); width: calc(var(--r, 0px) * 2); height: calc(var(--r, 0px) * 2);
