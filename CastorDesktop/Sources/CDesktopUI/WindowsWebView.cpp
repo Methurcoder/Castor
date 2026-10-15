@@ -242,6 +242,13 @@ int castor_webview_open(const char *title, const char *ui_folder, const char *da
     return 1;
 }
 
+int castor_system_dark(void) {
+    DWORD light = 0, size = sizeof(light);
+    if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+                     L"AppsUseLightTheme", RRF_RT_REG_DWORD, nullptr, &light, &size) != ERROR_SUCCESS) return 1;
+    return light ? 0 : 1;
+}
+
 int castor_webview_state(void) { return web_window ? web_state : -2; }
 
 int castor_webview_post(const char *json) {
@@ -259,6 +266,7 @@ void castor_webview_close(void) {
 #else
 int castor_webview_open(const char *, const char *, const char *, int, int, int, castor_web_message, void *) { return -1; }
 int castor_webview_state(void) { return -2; }
+int castor_system_dark(void) { return 1; }
 int castor_webview_post(const char *) { return 0; }
 void castor_webview_close(void) {}
 #endif

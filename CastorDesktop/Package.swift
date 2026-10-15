@@ -56,6 +56,7 @@ let package = Package(
                 .linkedLibrary("Ole32", .when(platforms: [.windows])),
                 .linkedLibrary("Winmm", .when(platforms: [.windows])),
                 .linkedLibrary("Dwmapi", .when(platforms: [.windows])),
+                .linkedLibrary("Advapi32", .when(platforms: [.windows])),
             ]
         ),
 
@@ -65,7 +66,8 @@ let package = Package(
                 .linkedLibrary("Comdlg32", .when(platforms: [.windows])),
                 .linkedLibrary("Shell32", .when(platforms: [.windows])),
                 .linkedLibrary("Ole32", .when(platforms: [.windows])),
-                .linkedLibrary("Dwmapi", .when(platforms: [.windows]))]),
+                .linkedLibrary("Dwmapi", .when(platforms: [.windows])),
+                .linkedLibrary("Advapi32", .when(platforms: [.windows]))]),
 
         .executableTarget(name: "CastorNeuralTTS", dependencies: [.product(name: "CastorCore", package: "CastorCore")]),
 

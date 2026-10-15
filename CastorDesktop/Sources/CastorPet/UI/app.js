@@ -179,6 +179,13 @@
       case "saved": hideBusy(); toast(message.message || t("saved")); break;
       case "error": hideBusy(); toast(message.message, true); break;
       case "toast": toast(message.message); break;
+      case "markers":
+        // An AI proposal: shown for review, never saved without the user.
+        if (!prepared) break;
+        prepared.markers = message.markers;
+        layoutMarkers();
+        if (message.note) toast(message.note);
+        break;
     }
   });
 

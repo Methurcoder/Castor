@@ -305,6 +305,14 @@ private final class PetWindow {
         _ = UpdateLayeredWindow(hwnd, screenDC, &destination, &size, memoryDC, &origin, 0, &blend, ulwAlpha)
     }
 
+    func show(_ asset: PetAsset) {
+        currentAsset = asset
+        player = PetPlayback(asset: asset, wideHeadMovement: preferences.widerHeadMovement)
+        player.automaticTurn = preferences.automaticTurn
+        player.presentationMode = preferences.qualityPresentationMode ?? player.presentationMode
+        tick()
+    }
+
     func showMenu() {
         guard let hwnd, let menu = CreatePopupMenu() else { return }
         let japanese=preferences.displayLanguage == .japanese
@@ -383,7 +391,9 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
                 if command == UInt16(menuEditManual), case let .manual(pet) = window.currentAsset {
                     asset = try WindowsManualRiggingFlow.edit(pet, language: window.preferences.displayLanguage)
                 }
-                if command == UInt16(menuNew) { asset = try WindowsRiggingFlow.startNewPet(quality: false) }
+                if command == UInt16(menuNew), !openCreationWindow(language: window.preferences.displayLanguage, unavailable: legacyNewPet) {
+                    asset = try WindowsRiggingFlow.startNewPet(quality: false)
+                }
                 if command == UInt16(menuNewQuality) { asset = try WindowsRiggingFlow.startNewPet(quality: true) }
                 if command == UInt16(menuOpen), let url = try WindowsRiggingFlow.choose(kind: "pet") {
                     asset = try PetSource.loadAsset(contentsOf: url)
@@ -399,13 +409,7 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
                     }
                     try exported.data().write(to: url, options: .atomic)
                 }
-                if let asset {
-                    window.currentAsset = asset
-                    window.player = PetPlayback(asset: asset, wideHeadMovement: window.preferences.widerHeadMovement)
-                    window.player.automaticTurn = window.preferences.automaticTurn
-                    window.player.presentationMode = window.preferences.qualityPresentationMode ?? window.player.presentationMode
-                    window.tick()
-                }
+                if let asset { window.show(asset) }
             } catch { showError("処理を完了できませんでした。既存のペットと保存データは保持しています。\n\n\(error.localizedDescription)") }
         }
         return 0
@@ -418,6 +422,58 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
     default:
         return DefWindowProcW(hwnd, message, wParam, lParam)
     }
+}
+
+// MARK: - Creation window
+
+/// The Mac-style creation window. New pets replace the one on the desktop;
+/// before the pet window exists (first launch) they go to `firstPet`.
+private func openCreationWindow(language: SettingsDisplayLanguage, firstPet: ((PetAsset) -> Void)? = nil,
+                                unavailable: @escaping () -> Void) -> Bool {
+    CreationWindow.open(language: language, onCreated: { asset in
+        if let window = PetWindow.shared { window.show(asset) } else { firstPet?(asset) }
+    }, onSettings: creationSettings, onUnavailable: unavailable)
+}
+
+/// The native dialogs, for systems without the WebView2 Runtime.
+private func legacyNewPet() {
+    do { if let asset = try WindowsRiggingFlow.startNewPet(quality: false) { PetWindow.shared?.show(asset) } }
+    catch { showError("処理を完了できませんでした。既存のペットと保存データは保持しています。\n\n\(error.localizedDescription)") }
+}
+
+private func creationSettings() -> SettingsDisplayLanguage? {
+    do {
+        if let window = PetWindow.shared {
+            guard let updated = try WindowsConversationFlow.settings(window.preferences) else { return nil }
+            try window.applyPreferences(updated)
+            return updated.displayLanguage
+        }
+        let store = DesktopPreferenceStore(root: try WindowsRiggingFlow.directory)
+        guard let updated = try WindowsConversationFlow.settings((try? store.load()) ?? DesktopPreferences()) else { return nil }
+        try store.save(updated)
+        castor_set_ui_language(updated.displayLanguage == .japanese ? 1 : 0)
+        return updated.displayLanguage
+    } catch {
+        showError(error.localizedDescription)
+        return nil
+    }
+}
+
+/// First launch: the creation window until a pet is saved (nil when it is
+/// closed). Without WebView2 the native dialogs ask instead.
+private func firstPet(language: SettingsDisplayLanguage) throws -> PetAsset? {
+    var created: PetAsset?
+    var unavailable = false
+    guard openCreationWindow(language: language, firstPet: { created = $0 }, unavailable: { unavailable = true }) else {
+        return try WindowsRiggingFlow.startup()?.0
+    }
+    var message = MSG()
+    while created == nil, !unavailable, CreationWindow.isOpen, GetMessageW(&message, nil, 0, 0) {
+        _ = TranslateMessage(&message)
+        _ = DispatchMessageW(&message)
+    }
+    if unavailable { return try WindowsRiggingFlow.startup()?.0 }
+    return created
 }
 
 // MARK: - Entry
@@ -439,8 +495,13 @@ do {
     } else if let saved = try WindowsRiggingFlow.defaultPet() {
         asset = try PetSource.loadAsset(contentsOf: saved)
     } else {
-        guard let result = try WindowsRiggingFlow.startup() else { exit(0) }
-        asset = result.0
+        guard let created = try firstPet(language: preferences.displayLanguage) else { exit(0) }
+        asset = created
+        // Settings may have changed in the creation window; keep them.
+        if preferenceSaveAllowed, let saved = try? DesktopPreferenceStore(root: WindowsRiggingFlow.directory).load() {
+            preferences = saved
+            if wideHeadMovement { preferences.widerHeadMovement = true }
+        }
     }
 } catch {
     showError("ペットを開けませんでした。既存データは変更していません。\n\n\(error.localizedDescription)")

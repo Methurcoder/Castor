@@ -16,6 +16,8 @@ int castor_webview_state(void);
 /* Posts a JSON message to the page; safe from any thread. */
 int castor_webview_post(const char *json);
 void castor_webview_close(void);
+/* 1 when Windows apps use the dark theme (the default when unknown). */
+int castor_system_dark(void);
 /* UTF-8 paths. Returns 1 for OK, 0 for user cancellation, -1 for API failure. */
 int castor_choose_file(int save, const char *kind, char *output, size_t capacity);
 /* Four image-space rectangles (head, left eye, right eye, mouth), x/y/w/h each. */
