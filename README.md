@@ -16,7 +16,8 @@ Castor は [Pomegranate](https://github.com/atemoyacode-sudo/Pomegranate) の**�
 
 | お使いの環境 | ダウンロード | 展開後に開くもの |
 | --- | --- | --- |
-| Mac / Apple Silicon | [Mac用の導入GUI](https://github.com/Methurcoder/Castor/releases/download/v1.0.0/CastorSetup-v1.0.0-macos_arm64.zip) | `CastorSetup.app` |
+| Mac / Apple Silicon（ドラッグ導入） | [Mac用DMG](https://github.com/Methurcoder/Castor/releases/download/v1.0.0/Castor-v1.0.0-macos_arm64.dmg) | 開いてCastorをApplicationsへドラッグ |
+| Mac / Apple Silicon（更新・修復GUI） | [Mac用の導入GUI](https://github.com/Methurcoder/Castor/releases/download/v1.0.0/CastorSetup-v1.0.0-macos_arm64.zip) | `CastorSetup.app` |
 | Windows / x64 | [Windows用の導入GUI](https://github.com/Methurcoder/Castor/releases/download/v1.0.0/CastorSetup-v1.0.0-windows_x86_64.zip) | `CastorSetup.exe` |
 
 **`Castor-Downloader.zip`は`.command` / `.cmd`を使うスクリプト版です。GUIで導入する場合は、上のOS別`CastorSetup-…zip`を選んでください。**
