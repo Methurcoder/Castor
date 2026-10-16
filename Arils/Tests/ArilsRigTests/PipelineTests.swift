@@ -1553,6 +1553,29 @@ private struct FailingInpainter: OcclusionInpaintingProviding {
     }
 }
 
+@Test func neckFollowsTheHeadWhileTheLowerBodyStays() async throws {
+    let built = try await AutoRigPipeline().makeAvatar(from: SyntheticCharacter.cgImage())
+    let layers = try built.textures.mapValues { try #require(Bitmap(image: $0)) }
+    let rig = try #require(FollowingHair.apply(rig: built.rig, layers: layers)).rig
+    let head = try #require(rig.firstPart(ofKind: .head))
+    let body = try #require(rig.part(withID: head.parentID ?? ""))
+    let rest = DeformationEvaluator(rig: rig).evaluate(parameters: [:])[body.id]!
+    let turned = DeformationEvaluator(rig: rig).evaluate(parameters: [.angleX: 30])[body.id]!
+    func moved(nearestTo point: SIMD2<Float>) -> Float {
+        let index = body.mesh.vertices.indices.min {
+            let a = body.mesh.vertices[$0] - point, b = body.mesh.vertices[$1] - point
+            return (a * a).sum() < (b * b).sum()
+        }!
+        let delta = turned[index] - rest[index]
+        return (delta * delta).sum().squareRoot()
+    }
+    // Just below the chin the neck turns with the head; the lower body does not.
+    let neck = moved(nearestTo: SIMD2(Float(head.rect.midX), Float(head.rect.maxY) + 2))
+    let waist = moved(nearestTo: SIMD2(Float(head.rect.midX), Float(body.rect.maxY) - 2))
+    #expect(neck > 1)
+    #expect(waist < neck * 0.2)
+}
+
 @Test func scaledPoseLimitsWidenEveryDirectionAndNeverShrink() {
     let limits = ValidatedPoseLimits(
         minimumYawDegrees: -12, maximumYawDegrees: 20,

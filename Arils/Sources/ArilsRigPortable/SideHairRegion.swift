@@ -249,20 +249,41 @@ public struct SideHairRegion: Sendable {
 
 public extension BindingSynthesizer {
     /// The side hair part. Its keyforms replay the head's own motion relative
-    /// to the body, measured from the finished rig and scaled per vertex by
-    /// `SideHairRegion.followWeight`, so the player needs no new operation.
+    /// to the body (see `headFollowKeyforms`), so the player needs no new
+    /// operation.
     static func sideHairPart(rig: AvatarRig, plan: PartPlan, rect: CGRect) -> AvatarPart? {
-        guard let head = rig.firstPart(ofKind: .head),
-              let body = rig.parts.first(where: { $0.id == head.parentID }),
-              head.mesh.columns > 0, head.mesh.rows > 0,
-              head.mesh.vertexCount == (head.mesh.columns + 1) * (head.mesh.rows + 1) else { return nil }
+        guard let body = rig.firstPart(ofKind: .head).flatMap({ head in rig.parts.first { $0.id == head.parentID } }) else { return nil }
         let mesh = DeformableMesh.grid(rect: rect, columns: 16, rows: 12)
         let weights = mesh.vertices.map { SideHairRegion.followWeight(at: $0, plan: plan) }
+        guard let keyforms = headFollowKeyforms(rig: rig, mesh: mesh, weights: weights) else { return nil }
+        return AvatarPart(
+            id: SideHairRegion.partID,
+            kind: .hairBack,
+            parentID: body.id,
+            rect: rect,
+            pivot: SIMD2(0.5, 0.5),
+            zOrder: 8,
+            mesh: mesh,
+            deformations: keyforms
+        )
+    }
+
+    /// Warp keyforms that move a body-frame mesh with the head, scaled per
+    /// vertex by `weights`, measured by evaluating the finished rig. A vertex
+    /// follows the nearest point of the head: beside the head it also turns
+    /// with it, so hair stays attached to the box edge; below the head it only
+    /// shifts with the neck, so shoulders do not swing the opposite way.
+    static func headFollowKeyforms(rig: AvatarRig, mesh: DeformableMesh, weights: [Float]) -> [DeformationOp]? {
+        guard let head = rig.firstPart(ofKind: .head),
+              let body = rig.parts.first(where: { $0.id == head.parentID }),
+              head.mesh.columns > 0, head.mesh.rows > 0, weights.count == mesh.vertexCount,
+              head.mesh.vertexCount == (head.mesh.columns + 1) * (head.mesh.rows + 1) else { return nil }
         let evaluator = DeformationEvaluator3D(rig: rig)
         let descriptors = Dictionary(rig.parameters.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let defaults = descriptors.mapValues(\.defaultValue)
         let headColumns = head.mesh.columns + 1
         let upperRows = Int(Float(head.mesh.rows) * 0.75)
+        let headRect = head.rect
 
         func offsets(_ overrides: [ParameterID: Float]) -> [SIMD2<Float>] {
             var parameters = defaults
@@ -283,25 +304,29 @@ public extension BindingSynthesizer {
                 to: upper.map { local[$0] }
             ) else { return Array(repeating: .zero, count: mesh.vertexCount) }
 
-            func edge(column: Int, y: Float) -> (rest: SIMD2<Float>, moved: SIMD2<Float>) {
-                let rows = head.mesh.rows
-                let top = head.mesh.vertices[column].y
-                let bottom = head.mesh.vertices[rows * headColumns + column].y
-                let t = min(max((y - top) / max(1, bottom - top), 0), 1) * Float(rows)
-                let row = min(Int(t), rows - 1)
-                let f = t - Float(row)
-                let a = row * headColumns + column, b = (row + 1) * headColumns + column
-                let rest = head.mesh.vertices[a] + (head.mesh.vertices[b] - head.mesh.vertices[a]) * f
-                return (rest, local[a] + (local[b] - local[a]) * f)
+            /// Where the head grid point at `anchor` (inside the head rect) moved to.
+            func moved(_ anchor: SIMD2<Float>) -> SIMD2<Float> {
+                let u = min(max((anchor.x - Float(headRect.minX)) / Float(max(1, headRect.width)), 0), 1) * Float(head.mesh.columns)
+                let v = min(max((anchor.y - Float(headRect.minY)) / Float(max(1, headRect.height)), 0), 1) * Float(head.mesh.rows)
+                let column = min(Int(u), head.mesh.columns - 1), row = min(Int(v), head.mesh.rows - 1)
+                let fu = u - Float(column), fv = v - Float(row)
+                let a = row * headColumns + column
+                func displaced(_ index: Int) -> SIMD2<Float> { local[index] - head.mesh.vertices[index] }
+                let top = displaced(a) + (displaced(a + 1) - displaced(a)) * fu
+                let bottom = displaced(a + headColumns) + (displaced(a + headColumns + 1) - displaced(a + headColumns)) * fu
+                return anchor + top + (bottom - top) * fv
             }
 
             return zip(mesh.vertices, weights).map { point, weight in
                 guard weight > 0.001 else { return .zero }
-                let column = point.x < Float(head.rect.midX) ? 0 : head.mesh.columns
-                let (rest, moved) = edge(column: column, y: point.y)
-                // The edge's own motion, carried outward with the head's
-                // rotation and scale so the hair stays attached to the box.
-                let follow = moved + headMotion.linear(point - rest) - point
+                let anchor = SIMD2(
+                    min(max(point.x, Float(headRect.minX)), Float(headRect.maxX)),
+                    min(max(point.y, Float(headRect.minY)), Float(headRect.maxY))
+                )
+                var follow = moved(anchor) - anchor
+                if point.y <= Float(headRect.maxY) {
+                    follow += headMotion.linear(point - anchor) - (point - anchor)
+                }
                 return follow * weight
             }
         }
@@ -319,20 +344,10 @@ public extension BindingSynthesizer {
                 }
             }
         }
-
-        return AvatarPart(
-            id: SideHairRegion.partID,
-            kind: .hairBack,
-            parentID: body.id,
-            rect: rect,
-            pivot: SIMD2(0.5, 0.5),
-            zOrder: 8,
-            mesh: mesh,
-            deformations: [
-                .warpKeyform(parameterX: .angleX, parameterY: .angleZ, keys: keys(.angleX, .angleZ)),
-                .warpKeyform(parameterX: .angleY, parameterY: .touchSquash, keys: keys(.angleY, .touchSquash)),
-            ]
-        )
+        return [
+            .warpKeyform(parameterX: .angleX, parameterY: .angleZ, keys: keys(.angleX, .angleZ)),
+            .warpKeyform(parameterX: .angleY, parameterY: .touchSquash, keys: keys(.angleY, .touchSquash)),
+        ]
     }
 }
 
@@ -560,7 +575,8 @@ extension SideHairRegion {
     }
 }
 
-/// "More natural face motion" (beta): hair beside the head follows it. It is
+/// "More natural face motion" (beta): hair beside the head, the neck and the
+/// shoulders beside it follow the head. It is
 /// applied to a finished rig when a pet loads, so existing pets get it without
 /// being made again and the setting can be switched at any time.
 public enum FollowingHair {
@@ -571,7 +587,9 @@ public enum FollowingHair {
               let head = rig.firstPart(ofKind: .head), let body = rig.parts.first(where: { $0.id == head.parentID }),
               let headLayer = layers[head.id], var bodyLayer = layers[body.id],
               let eyeLeft = rig.firstPart(ofKind: .eyeLeft), let eyeRight = rig.firstPart(ofKind: .eyeRight),
-              let mouth = rig.firstPart(ofKind: .mouth) else { return nil }
+              let mouth = rig.firstPart(ofKind: .mouth),
+              // Already applied: the body follows the head through keyforms.
+              !body.deformations.contains(where: { if case .warpKeyform = $0 { true } else { false } }) else { return nil }
         let plan = PartPlan(
             imageWidth: rig.imageWidth, imageHeight: rig.imageHeight,
             subjectRect: body.rect, headRect: head.rect,
@@ -597,15 +615,35 @@ public enum FollowingHair {
         let mask: (Int, Int) -> Float = { x, y in
             x >= 0 && y >= 0 && x < picture.width && y < picture.height ? picture.alpha(x: x, y: y) : 0
         }
-        guard let region = SideHairRegion.detect(source: picture, plan: plan, mask: mask),
-              let part = BindingSynthesizer.sideHairPart(rig: rig, plan: plan, rect: region.rect) else { return nil }
-        let sideLayer = region.cut(source: picture, body: &bodyLayer, bodyOrigin: bodyOrigin, plan: plan)
-        SideHairRegion.clearBacking(body: &bodyLayer, bodyOrigin: bodyOrigin, plan: plan, mask: mask, headMoves: false, side: region)
         var result = rig
-        result.parts.append(part)
         var resultLayers = layers
-        resultLayers[body.id] = bodyLayer
-        resultLayers[part.id] = sideLayer
-        return (result, resultLayers)
+        var changed = false
+        if let region = SideHairRegion.detect(source: picture, plan: plan, mask: mask),
+           let part = BindingSynthesizer.sideHairPart(rig: rig, plan: plan, rect: region.rect) {
+            let sideLayer = region.cut(source: picture, body: &bodyLayer, bodyOrigin: bodyOrigin, plan: plan)
+            SideHairRegion.clearBacking(body: &bodyLayer, bodyOrigin: bodyOrigin, plan: plan, mask: mask, headMoves: false, side: region)
+            result.parts.append(part)
+            resultLayers[body.id] = bodyLayer
+            resultLayers[part.id] = sideLayer
+            changed = true
+        }
+        // The neck and the shoulders beside it follow the head with the same
+        // fading weight, so the body moves with it instead of the head sliding
+        // over a still neck. The body's grid is made finer there to bend
+        // smoothly (flat rigs only; a depth rig keeps its sampled depths).
+        for id in [body.id, "neckSeam"] {
+            guard let index = result.parts.firstIndex(where: { $0.id == id }) else { continue }
+            var part = result.parts[index]
+            if id == body.id, part.mesh.depths.allSatisfy({ $0 == 0 }) {
+                part.mesh = .grid(rect: part.rect, columns: 24, rows: 48)
+            }
+            let weights = part.mesh.vertices.map { SideHairRegion.followWeight(at: $0, plan: plan) }
+            guard weights.contains(where: { $0 > 0.001 }),
+                  let keyforms = BindingSynthesizer.headFollowKeyforms(rig: rig, mesh: part.mesh, weights: weights) else { continue }
+            part.deformations += keyforms
+            result.parts[index] = part
+            changed = true
+        }
+        return changed ? (result, resultLayers) : nil
     }
 }
