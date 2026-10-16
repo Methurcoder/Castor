@@ -97,7 +97,9 @@ body {
 .empty .hint { font-size: 13px; opacity: 0.75; }
 
 .review { position: absolute; inset: 0; display: flex; gap: 18px; padding: 20px; }
-.figure { position: relative; flex: 1; display: grid; place-items: center; min-width: 0;
+/* A flex box with a definite height, so the image's max-height (and with it a
+   tall illustration) is limited to the frame instead of overflowing it. */
+.figure { position: relative; flex: 1; display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0;
   background-image: linear-gradient(45deg, rgba(128,128,128,.12) 25%, transparent 25%), linear-gradient(-45deg, rgba(128,128,128,.12) 25%, transparent 25%),
     linear-gradient(45deg, transparent 75%, rgba(128,128,128,.12) 75%), linear-gradient(-45deg, transparent 75%, rgba(128,128,128,.12) 75%);
   background-size: 22px 22px; background-position: 0 0, 0 11px, 11px -11px, -11px 0; border-radius: 14px; overflow: hidden; }
