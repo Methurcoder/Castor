@@ -123,6 +123,24 @@ public enum PartPlanner {
             height: expandedMaxY - expanded.minY
         ).intersection(imageRect)
 
+        // Hair often rises above the reviewed box. Left on the body, that crown
+        // stays behind as a floating strip whenever the head tilts or nods, so
+        // the cut climbs to the top of the subject over the head's middle.
+        let collarHeight = headRect.height * 0.14
+        let crownSearch = min(headRect.minY, headRect.height * 0.3)
+        if crownSearch >= 1, subjectMask.width > 1, subjectMask.height > 1 {
+            let columns = (0...24).map { headRect.minX + headRect.width * (0.2 + 0.6 * CGFloat($0) / 24) }
+            func rowHasSubject(_ y: CGFloat) -> Bool {
+                let v = Float(y) / Float(max(1, imageHeight - 1))
+                return columns.contains {
+                    subjectMask.sample(u: Float($0) / Float(max(1, imageWidth - 1)), v: v) > 0.5
+                }
+            }
+            var top = headRect.minY
+            while top - 1 >= headRect.minY - crownSearch, rowHasSubject(top - 1) { top -= 1 }
+            headRect = CGRect(x: headRect.minX, y: top, width: headRect.width, height: headRect.maxY - top)
+        }
+
         // Features must stay inside the head cut so they inherit its motion
         // without poking past the layer edge.
         let featureBounds = headRect.insetBy(dx: headRect.width * 0.02, dy: headRect.height * 0.02)
@@ -169,7 +187,7 @@ public enum PartPlanner {
             eyeLeftRect: eyeLeft,
             eyeRightRect: eyeRight,
             mouthRect: mouth,
-            collarHeight: headRect.height * 0.14,
+            collarHeight: collarHeight,
             eyeLeftLandmarks: layout.eyeLeftLandmarks,
             eyeRightLandmarks: layout.eyeRightLandmarks
         )

@@ -275,8 +275,11 @@ public enum LayerFactory {
         // as a rectangle whenever the head turned. Diffuse the source around
         // the head inward instead, so the backing continues the neighbouring
         // hair and collar colours.
+        // The ML repair stays within the supported yaw/pitch envelope, away
+        // from the face; the diffused backing covers the rest of the head, so
+        // tilt or a larger turn shows blurred hair instead of a hole.
         var diffusedBacking: Bitmap?
-        if inpaintedSource == nil {
+        do {
             let reach = plan.headRect.insetBy(dx: -plan.headRect.width * 0.2, dy: -plan.collarHeight)
                 .intersection(CGRect(x: 0, y: 0, width: width, height: height))
             if !reach.isNull, !reach.isEmpty {
@@ -315,8 +318,15 @@ public enum LayerFactory {
                     plan: plan,
                     envelope: envelope
                 )
+                func interiorBacking() -> SIMD4<Float> {
+                    let t = Float((CGFloat(sourceX) - plan.headRect.minX) / max(1, plan.headRect.width))
+                    let palette = leftPalette + (rightPalette - leftPalette) * min(max(t, 0), 1)
+                    let diffused = diffusedBacking?.rgba(x: sourceX, y: sourceY)
+                    let color = diffused.flatMap { $0.w > 0.05 ? $0 : nil } ?? palette
+                    return premultiplied(color, alpha: originalBodyPixel.w)
+                }
                 guard weights.collar > 0.001 || weights.side > 0.001 else {
-                    body.setRGBA(x: x, y: y, originalBodyPixel * (1 - backingCoverage))
+                    body.setRGBA(x: x, y: y, originalBodyPixel + (interiorBacking() - originalBodyPixel) * backingCoverage)
                     continue
                 }
 
@@ -330,7 +340,7 @@ public enum LayerFactory {
                     weights.side * mask
                 )
                 guard repairAlpha > 0.01 else {
-                    body.setRGBA(x: x, y: y, originalBodyPixel * (1 - backingCoverage))
+                    body.setRGBA(x: x, y: y, originalBodyPixel + (interiorBacking() - originalBodyPixel) * backingCoverage)
                     continue
                 }
 
@@ -349,10 +359,15 @@ public enum LayerFactory {
                     generatedColor = nil
                 }
                 let repaired = premultiplied(generatedColor ?? fallbackColor, alpha: repairAlpha)
+                // Over the interior backing, so the side band's feathered edge
+                // fades into it rather than into a transparent seam. The collar
+                // keeps its own alpha, which follows the soft edge below the neck.
+                let interiorShare = (1 - repaired.w) * (1 - min(1, weights.collar))
+                let backed = repaired + interiorBacking() * interiorShare
                 body.setRGBA(
                     x: x,
                     y: y,
-                    originalBodyPixel + (repaired - originalBodyPixel) * backingCoverage
+                    originalBodyPixel + (backed - originalBodyPixel) * backingCoverage
                 )
             }
         }

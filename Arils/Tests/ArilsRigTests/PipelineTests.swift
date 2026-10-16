@@ -674,7 +674,10 @@ private struct StaticFaceEstimator: FaceLayoutEstimating {
         faceLayout: layout
     )
     #expect(await counter.read() == 0)
-    #expect(avatar.rig.firstPart(ofKind: .head)?.rect == layout.headRect)
+    // The supplied box is kept; only its top may climb to include hair above it.
+    let head = try #require(avatar.rig.firstPart(ofKind: .head)?.rect)
+    #expect(head.minX == layout.headRect.minX && head.maxX == layout.headRect.maxX)
+    #expect(head.maxY == layout.headRect.maxY && head.minY <= layout.headRect.minY)
 }
 
 private actor FaceAnalysisSizeRecorder {
@@ -825,6 +828,26 @@ private func makePlan() async -> (PartPlan, Bitmap, FloatPlane) {
     return (plan, bitmap, mask)
 }
 
+@Test func plannerCutIncludesHairAboveTheHeadBox() {
+    // Hair above the box used to stay on the body and float as a strip
+    // whenever the head tilted.
+    var mask = FloatPlane(width: 100, height: 200, fill: 0)
+    for y in 10..<200 { for x in 20..<80 { mask[x, y] = 1 } }
+    let layout = FaceLayout(
+        headRect: CGRect(x: 25, y: 30, width: 50, height: 60),
+        eyeLeftRect: CGRect(x: 35, y: 55, width: 10, height: 6),
+        eyeRightRect: CGRect(x: 55, y: 55, width: 10, height: 6),
+        mouthRect: CGRect(x: 45, y: 75, width: 10, height: 4),
+        confidence: 1
+    )
+    let plan = PartPlanner.plan(layout: layout, subjectMask: mask, imageWidth: 100, imageHeight: 200)
+    for y in 0..<30 { for x in 0..<100 { mask[x, y] = 0 } }
+    let bald = PartPlanner.plan(layout: layout, subjectMask: mask, imageWidth: 100, imageHeight: 200)
+    #expect(abs(plan.headRect.minY - 10) <= 1)
+    #expect(plan.headRect.maxY == bald.headRect.maxY)
+    #expect(plan.collarHeight == bald.collarHeight)
+}
+
 @Test func plannerSurvivesLayoutEntirelyOutsideTheImage() {
     // Regression: `.intersection` of disjoint rects yields the null rect
     // (infinite coordinates); passing it downstream trapped in Int().
@@ -893,10 +916,12 @@ private func makePlan() async -> (PartPlan, Bitmap, FloatPlane) {
     let extractedSeam = layers.neckSeam.rgba(x: seamProbeX, y: seamProbeY)
     #expect(simd_reduce_max(simd_abs(sourceSeam - extractedSeam)) < 0.02)
 
-    // Body is transparent where the upper head was (above the collar).
+    // Body is backed where the upper head was, so tilting the head never
+    // shows a hole through the character.
     let headProbeY = Int(plan.headRect.minY) + 6 - Int(plan.subjectRect.minY)
-    if headProbeY >= 0 {
-        #expect(layers.body.alpha(x: collarProbeX, y: headProbeY) < 0.05)
+    if headProbeY >= 0, mask.sample(u: Float(plan.headRect.midX) / Float(bitmap.width - 1),
+                                    v: Float(plan.headRect.minY + 6) / Float(bitmap.height - 1)) > 0.9 {
+        #expect(layers.body.alpha(x: collarProbeX, y: headProbeY) > 0.8)
     }
 
     // Eye cutout corners are feathered to transparent.
@@ -1200,7 +1225,7 @@ private func makePlan() async -> (PartPlan, Bitmap, FloatPlane) {
     // now covers it with a low-frequency palette so head yaw does not uncover
     // a straight transparent slit.
     for y in 9..<16 { mask[3, y] = 0 }
-    // x=6 exercises the ordinary fallback fade near the center.
+    // x=6 exercises the interior backing near the center.
     for y in 9..<16 { mask[6, y] = 0 }
     // A broad soft-alpha patch around x=10 lets the low-frequency sample keep
     // the premultiplied alpha instead of averaging mostly opaque neighbors.
@@ -1224,7 +1249,7 @@ private func makePlan() async -> (PartPlan, Bitmap, FloatPlane) {
     let layers = LayerFactory.extract(source: source, subjectMask: mask, plan: plan)
     #expect(layers.body.alpha(x: 3, y: 5) > 0.5)
     #expect(layers.body.alpha(x: 3, y: 8) > 0.5)
-    #expect(layers.body.alpha(x: 6, y: 5) < 0.05)
+    #expect(layers.body.alpha(x: 6, y: 5) > 0.8)
     #expect(layers.body.alpha(x: 6, y: 8) > 0.8)
     #expect(layers.body.alpha(x: 10, y: 8) > 0.3)
     #expect(layers.body.alpha(x: 10, y: 8) < 0.7)
