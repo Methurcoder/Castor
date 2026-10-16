@@ -916,12 +916,15 @@ private func makePlan() async -> (PartPlan, Bitmap, FloatPlane) {
     let extractedSeam = layers.neckSeam.rgba(x: seamProbeX, y: seamProbeY)
     #expect(simd_reduce_max(simd_abs(sourceSeam - extractedSeam)) < 0.02)
 
-    // Body is backed where the upper head was, so tilting the head never
-    // shows a hole through the character.
-    let headProbeY = Int(plan.headRect.minY) + 6 - Int(plan.subjectRect.minY)
-    if headProbeY >= 0, mask.sample(u: Float(plan.headRect.midX) / Float(bitmap.width - 1),
-                                    v: Float(plan.headRect.minY + 6) / Float(bitmap.height - 1)) > 0.9 {
-        #expect(layers.body.alpha(x: collarProbeX, y: headProbeY) > 0.8)
+    // Below the eyes the body is backed where the head was, so tilting the
+    // head never shows a hole through the character...
+    let faceProbeY = Int(plan.mouthRect.minY) + 1 - Int(plan.subjectRect.minY)
+    #expect(layers.body.alpha(x: collarProbeX, y: faceProbeY) > 0.8)
+    // ...while at the crown, which only background lies behind, the backing
+    // is cleared so a moving head leaves no grey ghost of its outline.
+    let crownProbeY = Int(plan.headRect.minY) + 2 - Int(plan.subjectRect.minY)
+    if crownProbeY >= 0 {
+        #expect(layers.body.alpha(x: collarProbeX, y: crownProbeY) < 0.05)
     }
 
     // Eye cutout corners are feathered to transparent.
@@ -1153,7 +1156,7 @@ private func makePlan() async -> (PartPlan, Bitmap, FloatPlane) {
     let restored = try AvatarArchive(data: AvatarArchive(avatar: avatar).data()).makeAvatar()
     #expect(restored.rig.part(withID: "neckForeground") == nil)
     #expect(restored.textures["neckForeground"] == nil)
-    #expect(restored.rig.parts.count == 6)
+    #expect(restored.rig.parts.count == avatar.rig.parts.count - 1)
 }
 
 @Test func archiveRoundTripPreservesPremultipliedPixels() async throws {
@@ -1511,10 +1514,38 @@ private struct FailingInpainter: OcclusionInpaintingProviding {
     let avatar = try await AutoRigPipeline().makeAvatar(from: SyntheticCharacter.cgImage())
     #expect(avatar.rig.imageWidth == SyntheticCharacter.size.width)
     #expect(avatar.rig.imageHeight == SyntheticCharacter.size.height)
-    #expect(avatar.rig.parts.count == 6)
+    // The synthetic character's hair hangs beside its head, so it gets the
+    // side hair layer on top of the six core parts.
+    #expect(avatar.rig.parts.count == 7)
+    #expect(avatar.rig.part(withID: SideHairRegion.partID) != nil)
     for part in avatar.rig.parts {
         #expect(avatar.textures[part.id] != nil, "missing texture for \(part.id)")
         #expect(part.mesh.vertexCount > 0)
+    }
+}
+
+@Test func sideHairRootsFollowTheHeadWhileTheTipsStayWithTheBody() async throws {
+    let avatar = try await AutoRigPipeline().makeAvatar(from: SyntheticCharacter.cgImage())
+    let side = try #require(avatar.rig.part(withID: SideHairRegion.partID))
+    let head = try #require(avatar.rig.firstPart(ofKind: .head))
+    var tiltKeys: [WarpKeyformKey] = []
+    for operation in side.deformations {
+        if case let .warpKeyform(parameterX, parameterY, keys) = operation, parameterX == .angleX, parameterY == .angleZ {
+            tiltKeys = keys
+        }
+    }
+    let tilt = try #require(tiltKeys.first { $0.parameterXValue == 0 && $0.parameterYValue == 30 })
+    let columns = side.mesh.columns + 1
+    // The vertex beside the head's left edge on the top row moves with the tilt...
+    let nearHead = (0..<columns).min {
+        abs(side.mesh.vertices[$0].x - Float(head.rect.minX)) < abs(side.mesh.vertices[$1].x - Float(head.rect.minX))
+    }!
+    let root = tilt.vertexOffsets[nearHead]
+    #expect((root * root).sum().squareRoot() > 1)
+    // ...while the bottom row, at the shoulders, stays put.
+    for index in (side.mesh.rows * columns)..<side.mesh.vertexCount {
+        let tip = tilt.vertexOffsets[index]
+        #expect((tip * tip).sum().squareRoot() < 0.01)
     }
 }
 
