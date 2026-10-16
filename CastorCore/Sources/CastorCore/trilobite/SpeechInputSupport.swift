@@ -210,7 +210,7 @@ public nonisolated enum SpeechInputMessages {
     public static func localized(_ message: String, language: SettingsDisplayLanguage) -> String {
         guard language == .japanese else { return message }
         let pairs = [
-            ("I couldn't hear that. Click to try again.", "音声を文字にできませんでした。認識言語と下の診断コードを確認して、もう一度話してください。"),
+            ("I couldn't hear that. Click to try again.", "音声を文字にできませんでした。認識言語を確認して、もう一度話してください。"),
             ("Type something first.", "メッセージを入力してください。"),
             ("Microphone access was denied.", "マイクの使用が許可されていません。設定から許可してください。"),
             ("Speech recognition access was denied.", "音声認識が許可されていません。設定 → 入力から許可設定を開いてください。"),

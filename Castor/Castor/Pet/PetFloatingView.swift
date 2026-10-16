@@ -19,6 +19,7 @@ struct PetFloatingView: View {
     @State private var messageDraft = ""
     @State private var agentPreferences = CastorAgentPreferenceStore.current
     @State private var isWindowVisible = true
+    @State private var copiedDiagnostic = false
     @FocusState private var isMessageFocused: Bool
 
     init(
@@ -196,10 +197,28 @@ struct PetFloatingView: View {
                         Text(localizedVoiceCaption)
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(.white.opacity(0.92))
-                            .lineLimit(voice.phase == .thinking ? 3 : 2)
+                            .lineLimit(voice.phase == .thinking || voice.phase == .failed ? 3 : 2)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .contentTransition(.identity)
                             .animation(nil, value: voice.caption)
+
+                        if let code = failureDiagnostic {
+                            Button {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(code, forType: .string)
+                                copiedDiagnostic = true
+                            } label: {
+                                Image(systemName: copiedDiagnostic ? "checkmark" : "doc.on.doc")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .frame(width: 24, height: 24)
+                                    .background(Circle().fill(.white.opacity(0.12)))
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.white.opacity(0.88))
+                            .help(displayLanguage == .japanese ? "診断コードをコピー（録音や認識した文章は含みません）" : "Copy the diagnostic code (no recording or transcript)")
+                            .accessibilityLabel(displayLanguage == .japanese ? "診断コードをコピー" : "Copy diagnostic code")
+                            .onChange(of: code) { copiedDiagnostic = false }
+                        }
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
@@ -558,10 +577,25 @@ struct PetFloatingView: View {
     private var localizedVoiceCaption: String {
         let caption = voice.caption
         if voice.phase == .failed {
-            return voice.errorIsAppMessage ? SpeechInputMessages.localized(caption, language: displayLanguage) : caption
+            guard voice.errorIsAppMessage else { return caption }
+            var message = caption
+            if failureDiagnostic != nil, let open = caption.range(of: "\n[", options: .backwards) {
+                message = String(caption[..<open.lowerBound])
+            }
+            return SpeechInputMessages.localized(message, language: displayLanguage)
         }
         if voice.phase == .speaking || caption.hasPrefix("“") { return caption }
         return L(caption)
+    }
+
+    /// The speech diagnostic code an app-owned failure ends with, shown as a copy button instead of
+    /// text, because the 238pt caption cannot fit it.
+    private var failureDiagnostic: String? {
+        let caption = voice.caption
+        guard voice.phase == .failed, voice.errorIsAppMessage, caption.hasSuffix("]"),
+              let open = caption.range(of: "\n[", options: .backwards) else { return nil }
+        let code = caption[open.upperBound..<caption.index(before: caption.endIndex)]
+        return code.hasPrefix("SI") ? String(code) : nil
     }
 
     private var responseStatusLabel: String {
