@@ -56,7 +56,9 @@ public final class PetPlayer {
 
     /// `wideHeadMovement` lets the head turn about twice as far and the body
     /// follow (the macOS beta setting of the same name).
-    public init(archive: AvatarArchive, wideHeadMovement: Bool = false) {
+    /// `followingHair` adds the beta side hair layer (see `FollowingHair`) as the pet loads.
+    public init(archive: AvatarArchive, wideHeadMovement: Bool = false, followingHair: Bool = false) {
+        let archive = followingHair ? FollowingHairArchive.apply(to: archive) : archive
         let (rig, dropped) = archive.repairedRig()
         self.rig = rig
         usesDepth = rig.parts.contains { $0.mesh.depths.contains { abs($0) > 0.0001 } }

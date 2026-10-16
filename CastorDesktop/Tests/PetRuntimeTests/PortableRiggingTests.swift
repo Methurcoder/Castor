@@ -1,5 +1,6 @@
 import ArilsCore
 import ArilsPlayer
+import ArilsRigPortable
 import Foundation
 import PetRuntime
 import Testing
@@ -167,4 +168,35 @@ private func illustration(opaque: Bool = false) throws -> PortableRigImage {
     defer { try? FileManager.default.removeItem(at: root) }
     try DesktopPreferenceStore(root: root).save(decoded)
     #expect(try DesktopPreferenceStore(root: root).load() == decoded)
+}
+
+@Test func naturalFaceMotionAddsSideHairWithoutChangingThePetAtRest() throws {
+    // Hair hangs on both sides of the face box, down past the chin.
+    let w = 96, h = 128
+    var bitmap = Bitmap(width: w, height: h)
+    for y in 8..<124 { for x in 18..<78 where y < 72 || (30..<66).contains(x) {
+        let skin = (34..<62).contains(x) && (24..<56).contains(y)
+        bitmap.setRGBA(x: x, y: y, skin ? SIMD4(0.94, 0.8, 0.75, 1) : SIMD4(0.24, 0.2, 0.27, 1))
+    }}
+    let mask = FloatPlane(width: w, height: h, values: (0..<(w * h)).map { bitmap.alpha(x: $0 % w, y: $0 / w) })
+    let layout = FaceLayout(
+        headRect: CGRect(x: 32, y: 10, width: 32, height: 48),
+        eyeLeftRect: CGRect(x: 37, y: 30, width: 8, height: 5), eyeRightRect: CGRect(x: 51, y: 30, width: 8, height: 5),
+        mouthRect: CGRect(x: 44, y: 44, width: 8, height: 3), confidence: 1
+    )
+    let archive = try RigLayerBuilder.build(source: bitmap, analysisMask: mask, extractionMask: mask, layout: layout,
+                                            maskIsAuthoritative: true).archive(encoding: LayeredRigging.png)
+    let plain = PetPlayer(archive: archive)
+    let following = PetPlayer(archive: archive, followingHair: true)
+    #expect(plain.rig.part(withID: "hairSide") == nil)
+    #expect(following.rig.part(withID: "hairSide") != nil)
+    func rest(_ player: PetPlayer) -> [UInt8] {
+        player.parameterOverrides = [.angleX: 0, .angleY: 0, .angleZ: 0, .breath: 0, .bodyAngleZ: 0, .bodyAngleX: 0, .bodyY: 0]
+        var canvas = PetCanvas(width: w, height: h)
+        player.render(into: &canvas, time: 0)
+        return canvas.bgra
+    }
+    let a = rest(plain), b = rest(following)
+    let difference = zip(a, b).reduce(0) { $0 + abs(Int($1.0) - Int($1.1)) }
+    #expect(Double(difference) / Double(a.count) < 2)
 }

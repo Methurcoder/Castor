@@ -509,6 +509,8 @@
       save: "保存", revert: "元に戻す", saved: "設定を保存しました。", unsaved: "保存していない変更があります。",
       language: "表示言語", scale: "ペットの大きさ", opacity: "ペットの不透明度",
       automaticTurn: "カーソルの方へ自動で向く", widerHeadMovement: "頭をより大きく動かす（ベータ）",
+      naturalFaceMotion: "顔をより自然に動かす（ベータ）",
+      "naturalFace.note": "頭の横の髪やリボンも根元から一緒に動きます。絵によっては髪以外のもの（上げた腕など）も動くことがあります。",
       evasionEnabled: "カーソルから逃げる", evasionStyle: "逃げ方", buttonDodgeEnabled: "押そうとしたボタンの上からどく",
       microphoneEnabled: "周囲の音に反応する（マイク）",
       "evasion.cute": "かわいく", "evasion.calm": "落ち着いて", "evasion.cool": "クールに", "evasion.proud": "堂々と", "evasion.robot": "ロボット風",
@@ -532,6 +534,8 @@
       save: "Save", revert: "Revert", saved: "Settings saved.", unsaved: "You have unsaved changes.",
       language: "Language", scale: "Pet size", opacity: "Pet opacity",
       automaticTurn: "Turn toward the cursor", widerHeadMovement: "Wider head movement (beta)",
+      naturalFaceMotion: "More natural face motion (beta)",
+      "naturalFace.note": "Hair and ribbons beside the head move with it from the roots. In some pictures other things next to the head (such as raised arms) may move too.",
       evasionEnabled: "Run away from the cursor", evasionStyle: "Style", buttonDodgeEnabled: "Move off buttons you are about to press",
       microphoneEnabled: "React to sounds around (microphone)",
       "evasion.cute": "Cute", "evasion.calm": "Calm", "evasion.cool": "Cool", "evasion.proud": "Proud", "evasion.robot": "Robot",
@@ -569,6 +573,8 @@
       { key: "petOpacity", type: "select", number: true, options: () => percent([1, 0.8, 0.6, 0.4, 0.2]), label: "opacity" },
       { key: "automaticTurn", type: "toggle" },
       { key: "widerHeadMovement", type: "toggle" },
+      { key: "naturalFaceMotion", type: "toggle" },
+      { note: "naturalFace.note", when: () => draft.naturalFaceMotion },
       { key: "evasionEnabled", type: "toggle" },
       { key: "evasionStyle", type: "select", options: () => ["cute", "calm", "cool", "proud", "robot"].map((v) => ({ value: v, label: t("evasion." + v) })), when: () => draft.evasionEnabled },
       { key: "buttonDodgeEnabled", type: "toggle" },
@@ -788,7 +794,7 @@
 
   // ---- Preview mock ----------------------------------------------------------
   let mockStore = {
-    displayLanguage: "ja", scale: 1, petOpacity: 1, automaticTurn: true, widerHeadMovement: false,
+    displayLanguage: "ja", scale: 1, petOpacity: 1, automaticTurn: true, widerHeadMovement: false, naturalFaceMotion: false,
     evasionEnabled: false, evasionStyle: "calm", buttonDodgeEnabled: false, microphoneEnabled: false, microphoneSetupCompleted: true,
     systemTTSEnabled: false, systemVoice: "", neuralTTSEnabled: false, neuralEndpoint: "http://127.0.0.1:8000/v1/audio/speech",
     neuralModel: "mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit", neuralVoice: "Ryan", neuralInstruction: "Speak gently.",

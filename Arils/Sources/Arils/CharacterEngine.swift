@@ -36,6 +36,9 @@ public final class CharacterEngine {
         /// validated (`ExtendedHeadRange`). Edges the image does not contain
         /// can show at the extremes.
         public var extendedHeadRange: Bool
+        /// More natural face motion (beta): hair beside the head follows it
+        /// (`FollowingHair`), added to the avatar as the engine is created.
+        public var followingHair: Bool
 
         public init(
             motionSeed: UInt64 = 0x0A71_15EE_D5EE_D001,
@@ -43,7 +46,8 @@ public final class CharacterEngine {
             sneezeInterval: Double = 240,
             personality: MotionPersonality = .standard,
             microActionsEnabled: Bool = true,
-            extendedHeadRange: Bool = false
+            extendedHeadRange: Bool = false,
+            followingHair: Bool = false
         ) {
             self.motionSeed = motionSeed
             self.preferredFramesPerSecond = preferredFramesPerSecond
@@ -51,6 +55,7 @@ public final class CharacterEngine {
             self.personality = personality
             self.microActionsEnabled = microActionsEnabled
             self.extendedHeadRange = extendedHeadRange
+            self.followingHair = followingHair
         }
     }
 
@@ -135,6 +140,7 @@ public final class CharacterEngine {
     // MARK: - Creation
 
     public init(avatar: RiggedAvatar, configuration: Configuration = Configuration()) {
+        let avatar = configuration.followingHair ? avatar.withFollowingHair() : avatar
         self.avatar = avatar
         self.configuration = configuration
         self.imageSize = SIMD2(Float(avatar.rig.imageWidth), Float(avatar.rig.imageHeight))

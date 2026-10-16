@@ -271,7 +271,7 @@ private final class PetWindow {
         castor_microphone_enable(updated.microphoneEnabled ? 1:0)
         castor_set_ui_language(updated.displayLanguage == .japanese ? 1 : 0)
         let mode = player.presentationMode
-        player = PetPlayback(asset: currentAsset, wideHeadMovement: updated.widerHeadMovement)
+        player = PetPlayback(asset: currentAsset, wideHeadMovement: updated.widerHeadMovement, naturalFaceMotion: updated.naturalFaceMotion)
         player.presentationMode = updated.qualityPresentationMode ?? mode; player.automaticTurn = updated.automaticTurn
         _ = SetWindowPos(hwnd, nil, 0, 0, Int32(width), Int32(height), 0x0002 | 0x0004)
         tick()
@@ -312,7 +312,7 @@ private final class PetWindow {
 
     func show(_ asset: PetAsset) {
         currentAsset = asset
-        player = PetPlayback(asset: asset, wideHeadMovement: preferences.widerHeadMovement)
+        player = PetPlayback(asset: asset, wideHeadMovement: preferences.widerHeadMovement, naturalFaceMotion: preferences.naturalFaceMotion)
         player.automaticTurn = preferences.automaticTurn
         player.presentationMode = preferences.qualityPresentationMode ?? player.presentationMode
         tick()
@@ -578,7 +578,18 @@ do {
     showError("ペットを開けませんでした。既存データは変更していません。\n\n\(error.localizedDescription)")
     exit(1)
 }
-let player = PetPlayback(asset: asset, wideHeadMovement: preferences.widerHeadMovement)
+// One-time offer of the face motion beta, shown at the first launch after the update.
+if !preferences.naturalFaceMotionOffered && preferenceSaveAllowed {
+    let japanese = preferences.displayLanguage == .japanese
+    let text = japanese ? "ベータ版の機能で顔がより自然に動きます。試しますか？（設定でオフにできます。）"
+        : "A beta feature makes the face move more naturally. Try it? (You can turn it off in Settings.)"
+    let options = japanese ? "試す\n今はしない" : "Try it\nNot now"
+    preferences.naturalFaceMotionOffered = true
+    preferences.naturalFaceMotion = text.withCString { title in options.withCString { castor_choose_option(title, $0) } } == 1
+    do { try DesktopPreferenceStore(root: WindowsRiggingFlow.directory).save(preferences) }
+    catch { showError(error.localizedDescription) }
+}
+let player = PetPlayback(asset: asset, wideHeadMovement: preferences.widerHeadMovement, naturalFaceMotion: preferences.naturalFaceMotion)
 player.automaticTurn = preferences.automaticTurn
 player.presentationMode = preferences.qualityPresentationMode ?? player.presentationMode
 

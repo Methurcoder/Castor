@@ -145,6 +145,64 @@ public struct SideHairRegion: Sendable {
         )
     }
 
+    /// A copy of `source` whose `region` is replaced by an opaque box blur of
+    /// the subject alone (background pixels carry no weight).
+    static func subjectBlur(_ source: Bitmap, region: CGRect, radius: Int, mask: (Int, Int) -> Float) -> Bitmap {
+        var result = source
+        let minX = max(0, Int(region.minX)), maxX = min(source.width, Int(region.maxX.rounded(.up)))
+        let minY = max(0, Int(region.minY)), maxY = min(source.height, Int(region.maxY.rounded(.up)))
+        guard maxX > minX, maxY > minY, radius > 0 else { return result }
+        // Blur over a margin so the region's edge still sees its neighbours.
+        let x0 = max(0, minX - radius), x1 = min(source.width, maxX + radius)
+        let y0 = max(0, minY - radius), y1 = min(source.height, maxY + radius)
+        let width = x1 - x0, height = y1 - y0
+        var weighted = [SIMD4<Float>](repeating: .zero, count: width * height)
+        for y in 0..<height {
+            for x in 0..<width {
+                let pixel = source.rgba(x: x0 + x, y: y0 + y)
+                let weight = min(max(mask(x0 + x, y0 + y), 0), 1) * (pixel.w > 0.02 ? 1 : 0)
+                guard weight > 0 else { continue }
+                weighted[y * width + x] = SIMD4(pixel.x / pixel.w, pixel.y / pixel.w, pixel.z / pixel.w, 1) * weight
+            }
+        }
+        // Two separable running-sum box passes (close to a Gaussian, so fine
+        // stripes do not survive as ripples); w carries the total weight.
+        func boxPass(_ values: [SIMD4<Float>]) -> [SIMD4<Float>] {
+            var horizontal = [SIMD4<Float>](repeating: .zero, count: width * height)
+            for y in 0..<height {
+                var sum = SIMD4<Float>.zero
+                for x in 0..<min(radius, width) { sum += values[y * width + x] }
+                for x in 0..<width {
+                    if x + radius < width { sum += values[y * width + x + radius] }
+                    if x - radius - 1 >= 0 { sum -= values[y * width + x - radius - 1] }
+                    horizontal[y * width + x] = sum
+                }
+            }
+            var vertical = [SIMD4<Float>](repeating: .zero, count: width * height)
+            for x in 0..<width {
+                var sum = SIMD4<Float>.zero
+                for y in 0..<min(radius, height) { sum += horizontal[y * width + x] }
+                for y in 0..<height {
+                    if y + radius < height { sum += horizontal[(y + radius) * width + x] }
+                    if y - radius - 1 >= 0 { sum -= horizontal[(y - radius - 1) * width + x] }
+                    vertical[y * width + x] = sum
+                }
+            }
+            return vertical
+        }
+        let blurred = boxPass(boxPass(weighted))
+        for y in (minY - y0)..<(maxY - y0) {
+            for x in (minX - x0)..<(maxX - x0) {
+                let sum = blurred[y * width + x]
+                result.setRGBA(
+                    x: x0 + x, y: y0 + y,
+                    sum.w > 0.001 ? SIMD4(sum.x / sum.w, sum.y / sum.w, sum.z / sum.w, 1) : .zero
+                )
+            }
+        }
+        return result
+    }
+
     /// Low-frequency copy of the region left on the body, so moving hair
     /// reveals blurred hair rather than a sharp duplicate of itself.
     static func blurredBacking(_ body: Bitmap, region: CGRect, radius: Int) -> Bitmap {
@@ -399,5 +457,155 @@ struct BackgroundDistance {
         let lx = x - minX, ly = y - minY
         guard lx >= 0, lx < width, ly >= 0, ly < height else { return .infinity }
         return values[ly * width + lx]
+    }
+}
+
+extension SideHairRegion {
+    /// The hairSide layer cut from `source`. `body`, whose first pixel is the
+    /// image pixel `bodyOrigin`, keeps exactly what the layer does not cover
+    /// at rest, so translucent hair or a veil does not double up; under opaque
+    /// hair that remainder is empty and a blurred copy fills in for when the
+    /// hair moves away.
+    func cut(source: Bitmap, body: inout Bitmap, bodyOrigin: (x: Int, y: Int), plan: PartPlan) -> Bitmap {
+        var layer = source.cropped(to: rect)
+        let originX = Int(rect.minX), originY = Int(rect.minY)
+        for y in 0..<layer.height {
+            for x in 0..<layer.width {
+                let share = ownership[x, y]
+                if share <= 0.001 {
+                    layer.setRGBA(x: x, y: y, .zero)
+                } else if share < 1 {
+                    layer.scaleAlpha(x: x, y: y, by: share)
+                }
+            }
+        }
+        let blurred = Self.blurredBacking(
+            body,
+            region: rect.offsetBy(dx: -CGFloat(bodyOrigin.x), dy: -CGFloat(bodyOrigin.y)),
+            radius: max(3, Int(plan.headRect.width * 0.03))
+        )
+        for y in 0..<layer.height {
+            for x in 0..<layer.width {
+                let bodyX = originX + x - bodyOrigin.x, bodyY = originY + y - bodyOrigin.y
+                guard ownership[x, y] > 0.001, bodyX >= 0, bodyX < body.width, bodyY >= 0, bodyY < body.height else { continue }
+                let original = body.rgba(x: bodyX, y: bodyY)
+                let front = layer.rgba(x: x, y: y)
+                let remainder = (original - front) / max(0.02, 1 - front.w)
+                let opaque = Interpolation.smoothstep(0.9, 0.98, front.w)
+                let backing = remainder + (blurred.rgba(x: bodyX, y: bodyY) - remainder) * opaque
+                body.setRGBA(x: bodyX, y: bodyY, simd_clamp(backing, SIMD4(repeating: 0), SIMD4(repeating: 1)))
+            }
+        }
+        return layer
+    }
+
+    /// Clears backing that only background lies behind. Near the outline of
+    /// the upper head, what the moving head (`headMoves`) and side hair
+    /// uncover is the background, not more hair; a backing there reads as a
+    /// grey ghost of the old outline, so it fades out within the distance they
+    /// can move. From the eyes down the neck, hair and shoulders behind the
+    /// face stay backed; behind side hair, background reaches to the mouth.
+    static func clearBacking(body: inout Bitmap, bodyOrigin: (x: Int, y: Int), plan: PartPlan,
+                             mask: (Int, Int) -> Float, headMoves: Bool, side: SideHairRegion?) {
+        let width = plan.imageWidth, height = plan.imageHeight
+        let headProfile = HeadRegionProfile(plan: plan)
+        let envelope = HeadDisocclusionEnvelope.supported(plan: plan)
+        let eyeY = Float(plan.eyeLeftRect.midY + plan.eyeRightRect.midY) / 2
+        let ghostRect = plan.headRect
+            .insetBy(dx: -reach(plan), dy: 0)
+            .intersection(CGRect(x: 0, y: 0, width: width, height: height))
+        guard !ghostRect.isNull, !ghostRect.isEmpty else { return }
+        let distanceRect = ghostRect.insetBy(dx: 0, dy: -plan.headRect.height * 0.2)
+            .intersection(CGRect(x: 0, y: 0, width: width, height: height))
+        let backgroundDistance = BackgroundDistance(rect: distanceRect, mask: mask)
+        let pivot = SIMD2(Float(plan.headRect.midX), Float(plan.neckY))
+        let baseReach = max(envelope.horizontalOpaqueDepth, envelope.verticalOpaqueDepth)
+        let minX = Int(ghostRect.minX), maxX = Int(ghostRect.maxX)
+        let minY = Int(ghostRect.minY), maxY = min(Int(ghostRect.maxY), Int(plan.neckY))
+        guard maxY > minY else { return }
+        for sourceY in minY..<maxY {
+            let headFade = headMoves ? 1 - Interpolation.smoothstep(eyeY, Float(plan.mouthRect.minY), Float(sourceY)) : 0
+            let sideFade = side == nil ? 0 : 1 - Interpolation.smoothstep(Float(plan.mouthRect.maxY), Float(plan.neckY), Float(sourceY))
+            guard headFade > 0 || sideFade > 0 else { continue }
+            for sourceX in minX..<maxX {
+                let x = sourceX - bodyOrigin.x, y = sourceY - bodyOrigin.y
+                guard x >= 0, x < body.width, y >= 0, y < body.height, body.alpha(x: x, y: y) > 0 else { continue }
+                let point = SIMD2(Float(sourceX) + 0.5, Float(sourceY) + 0.5)
+                let headShare = headProfile.ownershipWeight(x: CGFloat(sourceX), y: CGFloat(sourceY))
+                var sideShare: Float = 0
+                var sideFollow: Float = 0
+                if let side, side.rect.contains(CGPoint(x: sourceX, y: sourceY)) {
+                    sideShare = side.ownership[sourceX - Int(side.rect.minX), sourceY - Int(side.rect.minY)]
+                    sideFollow = sideShare * followWeight(at: point, plan: plan)
+                }
+                guard (headMoves && headShare > 0.001) || sideFollow > 0.001 else { continue }
+                let offset = point - pivot
+                let motion = baseReach + (offset * offset).sum().squareRoot() * 0.26
+                func exposure(_ follow: Float, _ distance: Float) -> Float {
+                    guard follow > 0.001 else { return 0 }
+                    let travel = follow * motion
+                    return 1 - Interpolation.smoothstep(travel * 0.7, travel, distance)
+                }
+                let distance = backgroundDistance[sourceX, sourceY]
+                let exposed = max(
+                    headMoves && headShare > 0.001 ? headFade * exposure(1, distance) : 0,
+                    sideFade * exposure(sideFollow, distance)
+                )
+                // At rest the moving layers must still cover what is cleared.
+                let uncovered = max(0, 1 - headShare - sideShare)
+                let keep = max(uncovered, 1 - exposed)
+                if keep < 0.999 { body.scaleAlpha(x: x, y: y, by: keep) }
+            }
+        }
+    }
+}
+
+/// "More natural face motion" (beta): hair beside the head follows it. It is
+/// applied to a finished rig when a pet loads, so existing pets get it without
+/// being made again and the setting can be switched at any time.
+public enum FollowingHair {
+    /// The rig and layers with the hairSide part added, or nil when the rig
+    /// has no standard head/body pair or no side hair was found.
+    public static func apply(rig: AvatarRig, layers: [String: Bitmap]) -> (rig: AvatarRig, layers: [String: Bitmap])? {
+        guard rig.part(withID: SideHairRegion.partID) == nil,
+              let head = rig.firstPart(ofKind: .head), let body = rig.parts.first(where: { $0.id == head.parentID }),
+              let headLayer = layers[head.id], var bodyLayer = layers[body.id],
+              let eyeLeft = rig.firstPart(ofKind: .eyeLeft), let eyeRight = rig.firstPart(ofKind: .eyeRight),
+              let mouth = rig.firstPart(ofKind: .mouth) else { return nil }
+        let plan = PartPlan(
+            imageWidth: rig.imageWidth, imageHeight: rig.imageHeight,
+            subjectRect: body.rect, headRect: head.rect,
+            eyeLeftRect: eyeLeft.rect, eyeRightRect: eyeRight.rect, mouthRect: mouth.rect,
+            collarHeight: head.rect.height * 0.14
+        )
+        // The picture at rest, from the body with the head over it.
+        let bodyOrigin = (x: max(0, Int(body.rect.minX)), y: max(0, Int(body.rect.minY)))
+        let headOrigin = (x: max(0, Int(head.rect.minX)), y: max(0, Int(head.rect.minY)))
+        var picture = Bitmap(width: rig.imageWidth, height: rig.imageHeight)
+        for y in 0..<bodyLayer.height where bodyOrigin.y + y < picture.height {
+            for x in 0..<bodyLayer.width where bodyOrigin.x + x < picture.width {
+                picture.setRGBA(x: bodyOrigin.x + x, y: bodyOrigin.y + y, bodyLayer.rgba(x: x, y: y))
+            }
+        }
+        for y in 0..<headLayer.height where headOrigin.y + y < picture.height {
+            for x in 0..<headLayer.width where headOrigin.x + x < picture.width {
+                let front = headLayer.rgba(x: x, y: y)
+                let back = picture.rgba(x: headOrigin.x + x, y: headOrigin.y + y)
+                picture.setRGBA(x: headOrigin.x + x, y: headOrigin.y + y, front + back * (1 - front.w))
+            }
+        }
+        let mask: (Int, Int) -> Float = { x, y in
+            x >= 0 && y >= 0 && x < picture.width && y < picture.height ? picture.alpha(x: x, y: y) : 0
+        }
+        guard let region = SideHairRegion.detect(source: picture, plan: plan, mask: mask),
+              let part = BindingSynthesizer.sideHairPart(rig: rig, plan: plan, rect: region.rect) else { return nil }
+        let sideLayer = region.cut(source: picture, body: &bodyLayer, bodyOrigin: bodyOrigin, plan: plan)
+        SideHairRegion.clearBacking(body: &bodyLayer, bodyOrigin: bodyOrigin, plan: plan, mask: mask, headMoves: false, side: region)
+        var result = rig
+        result.parts.append(part)
+        var resultLayers = layers
+        resultLayers[body.id] = bodyLayer
+        resultLayers[part.id] = sideLayer
+        return (result, resultLayers)
     }
 }

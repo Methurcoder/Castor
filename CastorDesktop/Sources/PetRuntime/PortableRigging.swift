@@ -206,7 +206,7 @@ public enum PortableRigBuilder {
 
 /// Small dependency-free lossless PNG encoder: RGBA8, filter 0, stored DEFLATE.
 /// Avoids requiring Python, an external encoder, or platform image frameworks.
-private enum PortablePNG {
+enum PortablePNG {
     static func encode(width: Int, height: Int, rgba: [UInt8]) -> Data {
         func bytes(_ n: UInt32) -> [UInt8] { [UInt8(n >> 24), UInt8(truncatingIfNeeded: n >> 16), UInt8(truncatingIfNeeded: n >> 8), UInt8(truncatingIfNeeded: n)] }
         let crcTable: [UInt32] = (0..<256).map { n in

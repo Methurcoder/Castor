@@ -43,6 +43,8 @@ struct CastorSettingsView: View {
     @State private var pointerHelperStatus: String?
     @AppStorage(WideHeadRangeSettingsStore.enabledKey)
     private var isWideHeadRangeEnabled = WideHeadRangeSettingsStore.defaultEnabled
+    @AppStorage(NaturalFaceMotionSettingsStore.enabledKey)
+    private var isNaturalFaceMotionEnabled = NaturalFaceMotionSettingsStore.defaultEnabled
 
     private func S(_ key: String, _ arguments: [String: String] = [:]) -> String {
         CastorSettingsStrings.text(key, language: language, arguments: arguments)
@@ -271,6 +273,22 @@ struct CastorSettingsView: View {
                 }
             } footer: {
                 Text(S("settings.wide_head.help"))
+            }
+
+            Section {
+                Toggle(isOn: $isNaturalFaceMotionEnabled) {
+                    HStack(spacing: 7) {
+                        Text(S("settings.natural_face.label"))
+                        Text("BETA")
+                            .font(.caption2.monospaced().weight(.bold))
+                            .foregroundStyle(.orange)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(.orange.opacity(0.12), in: Capsule())
+                    }
+                }
+            } footer: {
+                Text(S("settings.natural_face.help"))
             }
         }
         .formStyle(.grouped)

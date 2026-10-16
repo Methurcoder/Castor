@@ -3,6 +3,8 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
+import ArilsRigPortable
+
 /// A rig paired with the extracted per-part textures — the ready-to-render unit.
 ///
 /// `@unchecked Sendable`: `CGImage` is immutable after creation, so sharing
@@ -62,5 +64,22 @@ extension AvatarArchive {
     static func image(fromPNG data: Data) -> CGImage? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
         return CGImageSourceCreateImageAtIndex(source, 0, nil)
+    }
+}
+
+public extension RiggedAvatar {
+    /// This avatar with the "more natural face motion" beta applied (see
+    /// `FollowingHair`), or unchanged when it has no side hair to move.
+    func withFollowingHair() -> RiggedAvatar {
+        guard let head = rig.firstPart(ofKind: .head), let bodyID = head.parentID,
+              let headImage = textures[head.id], let bodyImage = textures[bodyID],
+              let headLayer = Bitmap(image: headImage), let bodyLayer = Bitmap(image: bodyImage),
+              let result = FollowingHair.apply(rig: rig, layers: [head.id: headLayer, bodyID: bodyLayer]),
+              let body = result.layers[bodyID]?.cgImage(),
+              let side = result.layers[SideHairRegion.partID]?.cgImage() else { return self }
+        var textures = textures
+        textures[bodyID] = body
+        textures[SideHairRegion.partID] = side
+        return RiggedAvatar(rig: result.rig, textures: textures)
     }
 }

@@ -24,6 +24,10 @@ public struct DesktopPreferences: Codable, Equatable, Sendable {
     public var ollamaModel = ""
     public var personality = "穏やかで少し不器用なデスクトップの相棒。日本語で短く自然に会話する。"
     public var widerHeadMovement = false
+    /// Beta: hair beside the head follows it (applied to the pet as it loads).
+    public var naturalFaceMotion = false
+    /// Whether the one-time offer to try `naturalFaceMotion` was shown.
+    public var naturalFaceMotionOffered = false
     public var automaticTurn = true
     public var qualityPresentationMode:QualityPresentationMode?
     public var evasionEnabled = false
@@ -69,6 +73,8 @@ public struct DesktopPreferences: Codable, Equatable, Sendable {
         ollamaModel = try values.decodeIfPresent(String.self, forKey: .ollamaModel) ?? ollamaModel
         personality = try values.decodeIfPresent(String.self, forKey: .personality) ?? personality
         widerHeadMovement = try values.decodeIfPresent(Bool.self, forKey: .widerHeadMovement) ?? widerHeadMovement
+        naturalFaceMotion = try values.decodeIfPresent(Bool.self, forKey: .naturalFaceMotion) ?? naturalFaceMotion
+        naturalFaceMotionOffered = try values.decodeIfPresent(Bool.self, forKey: .naturalFaceMotionOffered) ?? naturalFaceMotionOffered
         evasionEnabled = try values.decodeIfPresent(Bool.self, forKey: .evasionEnabled) ?? evasionEnabled
         evasionStyle = try values.decodeIfPresent(EvasionStyle.self, forKey: .evasionStyle) ?? evasionStyle
         automaticTurn = try values.decodeIfPresent(Bool.self, forKey: .automaticTurn) ?? automaticTurn
@@ -93,6 +99,7 @@ public struct DesktopPreferences: Codable, Equatable, Sendable {
         case displayLanguage, buttonDodgeEnabled, microphoneEnabled, microphoneSetupCompleted
         case selectedBrain, externalBrain, automaticRouting, codexEndpoint, claudeEndpoint, workspacePath
         case evasionEnabled, evasionStyle
+        case naturalFaceMotion, naturalFaceMotionOffered
         case provider, lmStudioEndpoint, ollamaEndpoint, lmStudioModel, ollamaModel, personality,
              widerHeadMovement, automaticTurn, petOpacity, scale, positionX, positionY, systemTTSEnabled, systemVoice
     }
@@ -117,6 +124,7 @@ public struct DesktopPreferences: Codable, Equatable, Sendable {
         try c.encode(lmStudioModel, forKey: .lmStudioModel); try c.encode(ollamaModel, forKey: .ollamaModel)
         try c.encode(personality, forKey: .personality)
         try c.encode(widerHeadMovement, forKey: .widerHeadMovement); try c.encode(automaticTurn, forKey: .automaticTurn)
+        try c.encode(naturalFaceMotion, forKey: .naturalFaceMotion); try c.encode(naturalFaceMotionOffered, forKey: .naturalFaceMotionOffered)
         try c.encode(petOpacity, forKey: .petOpacity); try c.encode(scale, forKey: .scale)
         try c.encodeIfPresent(positionX, forKey: .positionX); try c.encodeIfPresent(positionY, forKey: .positionY)
         try c.encode(systemTTSEnabled, forKey: .systemTTSEnabled); try c.encode(systemVoice, forKey: .systemVoice)

@@ -1514,10 +1514,7 @@ private struct FailingInpainter: OcclusionInpaintingProviding {
     let avatar = try await AutoRigPipeline().makeAvatar(from: SyntheticCharacter.cgImage())
     #expect(avatar.rig.imageWidth == SyntheticCharacter.size.width)
     #expect(avatar.rig.imageHeight == SyntheticCharacter.size.height)
-    // The synthetic character's hair hangs beside its head, so it gets the
-    // side hair layer on top of the six core parts.
-    #expect(avatar.rig.parts.count == 7)
-    #expect(avatar.rig.part(withID: SideHairRegion.partID) != nil)
+    #expect(avatar.rig.parts.count == 6)
     for part in avatar.rig.parts {
         #expect(avatar.textures[part.id] != nil, "missing texture for \(part.id)")
         #expect(part.mesh.vertexCount > 0)
@@ -1525,7 +1522,14 @@ private struct FailingInpainter: OcclusionInpaintingProviding {
 }
 
 @Test func sideHairRootsFollowTheHeadWhileTheTipsStayWithTheBody() async throws {
-    let avatar = try await AutoRigPipeline().makeAvatar(from: SyntheticCharacter.cgImage())
+    // The beta is applied to a finished rig when a pet loads.
+    let built = try await AutoRigPipeline().makeAvatar(from: SyntheticCharacter.cgImage())
+    #expect(built.rig.part(withID: SideHairRegion.partID) == nil)
+    let layers = try built.textures.mapValues { try #require(Bitmap(image: $0)) }
+    let following = try #require(FollowingHair.apply(rig: built.rig, layers: layers))
+    #expect(following.layers[SideHairRegion.partID] != nil)
+    #expect(FollowingHair.apply(rig: following.rig, layers: following.layers) == nil)
+    let avatar = following
     let side = try #require(avatar.rig.part(withID: SideHairRegion.partID))
     let head = try #require(avatar.rig.firstPart(ofKind: .head))
     var tiltKeys: [WarpKeyformKey] = []

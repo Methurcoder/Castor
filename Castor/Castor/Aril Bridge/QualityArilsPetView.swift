@@ -19,6 +19,8 @@ struct QualityArilsPetView: View {
     @State private var loadFailed = false
     @AppStorage(WideHeadRangeSettingsStore.enabledKey)
     private var isWideHeadRangeEnabled = WideHeadRangeSettingsStore.defaultEnabled
+    @AppStorage(NaturalFaceMotionSettingsStore.enabledKey)
+    private var isNaturalFaceMotionEnabled = NaturalFaceMotionSettingsStore.defaultEnabled
     private let voiceSync = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -35,11 +37,16 @@ struct QualityArilsPetView: View {
             }
         }
         .onAppear {
+            NaturalFaceMotionSettingsStore.offerOnce()
             guard engine == nil, !loadFailed else { return }
             loadEngine()
         }
         .onChange(of: isWideHeadRangeEnabled) {
             // The range is fixed per engine; rebuild with the new setting.
+            engine = nil
+            loadEngine()
+        }
+        .onChange(of: isNaturalFaceMotionEnabled) {
             engine = nil
             loadEngine()
         }
@@ -57,7 +64,10 @@ struct QualityArilsPetView: View {
         do {
             let loaded = try QualityCharacterEngine(
                 archiveData: archiveData,
-                configuration: CharacterEngine.Configuration(extendedHeadRange: isWideHeadRangeEnabled)
+                configuration: CharacterEngine.Configuration(
+                    extendedHeadRange: isWideHeadRangeEnabled,
+                    followingHair: isNaturalFaceMotionEnabled
+                )
             )
             loaded.onTap = onTap
             engine = loaded

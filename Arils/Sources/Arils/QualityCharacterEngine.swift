@@ -135,7 +135,10 @@ public final class QualityCharacterEngine {
     ) throws {
         self.archive = archive
         self.front = CharacterEngine(avatar: try archive.front.makeAvatar(), configuration: configuration)
-        self.side = CharacterEngine(avatar: try archive.side.makeAvatar(), configuration: configuration)
+        // The side view is a reference for turning; only the front gets the beta side hair.
+        var sideConfiguration = configuration
+        sideConfiguration.followingHair = false
+        self.side = CharacterEngine(avatar: try archive.side.makeAvatar(), configuration: sideConfiguration)
         self.turnModel.poseLimits = self.front.poseLimits
         self.hybrid3DEnabled = archive.preferredPresentationMode == .threeD
         wireTapHandlers()

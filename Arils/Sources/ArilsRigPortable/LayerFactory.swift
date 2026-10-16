@@ -16,9 +16,6 @@ public struct ExtractedLayers: Sendable {
     public var eyeLeft: Bitmap
     public var eyeRight: Bitmap
     public var mouth: Bitmap
-    /// Hair beside the head that follows it (see `SideHairRegion`), if any.
-    public var sideHair: Bitmap? = nil
-    public var sideHairRect: CGRect? = nil
 }
 
 /// Cuts the source image into part layers and repairs everything a moving part
@@ -275,24 +272,25 @@ public enum LayerFactory {
 
         // Without an ML inpainter the backing used one averaged palette colour
         // per side: a flat grey slab with crisp subject-mask edges that read
-        // as a rectangle whenever the head turned. Diffuse the source around
-        // the head inward instead, so the backing continues the neighbouring
-        // hair and collar colours.
+        // as a rectangle whenever the head turned. The backing is a heavy blur
+        // of the character itself instead: near the head's outline that is
+        // the hair's own colour, which is what lies behind it. (Spreading only
+        // the colours around the head inward turned it grey under dark hair,
+        // from the shirt and collar below.) The background never contributes.
         // The ML repair stays within the supported yaw/pitch envelope, away
-        // from the face; the diffused backing covers the rest of the head, so
-        // tilt or a larger turn shows blurred hair instead of a hole.
+        // from the face; this backing covers the rest of the head, so tilt or
+        // a larger turn shows blurred hair instead of a hole.
         var diffusedBacking: Bitmap?
         do {
             let reach = plan.headRect.insetBy(dx: -plan.headRect.width * 0.2, dy: -plan.collarHeight)
                 .intersection(CGRect(x: 0, y: 0, width: width, height: height))
             if !reach.isNull, !reach.isEmpty {
-                var canvas = source
-                let reachMinX = max(0, Int(reach.minX))
-                let reachMinY = max(0, Int(reach.minY))
-                HoleFiller.fillHole(in: &canvas, region: reach) { x, y in
-                    headProfile.ownershipWeight(x: CGFloat(reachMinX + x), y: CGFloat(reachMinY + y)) > 0.01
-                }
-                diffusedBacking = canvas
+                diffusedBacking = SideHairRegion.subjectBlur(
+                    source,
+                    region: reach,
+                    radius: max(4, Int(plan.headRect.width * 0.08)),
+                    mask: maskValue
+                )
             }
         }
 
@@ -375,111 +373,11 @@ public enum LayerFactory {
             }
         }
 
-        // --- Side hair ------------------------------------------------------
-        // Hair beside the head moves with it; the body keeps a blurred copy so
-        // the moving strands reveal hair colour, not a sharp duplicate.
-        var sideHair: Bitmap?
-        var sideHairRect: CGRect?
-        let sideRegion = SideHairRegion.detect(source: source, plan: plan, mask: maskValue)
-        if let region = sideRegion {
-            var layer = source.cropped(to: region.rect)
-            let originX = Int(region.rect.minX)
-            let originY = Int(region.rect.minY)
-            for y in 0..<layer.height {
-                for x in 0..<layer.width {
-                    capAlpha(&layer, x: x, y: y, to: maskValue(x: originX + x, y: originY + y))
-                    let ownership = region.ownership[x, y]
-                    if ownership <= 0.001 {
-                        layer.setRGBA(x: x, y: y, .zero)
-                    } else if ownership < 1 {
-                        layer.scaleAlpha(x: x, y: y, by: ownership)
-                    }
-                }
-            }
-            let localRect = region.rect.offsetBy(dx: -CGFloat(bodyOriginX), dy: -CGFloat(bodyOriginY))
-            let blurred = SideHairRegion.blurredBacking(
-                body,
-                region: localRect,
-                radius: max(3, Int(plan.headRect.width * 0.03))
-            )
-            for y in 0..<layer.height {
-                for x in 0..<layer.width {
-                    let ownership = region.ownership[x, y]
-                    let bodyX = originX + x - bodyOriginX
-                    let bodyY = originY + y - bodyOriginY
-                    guard ownership > 0.001, bodyX >= 0, bodyX < body.width, bodyY >= 0, bodyY < body.height else { continue }
-                    // The body keeps exactly what the side hair layer does not
-                    // cover at rest, so semi-transparent hair or a veil does not
-                    // double up. Under opaque hair that remainder is empty and
-                    // the blurred copy fills in for when the hair moves away.
-                    let original = body.rgba(x: bodyX, y: bodyY)
-                    let front = layer.rgba(x: x, y: y)
-                    let remainder = (original - front) / max(0.02, 1 - front.w)
-                    let opaque = Interpolation.smoothstep(0.9, 0.98, front.w)
-                    let backing = remainder + (blurred.rgba(x: bodyX, y: bodyY) - remainder) * opaque
-                    body.setRGBA(x: bodyX, y: bodyY, simd_clamp(backing, SIMD4(repeating: 0), SIMD4(repeating: 1)))
-                }
-            }
-            sideHair = layer
-            sideHairRect = region.rect
-        }
-
         // --- Clear the backing that only background lies behind -------------
-        // Near the outline of the upper head, what the moving head and hair
-        // uncover is the background, not more hair. A backing there reads as
-        // a grey ghost of the old outline, so it fades out within the distance
-        // the head can move. From the eyes down, the neck, hair and shoulders
-        // behind the face stay backed.
-        let eyeY = Float(plan.eyeLeftRect.midY + plan.eyeRightRect.midY) / 2
-        let ghostReach = SideHairRegion.reach(plan)
-        let ghostRect = plan.headRect
-            .insetBy(dx: -ghostReach, dy: 0)
-            .intersection(CGRect(x: 0, y: 0, width: width, height: height))
-        if !ghostRect.isNull, !ghostRect.isEmpty {
-            let distanceRect = ghostRect.insetBy(dx: 0, dy: -plan.headRect.height * 0.2)
-                .intersection(CGRect(x: 0, y: 0, width: width, height: height))
-            let backgroundDistance = BackgroundDistance(rect: distanceRect, mask: maskValue)
-            let pivot = SIMD2(Float(plan.headRect.midX), Float(plan.neckY))
-            let baseReach = max(envelope.horizontalOpaqueDepth, envelope.verticalOpaqueDepth)
-            let ghostMinX = Int(ghostRect.minX), ghostMaxX = Int(ghostRect.maxX)
-            let ghostMinY = Int(ghostRect.minY), ghostMaxY = min(Int(ghostRect.maxY), Int(plan.neckY))
-            for sourceY in ghostMinY..<ghostMaxY {
-                // Behind the face from the eyes down lies neck and hair; behind
-                // side hair, background reaches down to the mouth.
-                let headFade = 1 - Interpolation.smoothstep(eyeY, Float(plan.mouthRect.minY), Float(sourceY))
-                let sideFade = 1 - Interpolation.smoothstep(Float(plan.mouthRect.maxY), Float(plan.neckY), Float(sourceY))
-                guard headFade > 0 || sideFade > 0 else { continue }
-                for sourceX in ghostMinX..<ghostMaxX {
-                    let x = sourceX - bodyOriginX, y = sourceY - bodyOriginY
-                    guard x >= 0, x < body.width, y >= 0, y < body.height, body.alpha(x: x, y: y) > 0 else { continue }
-                    let point = SIMD2(Float(sourceX) + 0.5, Float(sourceY) + 0.5)
-                    let headShare = headProfile.ownershipWeight(x: CGFloat(sourceX), y: CGFloat(sourceY))
-                    var sideShare: Float = 0
-                    var sideFollow: Float = 0
-                    if let region = sideRegion, region.rect.contains(CGPoint(x: sourceX, y: sourceY)) {
-                        sideShare = region.ownership[sourceX - Int(region.rect.minX), sourceY - Int(region.rect.minY)]
-                        sideFollow = sideShare * SideHairRegion.followWeight(at: point, plan: plan)
-                    }
-                    guard headShare > 0.001 || sideFollow > 0.001 else { continue }
-                    let offset = point - pivot
-                    let motion = baseReach + (offset * offset).sum().squareRoot() * 0.26
-                    func exposure(_ follow: Float, _ distance: Float) -> Float {
-                        guard follow > 0.001 else { return 0 }
-                        let travel = follow * motion
-                        return 1 - Interpolation.smoothstep(travel * 0.7, travel, distance)
-                    }
-                    let distance = backgroundDistance[sourceX, sourceY]
-                    let exposed = max(
-                        headShare > 0.001 ? headFade * exposure(1, distance) : 0,
-                        sideFade * exposure(sideFollow, distance)
-                    )
-                    // At rest the moving layers must still cover what is cleared.
-                    let uncovered = max(0, 1 - headShare - sideShare)
-                    let keep = max(uncovered, 1 - exposed)
-                    if keep < 0.999 { body.scaleAlpha(x: x, y: y, by: keep) }
-                }
-            }
-        }
+        SideHairRegion.clearBacking(
+            body: &body, bodyOrigin: (bodyOriginX, bodyOriginY), plan: plan,
+            mask: maskValue, headMoves: true, side: nil
+        )
 
         // --- Head layer -----------------------------------------------------
         var head = source.cropped(to: plan.headRect)
@@ -671,9 +569,7 @@ public enum LayerFactory {
             head: head,
             eyeLeft: featureLayer(rect: plan.eyeLeftRect, feather: 0.16, shape: eyeLeftShape),
             eyeRight: featureLayer(rect: plan.eyeRightRect, feather: 0.16, shape: eyeRightShape),
-            mouth: synthesizedMouthLayer(),
-            sideHair: sideHair,
-            sideHairRect: sideHairRect
+            mouth: synthesizedMouthLayer()
         )
     }
 

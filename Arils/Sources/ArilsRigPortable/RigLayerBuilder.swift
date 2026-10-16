@@ -30,15 +30,10 @@ public enum RigLayerBuilder {
                              poseSweep: PoseSweepPlan = .supportedHead) -> RigLayerBuild {
         let cut = LayerFactory.extract(source: source, subjectMask: extractionMask, plan: plan,
                                        sharpenMaskEdges: !maskIsAuthoritative, inpaintedSource: inpaintedSource)
-        var layers = ["body": cut.body, "neckSeam": cut.neckSeam, "head": cut.head,
+        let layers = ["body": cut.body, "neckSeam": cut.neckSeam, "head": cut.head,
                       "eyeLeft": cut.eyeLeft, "eyeRight": cut.eyeRight, "mouth": cut.mouth]
-        var rig = BindingSynthesizer.makeRig(plan: plan)
-        if let sideHair = cut.sideHair, let rect = cut.sideHairRect,
-           let part = BindingSynthesizer.sideHairPart(rig: rig, plan: plan, rect: rect) {
-            layers[part.id] = sideHair
-            rig.parts.append(part)
-        }
         let alpha = layers.mapValues { $0.alphaPlane() }
+        var rig = BindingSynthesizer.makeRig(plan: plan)
         rig.validatedPoseLimits = PoseSweepValidator.validate(rig: rig, plan: poseSweep,
                                                              alphaCoverageByPartID: alpha).validatedPoseLimits
         return RigLayerBuild(rig: rig, plan: plan, layers: layers, alphaCoverage: alpha)
@@ -68,10 +63,6 @@ public enum RigLayerBuilder {
             depthScalePixels: Float(sideSource.width) * registration.sideScale,
             maximumHeadDepthPixels: BindingSynthesizer.recommendedHeadDepthCap(plan: front.plan),
             headMeshResolution: strategy == .faceAwareRibbon ? min(max(headMeshResolution, 12), 48) : 12)
-        if let sideHair = front.rig.parts.first(where: { $0.id == SideHairRegion.partID }),
-           let part = BindingSynthesizer.sideHairPart(rig: result.rig, plan: front.plan, rect: sideHair.rect) {
-            result.rig.parts.append(part)
-        }
         result.rig.validatedPoseLimits = PoseSweepValidator.validate(rig: result.rig, plan: poseSweep,
             alphaCoverageByPartID: result.alphaCoverage).validatedPoseLimits
         return (result, registration)

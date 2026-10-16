@@ -1,3 +1,4 @@
+import AppKit
 import Arils
 import Combine
 import SwiftUI
@@ -26,6 +27,8 @@ struct ArilsPetView: View {
     @State private var loadFailed = false
     @AppStorage(WideHeadRangeSettingsStore.enabledKey)
     private var isWideHeadRangeEnabled = WideHeadRangeSettingsStore.defaultEnabled
+    @AppStorage(NaturalFaceMotionSettingsStore.enabledKey)
+    private var isNaturalFaceMotionEnabled = NaturalFaceMotionSettingsStore.defaultEnabled
     private let voiceSync = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -42,11 +45,16 @@ struct ArilsPetView: View {
             }
         }
         .onAppear {
+            NaturalFaceMotionSettingsStore.offerOnce()
             guard engine == nil, !loadFailed else { return }
             loadEngine()
         }
         .onChange(of: isWideHeadRangeEnabled) {
             // The range is fixed per engine; rebuild with the new setting.
+            engine = nil
+            loadEngine()
+        }
+        .onChange(of: isNaturalFaceMotionEnabled) {
             engine = nil
             loadEngine()
         }
@@ -64,7 +72,10 @@ struct ArilsPetView: View {
         do {
             let loaded = try CharacterEngine(
                 archiveData: archiveData,
-                configuration: CharacterEngine.Configuration(extendedHeadRange: isWideHeadRangeEnabled)
+                configuration: CharacterEngine.Configuration(
+                    extendedHeadRange: isWideHeadRangeEnabled,
+                    followingHair: isNaturalFaceMotionEnabled
+                )
             )
             loaded.onTap = onTap
             engine = loaded
@@ -95,4 +106,35 @@ struct ArilsPetView: View {
 enum WideHeadRangeSettingsStore {
     static let enabledKey = "Pomegranate.Pet.WideHeadRange.v1"
     static let defaultEnabled = false
+}
+
+/// More natural face motion (beta): hair beside the head follows it. Applied
+/// as an Arils pet loads, so pets made earlier get it too. Off until the
+/// person accepts the one-time offer or turns it on in Settings.
+enum NaturalFaceMotionSettingsStore {
+    static let enabledKey = "Castor.Pet.NaturalFaceMotion.v1"
+    static let offeredKey = "Castor.Pet.NaturalFaceMotion.Offered.v1"
+    static let defaultEnabled = false
+
+    /// Asks once, the first time an Arils pet appears after the update.
+    @MainActor
+    static func offerOnce() {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: offeredKey) else { return }
+        defaults.set(true, forKey: offeredKey)
+        DispatchQueue.main.async {
+            let language = (defaults.string(forKey: "Castor.SettingsDisplayLanguage")).flatMap(SettingsDisplayLanguage.init(rawValue:))
+                ?? .systemDefault
+            func S(_ key: String) -> String { CastorSettingsStrings.text(key, language: language) }
+            let alert = NSAlert()
+            alert.messageText = S("pet.natural_face.offer")
+            alert.informativeText = S("pet.natural_face.offer.detail")
+            alert.addButton(withTitle: S("pet.natural_face.offer.try"))
+            alert.addButton(withTitle: S("pet.natural_face.offer.later"))
+            NSApp.activate(ignoringOtherApps: true)
+            if alert.runModal() == .alertFirstButtonReturn {
+                defaults.set(true, forKey: enabledKey)
+            }
+        }
+    }
 }

@@ -21,10 +21,12 @@ public final class PetPlayback {
     private var sideCanvas: PetCanvas?
     private let manual: ManualPetRenderer?
 
-    public init(asset: PetAsset, wideHeadMovement: Bool = false) {
+    /// `naturalFaceMotion` (beta) lets the hair beside the head follow it; manual pets are unchanged.
+    public init(asset: PetAsset, wideHeadMovement: Bool = false, naturalFaceMotion: Bool = false) {
         self.asset = asset
         if case let .manual(pet) = asset { manual = ManualPetRenderer(pet: pet) } else { manual = nil }
-        front = PetPlayer(archive: asset.front, wideHeadMovement: wideHeadMovement)
+        let following: Bool = if case .manual = asset { false } else { naturalFaceMotion }
+        front = PetPlayer(archive: asset.front, wideHeadMovement: wideHeadMovement, followingHair: following)
         if case let .quality(quality) = asset {
             side = PetPlayer(archive: quality.side, wideHeadMovement: wideHeadMovement)
             presentationMode = quality.preferredPresentationMode
