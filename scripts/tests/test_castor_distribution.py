@@ -298,6 +298,13 @@ class DistributionTests(unittest.TestCase):
             self.package()
         self.assertFalse(self.output.exists())
 
+    def test_shipped_pages_match_what_installers_accept(self):
+        # Installers since v1.0.0 (b) accept exactly these files; adding one blocks updating from them.
+        pages = {release.CREATION_WINDOW: (ROOT/'CastorDesktop/Sources/CastorPet/UI', release.CREATION_WINDOW_FILES),
+                 release.SETUP_WINDOW: (ROOT/'CastorDesktop/Sources/CastorSetup/SetupUI', release.SETUP_WINDOW_FILES)}
+        for name, (folder, allowed) in pages.items():
+            self.assertEqual(sorted(p.name for p in folder.iterdir()), sorted(allowed), name)
+
     def test_rejects_symlinks_and_existing_output(self):
         (self.mac/'Contents/link').symlink_to('/tmp')
         with self.assertRaises(ValueError):
