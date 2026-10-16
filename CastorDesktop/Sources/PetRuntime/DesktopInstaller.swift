@@ -18,6 +18,30 @@ public struct DesktopRelease: Decodable, Sendable {
     public let prerelease: Bool
     public let assets: [Asset]
 }
+/// One published release, as the update history shows it.
+public struct DesktopReleaseNote: Decodable, Sendable, Equatable {
+    public let tag_name: String
+    public let name: String?
+    public let body: String?
+    public let published_at: String?
+    public let draft: Bool
+    public let prerelease: Bool
+    public init(tag_name: String, name: String?, body: String?, published_at: String?, draft: Bool = false, prerelease: Bool = false) {
+        self.tag_name = tag_name; self.name = name; self.body = body; self.published_at = published_at
+        self.draft = draft; self.prerelease = prerelease
+    }
+    /// The display name ("Castor v1.0.0 (d)"), or the tag.
+    public var title: String { (name?.isEmpty == false ? name : nil) ?? tag_name }
+    /// The publication day, yyyy-MM-dd.
+    public var day: String { String((published_at ?? "").prefix(10)) }
+}
+/// Where an installation is, for a progress display.
+public enum DesktopInstallProgress: Sendable, Equatable {
+    case downloading(received: Int64, total: Int64)
+    case verifying
+    case extracting
+    case finishing
+}
 public struct DesktopDownloadManifest: Decodable, Sendable {
     public struct Package: Decodable, Sendable { public let asset: String; public let sha256: String; public let bytes: Int64 }
     public let schema: Int
@@ -88,6 +112,16 @@ public enum DesktopInstaller {
         try Task.checkCancellation()
         return(release,try JSONDecoder().decode(DesktopDownloadManifest.self,from:manifest))
     }
+    /// Published releases, newest first, for the update history.
+    public static func releaseNotes(limit: Int = 30) async throws -> [DesktopReleaseNote] {
+        let session=URLSession(configuration:.ephemeral);defer { session.invalidateAndCancel() }
+        var request=URLRequest(url:URL(string:"https://api.github.com/repos/Methurcoder/Castor/releases?per_page=\(max(1,min(limit,100)))")!)
+        request.setValue("application/vnd.github+json",forHTTPHeaderField:"Accept");request.timeoutInterval=30
+        let(data,response)=try await session.data(for:request)
+        let status=(response as? HTTPURLResponse)?.statusCode ?? 0
+        guard status==200,data.count<=8_388_608 else { throw InstallError.downloadFailed(status) }
+        return try JSONDecoder().decode([DesktopReleaseNote].self,from:data).filter { !$0.draft && !$0.prerelease }
+    }
     public static func metadataRoot(root:URL)->URL {root.appendingPathComponent(".CastorInstaller",isDirectory:true)}
     public static func selectionFile(root:URL)->URL {metadataRoot(root:root).appendingPathComponent("CurrentInstall.json")}
     private static func previousFile(root:URL)->URL {metadataRoot(root:root).appendingPathComponent("PreviousInstall.json")}
@@ -131,19 +165,29 @@ public enum DesktopInstaller {
         }
         return Lease(primary:primary,legacy:legacy)
     }
+    /// Streams the body into `destination` as it arrives, so its growing
+    /// size can be shown as progress while the download runs.
     public static func download(_ url: URL, to destination: URL) async throws {
-        let session=URLSession(configuration:.ephemeral);defer { session.invalidateAndCancel() }
-        let(file,response)=try await session.download(from:url)
-        defer { try? FileManager.default.removeItem(at:file) }
-        let status=(response as? HTTPURLResponse)?.statusCode ?? 0
-        guard status==200 else { throw InstallError.downloadFailed(status) }
+        guard FileManager.default.createFile(atPath:destination.path,contents:nil),
+              let handle=try? FileHandle(forWritingTo:destination) else { throw InstallError.downloadFailed(0) }
+        let receiver=StreamingDownload(handle:handle)
+        let session=URLSession(configuration:.ephemeral,delegate:receiver,delegateQueue:nil)
+        defer { session.invalidateAndCancel(); try? handle.close() }
+        let task=session.dataTask(with:url)
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void,Error>) in
+                receiver.start(continuation)
+                task.resume()
+            }
+        } onCancel: { task.cancel() }
         try Task.checkCancellation()
-        try FileManager.default.copyItem(at:file,to:destination)
+        guard receiver.status==200 else { throw InstallError.downloadFailed(receiver.status) }
     }
     public static func install(root: URL, release: DesktopRelease, manifest: DesktopDownloadManifest, platform: String,
                                repair: Bool=false,component:DesktopHelperComponent?=nil, extract: @Sendable (URL,URL) async throws -> Void,
                                stamp: @Sendable (URL) throws -> Void,
-                               download: @Sendable (URL,URL) async throws -> Void = { try await DesktopInstaller.download($0,to:$1) }) async throws -> DesktopInstalledApp {
+                               download: @Sendable (URL,URL) async throws -> Void = { try await DesktopInstaller.download($0,to:$1) },
+                               progress: (@Sendable (DesktopInstallProgress) -> Void)? = nil) async throws -> DesktopInstalledApp {
         let(package,url)=try manifest.package(platform:platform,release:release,component:component)
         try Task.checkCancellation()
         let lease=try lock(root:root);defer { lease.release() }
@@ -156,13 +200,31 @@ public enum DesktopInstaller {
         try FileManager.default.createDirectory(at:stage,withIntermediateDirectories:false)
         defer { try? FileManager.default.removeItem(at:stage) }
         let archive=stage.appendingPathComponent("app.zip")
-        try await download(url,archive)
+        // The archive grows as it downloads; its size is the progress.
+        let watcher=progress.map { report in
+            Task.detached {
+                report(.downloading(received:0,total:package.bytes))
+                while !Task.isCancelled {
+                    try? await Task.sleep(nanoseconds:200_000_000)
+                    if Task.isCancelled { break }
+                    let size=(try? FileManager.default.attributesOfItem(atPath:archive.path)[.size] as? NSNumber)?.int64Value ?? 0
+                    report(.downloading(received:min(size,package.bytes),total:package.bytes))
+                }
+            }
+        }
+        do { try await download(url,archive) } catch { watcher?.cancel(); throw error }
+        // Stop the watcher before the next step, so no late report follows it.
+        watcher?.cancel()
+        await watcher?.value
+        progress?(.downloading(received:package.bytes,total:package.bytes))
+        progress?(.verifying)
         let actualSize=(try FileManager.default.attributesOfItem(atPath:archive.path)[.size] as? NSNumber)?.int64Value
         guard actualSize==package.bytes,try PackageIntegrity.sha256(file:archive)==package.sha256 else { throw InstallError.integrity }
         try Task.checkCancellation()
         try PackageZIP.validate(Data(contentsOf:archive,options:.mappedIfSafe),platform:platform,component:component)
         let unpacked=stage.appendingPathComponent("payload",isDirectory:true)
         try FileManager.default.createDirectory(at:unpacked,withIntermediateDirectories:false)
+        progress?(.extracting)
         try await extract(archive,unpacked)
         try Task.checkCancellation()
         let executable=unpacked.appendingPathComponent(component?.executable(platform:platform) ?? (platform.hasPrefix("macos") ? "Castor.app/Contents/MacOS/Castor" : "CastorPet.exe"))
@@ -174,6 +236,7 @@ public enum DesktopInstaller {
             guard FileManager.default.fileExists(atPath:runtime.appendingPathComponent("base_library.zip").path),
                   files.contains(where:{$0.lowercased().hasPrefix("python") && $0.lowercased().hasSuffix(".dll")}) else {throw InstallError.missingApp}
         }
+        progress?(.finishing)
         try stamp(unpacked)
         let installed=DesktopInstalledApp(version:manifest.version,platform:platform,folder:folder,component:component,files:try fileFingerprint(unpacked))
         let metadata=try JSONEncoder().encode(installed)
@@ -241,5 +304,45 @@ public enum DesktopInstaller {
         try FileManager.default.removeItem(at:folder)
         let record=selectionFile(root:root)
         try FileManager.default.removeItem(at:FileManager.default.fileExists(atPath:record.path) ? record:root.appendingPathComponent("CurrentInstall.json"))
+    }
+}
+
+/// Receives a download chunk by chunk into a file.
+private final class StreamingDownload: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+    private let handle: FileHandle
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Void, Error>?
+    private var writeError: Error?
+    private(set) var status = 0
+
+    init(handle: FileHandle) { self.handle = handle }
+
+    func start(_ continuation: CheckedContinuation<Void, Error>) {
+        lock.withLock { self.continuation = continuation }
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse,
+                    completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+        lock.withLock { status = code }
+        completionHandler(code == 200 ? .allow : .cancel)
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        do { try handle.write(contentsOf: data) } catch {
+            lock.withLock { writeError = error }
+            dataTask.cancel()
+        }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        let (continuation, failure, code) = lock.withLock { () -> (CheckedContinuation<Void, Error>?, Error?, Int) in
+            defer { self.continuation = nil }
+            return (self.continuation, writeError, status)
+        }
+        if let failure { continuation?.resume(throwing: failure) }
+        else if code != 200 { continuation?.resume(throwing: DesktopInstaller.InstallError.downloadFailed(code)) }
+        else if let error { continuation?.resume(throwing: error) }
+        else { continuation?.resume() }
     }
 }

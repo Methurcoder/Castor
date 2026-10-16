@@ -159,6 +159,7 @@ final class SetupWindow {
                 try NativeInstall.pruneOldVersions(component: component)
                 post(["type": "message", "text": strings.cleanupFinished])
             } catch { post(["type": "message", "text": strings.cleanupFailed(error)]) }
+        case "history": loadHistory()
         case "close": castor_webview_close()
         case "closed":
             SetupWindow.log("window closed")
@@ -211,19 +212,45 @@ final class SetupWindow {
         post(["type": "progress", "text": strings.text(
             "対応する\(component == nil ? "アプリ" : "Neural TTS helper")を取得・検証・導入しています…",
             "Downloading, verifying and installing the \(component == nil ? "app" : "Neural TTS helper")…")])
+        let strings = strings
         job = Task.detached(priority: .userInitiated) {
             let result: Result<DesktopInstalledApp, Error>
             do {
                 let (release, manifest) = try await DesktopInstaller.latest()
                 result = .success(try await DesktopInstaller.install(root: root, release: release, manifest: manifest, platform: platform,
                     repair: repair, component: component, extract: { try await NativeInstall.extract($0, $1) },
-                    stamp: { try NativeInstall.stamp($0, component: component) }))
+                    stamp: { try NativeInstall.stamp($0, component: component) },
+                    progress: { value in
+                        let shown = strings.progress(value)
+                        SetupWindow.enqueue {
+                            guard let window = SetupWindow.current, window.generation == ticket else { return }
+                            var message: [String: Any] = ["type": "progress", "text": shown.text]
+                            if let fraction = shown.fraction { message["fraction"] = fraction }
+                            if let detail = shown.detail { message["detail"] = detail }
+                            window.post(message)
+                        }
+                    }))
             } catch { result = .failure(error) }
             let boxed = Box(result)
             SetupWindow.enqueue {
                 guard let window = SetupWindow.current, window.generation == ticket else { return }
                 window.job = nil
                 window.finishInstall(boxed.value, component: component)
+            }
+        }
+    }
+
+    // MARK: Release history
+
+    private func loadHistory() {
+        Task.detached(priority: .userInitiated) {
+            let releases = try? await DesktopInstaller.releaseNotes()
+            let rows = releases.map { notes in notes.map { ["tag": $0.tag_name, "title": $0.title, "day": $0.day, "body": $0.body ?? ""] } }
+            let boxed = Box(rows)
+            SetupWindow.enqueue {
+                guard let window = SetupWindow.current else { return }
+                if let rows = boxed.value { window.post(["type": "history", "releases": rows]) }
+                else { window.post(["type": "history", "error": true]) }
             }
         }
     }

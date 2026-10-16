@@ -46,6 +46,7 @@
     <h2 data-t="welcome.title">Castor へようこそ</h2>
     <p class="lead" data-t="welcome.lead"></p>
     <p class="status" id="status"></p>
+    <button class="link" id="welcomeHistory" data-t="welcome.history">更新内容を見る</button>
   </section>
 
   <section class="page hidden" data-page="license">
@@ -75,6 +76,8 @@
     <div class="center">
       <div class="spinner"></div>
       <p class="progress-text" id="progressText"></p>
+      <div class="bar hidden" id="progressBar"><div class="fill" id="progressFill"></div></div>
+      <p class="note" id="progressDetail"></p>
       <p class="note" data-t="install.note"></p>
     </div>
   </section>
@@ -97,6 +100,7 @@
       <button class="card" data-action="repair" data-needs-app><b data-t="manage.repair"></b><span data-t="manage.repair.text"></span></button>
       <button class="card" data-action="cleanup" data-needs-app><b data-t="manage.cleanup"></b><span data-t="manage.cleanup.text"></span></button>
       <button class="card danger" data-action="remove" data-needs-app><b data-t="manage.remove"></b><span data-t="manage.remove.text"></span></button>
+      <button class="card" data-action="history"><b data-t="manage.history"></b><span data-t="manage.history.text"></span></button>
     </div>
     <p class="section-title" data-t="manage.helper"></p>
     <div class="actions">
@@ -105,6 +109,12 @@
       <button class="card" data-action="repair" data-component="neuralTTS" data-needs-helper><b data-t="helper.repair"></b><span data-t="helper.repair.text"></span></button>
       <button class="card danger" data-action="remove" data-component="neuralTTS" data-needs-helper><b data-t="helper.remove"></b><span data-t="helper.remove.text"></span></button>
     </div>
+  </section>
+
+  <section class="page hidden" data-page="history">
+    <h2 data-t="history.title">更新履歴</h2>
+    <p class="lead" id="historyStatus"></p>
+    <div class="scroll history" id="historyList"></div>
   </section>
 
   <section class="page hidden" data-page="error">

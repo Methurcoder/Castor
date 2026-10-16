@@ -89,6 +89,21 @@ body {
 .spinner { width: 42px; height: 42px; border-radius: 50%; border: 4px solid var(--track); border-top-color: var(--accent); animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .progress-text { font-size: 14px; font-weight: 600; max-width: 420px; line-height: 1.6; }
+.bar { width: min(420px, 100%); height: 8px; border-radius: 999px; background: var(--track); overflow: hidden; }
+.bar .fill { height: 100%; width: 0; border-radius: inherit; background: var(--accent); transition: width 0.2s linear; }
+
+/* Update history */
+.history { display: grid; gap: 14px; align-content: start; font-family: inherit; white-space: normal; font-size: 13px; }
+.release { border: 1px solid var(--panel-border); background: var(--panel); border-radius: 12px; padding: 12px 14px; }
+.release header { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.release header b { font-size: 15px; }
+.release header .day { font-size: 12px; color: var(--sub); }
+.release header .badge { font-size: 11px; font-weight: 800; color: #fff; background: var(--accent-strong); border-radius: 999px; padding: 1px 8px; }
+.release .notes { margin-top: 8px; font-size: 13px; line-height: 1.6; color: var(--text); }
+.release .notes h4 { font-size: 13px; margin: 10px 0 4px; }
+.release .notes ul { padding-left: 18px; display: grid; gap: 3px; }
+.release .notes p { margin: 4px 0; color: var(--sub); }
+.release .notes code { font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; }
 .note { font-size: 12px; color: var(--sub); max-width: 440px; line-height: 1.6; }
 .done-mark { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--ok) 20%, transparent); color: var(--ok); font-size: 30px; font-weight: 800; }
 .error-mark { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }

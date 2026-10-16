@@ -14,6 +14,24 @@ struct SetupLocalization: Sendable {
     var cancel: String { text("キャンセル", "Cancel") }
     var close: String { text("閉じる", "Close") }
     var cleanupButton: String { text("古い版を整理", "Clean up older versions") }
+    /// What an installation is doing, with a fraction while it downloads.
+    func progress(_ value: DesktopInstallProgress) -> (text: String, fraction: Double?, detail: String?) {
+        switch value {
+        case let .downloading(received, total):
+            let fraction = total > 0 ? min(max(Double(received) / Double(total), 0), 1) : 0
+            let megabytes = { (bytes: Int64) in String(format: "%.0f", Double(bytes) / 1_048_576) }
+            return (text("ダウンロードしています… \(Int(fraction * 100))%", "Downloading… \(Int(fraction * 100))%"),
+                    fraction, "\(megabytes(received)) / \(megabytes(total)) MB")
+        case .verifying:
+            return (text("ダウンロードしたファイルを確認しています…", "Checking the downloaded file…"), 1, nil)
+        case .extracting:
+            return (text("展開しています…", "Unpacking…"), 1, nil)
+        case .finishing:
+            return (text("仕上げています…", "Finishing…"), 1, nil)
+        }
+    }
+    var historyTitle: String { text("更新履歴", "Release History") }
+    var historyFailed: String { text("更新履歴を読み込めませんでした。インターネット接続を確認してください。", "Could not load the release history. Check your internet connection.") }
     var cleanupPolicy: String {
         text("旧版整理では、現在版と1つ前、使用中・変更された版、指紋のない版・不明フォルダを保持します。確認できたそれ以前の版だけをOSのごみ箱へ送ります。モデルキャッシュ・ペット・設定は保持します。",
              "Cleanup keeps the current and previous versions, in-use or modified versions, versions without fingerprints, and unknown folders. Only verified older versions are sent to the OS Trash or Recycle Bin. Model cache, pets, and settings are kept.")
@@ -226,15 +244,34 @@ import SwiftUI
     let strings = SetupLocalization()
     @Published var status=SetupLocalization().intro
     @Published var busy=false
+    /// Download fraction while it is known, and "received / total MB".
+    @Published var fraction: Double?
+    @Published var detail: String?
+    @Published var showHistory=false
+    @Published var releases: [DesktopReleaseNote]?
+    @Published var historyError: String?
     private var job: Task<Void,Never>?
+    func loadHistory() {
+        showHistory=true;releases=nil;historyError=nil
+        Task {
+            do { releases=try await DesktopInstaller.releaseNotes() }
+            catch { historyError=strings.historyFailed }
+        }
+    }
+    private func show(_ value: DesktopInstallProgress) {
+        guard busy else { return }
+        let shown=strings.progress(value)
+        status=shown.text;fraction=shown.fraction;detail=shown.detail
+    }
     func install(repair: Bool=false,component:DesktopHelperComponent?=nil){
-        guard !busy else{return};busy=true
+        guard !busy else{return};busy=true;fraction=nil;detail=nil
         status=strings.text("\(component == nil ? "Castor" : "Neural TTS helper")を取得・検証・導入中...", "Downloading, verifying, and installing \(component == nil ? "Castor" : "the Neural TTS helper")...")
         job=Task {
             do {
                 let (release,manifest)=try await DesktopInstaller.latest()
                 let app=try await DesktopInstaller.install(root:NativeInstall.installationRoot(component:component),release:release,manifest:manifest,
-                    platform:NativeInstall.platform,repair:repair,component:component,extract:{try await NativeInstall.extract($0,$1)},stamp:{try NativeInstall.stamp($0,component:component)})
+                    platform:NativeInstall.platform,repair:repair,component:component,extract:{try await NativeInstall.extract($0,$1)},stamp:{try NativeInstall.stamp($0,component:component)},
+                    progress:{ value in Task { @MainActor in self.show(value) } })
                 if let component {
                     do {
                         try NativeInstall.createLaunchEntry(app)
@@ -245,7 +282,7 @@ import SwiftUI
                 else {do {try NativeInstall.createLaunchEntry(app);try? NativeInstall.pruneOldVersions(component:nil);status=strings.text("Castor \(app.version)を導入しました。ApplicationsのCastor.appから直接起動できます。", "Castor \(app.version) was installed. Open Castor.app directly from Applications.")+"\n\n"+strings.cleanupPolicy}
                 catch {status=strings.text("Castor \(app.version)は導入済みです。同名の既存アプリを保持したため入口を作れませんでした。起動ボタンで開けます。", "Castor \(app.version) was installed. A launch entry could not be created because an existing app with the same name was kept. Use the Launch button to open it.")}}
             } catch {status=strings.errorMessage(error)}
-            busy=false;job=nil
+            busy=false;job=nil;fraction=nil;detail=nil
         }
     }
     func cancel(){job?.cancel()}
@@ -274,6 +311,42 @@ import SwiftUI
         }
     }
 }
+/// Published versions, newest first, each with its release notes.
+struct ReleaseHistoryView: View {
+    @ObservedObject var model: SetupModel
+    var body: some View {
+        VStack(alignment:.leading,spacing:12){
+            Text(model.strings.historyTitle).font(.title2.bold())
+            if let error=model.historyError {Text(error).foregroundStyle(.secondary)}
+            else if let releases=model.releases {
+                ScrollView{LazyVStack(alignment:.leading,spacing:14){
+                    ForEach(Array(releases.enumerated()),id:\.element.tag_name){index,release in
+                        VStack(alignment:.leading,spacing:6){
+                            HStack(alignment:.firstTextBaseline){
+                                Text(release.title).font(.headline)
+                                Text(release.day).font(.caption).foregroundStyle(.secondary)
+                                if index==0 {Text(model.strings.text("最新", "Latest")).font(.caption2.bold()).padding(.horizontal,6).padding(.vertical,1).background(.tint,in:Capsule()).foregroundStyle(.white)}
+                            }
+                            Text(Self.notes(release.body ?? "")).font(.callout).textSelection(.enabled)
+                        }.padding(12).frame(maxWidth:.infinity,alignment:.leading).background(.quaternary.opacity(0.5),in:RoundedRectangle(cornerRadius:10))
+                    }
+                }}
+            } else {ProgressView(model.strings.text("GitHub から読み込んでいます…", "Loading from GitHub…"))}
+            HStack{Spacer();Button(model.strings.close){model.showHistory=false}.keyboardShortcut(.defaultAction)}
+        }.padding(20).frame(width:560,height:520)
+    }
+    /// Markdown notes with inline styling; headings and bullets stay as lines.
+    static func notes(_ markdown: String) -> AttributedString {
+        let lines=markdown.split(separator:"\n",omittingEmptySubsequences:false).map { line -> String in
+            var text=String(line)
+            while text.hasPrefix("#") { text.removeFirst() }
+            if text.hasPrefix("- ") || text.hasPrefix("* ") { text="・"+text.dropFirst(2) }
+            return text.trimmingCharacters(in:.whitespaces)
+        }
+        let joined=lines.joined(separator:"\n")
+        return (try? AttributedString(markdown:joined,options:.init(interpretedSyntax:.inlineOnlyPreservingWhitespace))) ?? AttributedString(joined)
+    }
+}
 @main struct CastorSetupApp: App {
     @StateObject private var model=SetupModel()
     var body: some Scene {WindowGroup(model.strings.title) {
@@ -281,9 +354,13 @@ import SwiftUI
             Text("Castor").font(.largeTitle.bold());Text(model.status).textSelection(.enabled)
             Text(model.strings.securityNotice).font(.caption).foregroundStyle(.secondary)
             Text(model.strings.macFirstLaunch).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
-            if model.busy {ProgressView();Button(model.strings.cancel){model.cancel()}}
+            if model.busy {
+                if let fraction=model.fraction {ProgressView(value:fraction)} else {ProgressView()}
+                if let detail=model.detail {Text(detail).font(.caption.monospacedDigit()).foregroundStyle(.secondary)}
+                Button(model.strings.cancel){model.cancel()}
+            }
             else {HStack{Button(model.strings.text("取得・更新", "Download / Update")){model.install()};Button(model.strings.text("起動", "Launch")){model.launch()};Button(model.strings.text("修復", "Repair")){model.install(repair:true)};Button(model.strings.text("アプリを削除", "Remove App")){model.remove()}}
-                Button(model.strings.cleanupButton){model.cleanOlderVersions()}
+                HStack{Button(model.strings.cleanupButton){model.cleanOlderVersions()};Button(model.strings.historyTitle){model.loadHistory()}}
                 Divider()
                 Text(model.strings.text("任意のNeural TTS helper。モデルはhelper画面で別途取得します。Pythonの手動導入は不要です。必要な場合だけ取得してください。", "Optional Neural TTS helper. Download models separately from the helper UI. No manual Python installation is required. Distribution candidates are still being validated."))
                     .font(.caption).foregroundStyle(.secondary)
@@ -291,6 +368,7 @@ import SwiftUI
                 Button(model.strings.cleanupButton){model.cleanOlderVersions(component:.neuralTTS)}
             }
         }.padding(24).frame(width:570).environment(\.locale,Locale(identifier:model.strings.language.rawValue))
+            .sheet(isPresented:$model.showHistory){ReleaseHistoryView(model:model)}
             .onAppear{NSApplication.shared.setActivationPolicy(.regular);NSApplication.shared.activate(ignoringOtherApps:true)}
     }.windowResizability(.contentSize)}
 }

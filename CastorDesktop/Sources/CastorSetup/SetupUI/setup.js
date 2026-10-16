@@ -23,6 +23,11 @@
       "details.smartscreen": "初回の確認", "details.smartscreen.text": "コード署名は未整備のため、初回起動時に SmartScreen の確認が出ることがあります。",
       "details.voice": "音声（任意）", "details.voice.text": "Neural TTS は導入後、このセットアップの管理画面からいつでも追加できます。",
       "install.progress": "Castor を取得・検証・導入しています…",
+      "welcome.history": "これまでの更新内容を見る",
+      "manage.history": "更新履歴", "manage.history.text": "これまでの版と、それぞれの更新内容を見ます",
+      "history.title": "更新履歴", "history.loading": "GitHub から読み込んでいます…",
+      "history.error": "更新履歴を読み込めませんでした。インターネット接続を確認してください。",
+      "history.lead": "新しい順に並んでいます。", "history.latest": "最新", "history.installed": "使用中",
       "install.note": "OS の安全確認は解除しません。ペット・設定・モデルキャッシュは保持します。",
       "done.title": "Castor {v} を導入しました",
       "done.lead": "スタートメニューに「Castor」を追加しました。",
@@ -64,6 +69,11 @@
       "details.smartscreen": "First launch", "details.smartscreen.text": "Castor is not code-signed yet, so SmartScreen may ask for confirmation on first launch.",
       "details.voice": "Voice (optional)", "details.voice.text": "Neural TTS can be added at any time from this setup's management page.",
       "install.progress": "Downloading, verifying and installing Castor…",
+      "welcome.history": "See what's new",
+      "manage.history": "Release history", "manage.history.text": "See past versions and what changed in each",
+      "history.title": "Release history", "history.loading": "Loading from GitHub…",
+      "history.error": "Could not load the release history. Check your internet connection.",
+      "history.lead": "Newest first.", "history.latest": "Latest", "history.installed": "In use",
       "install.note": "OS security checks stay on. Pets, settings and model cache are kept.",
       "done.title": "Castor {v} is installed",
       "done.lead": "“Castor” was added to the Start menu.",
@@ -98,6 +108,7 @@
 
   let state = { installed: null, helper: null, license: "", notices: "", root: "" };
   let page = "welcome";
+  let historyReturn = "welcome";
   let busy = false;
   let lastAction = null;
 
@@ -152,6 +163,9 @@
       case "manage":
         footer.append(spacer, button(t("close"), "primary", close));
         break;
+      case "history":
+        footer.append(spacer, button(t("back"), "primary", () => show(historyReturn)));
+        break;
       case "error":
         footer.append(spacer, button(t("close"), "", close),
           button(t("back"), "primary", () => show(state.installed ? "manage" : "details")));
@@ -184,9 +198,76 @@
     if (action.type === "install") {
       busy = true;
       $("progressText").textContent = action.component ? "Neural TTS helper…" : t("install.progress");
+      $("progressBar").classList.add("hidden");
+      $("progressDetail").textContent = "";
       show("progress");
     }
+    if (action.type === "history") {
+      busy = false;
+      historyReturn = page;
+      $("historyStatus").textContent = t("history.loading");
+      $("historyList").innerHTML = "";
+      show("history");
+    }
     host.send(action);
+  }
+
+  // Release notes are Markdown; only headings, bullets, bold and code are
+  // drawn, everything else stays text (nothing from GitHub becomes HTML).
+  function renderNotes(markdown) {
+    const box = document.createElement("div");
+    box.className = "notes";
+    let list = null;
+    const inline = (parent, text) => {
+      const parts = text.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").split(/(\*\*[^*]+\*\*|`[^`]+`)/);
+      for (const part of parts) {
+        if (!part) continue;
+        if (part.startsWith("**") && part.endsWith("**")) { const b = document.createElement("b"); b.textContent = part.slice(2, -2); parent.appendChild(b); }
+        else if (part.startsWith("`") && part.endsWith("`")) { const c = document.createElement("code"); c.textContent = part.slice(1, -1); parent.appendChild(c); }
+        else parent.appendChild(document.createTextNode(part));
+      }
+    };
+    for (const raw of (markdown || "").split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line) { list = null; continue; }
+      const heading = line.match(/^#{1,6}\s+(.*)$/);
+      const bullet = line.match(/^[-*]\s+(.*)$/);
+      if (heading) {
+        list = null;
+        const h = document.createElement("h4"); inline(h, heading[1]); box.appendChild(h);
+      } else if (bullet) {
+        if (!list) { list = document.createElement("ul"); box.appendChild(list); }
+        const li = document.createElement("li"); inline(li, bullet[1]); list.appendChild(li);
+      } else if (list && raw.startsWith("  ")) {
+        const last = list.lastElementChild;
+        if (last) { last.appendChild(document.createTextNode(" ")); inline(last, line); }
+      } else {
+        list = null;
+        const p = document.createElement("p"); inline(p, line); box.appendChild(p);
+      }
+    }
+    return box;
+  }
+
+  function renderHistory(message) {
+    const list = $("historyList");
+    list.innerHTML = "";
+    if (message.error) { $("historyStatus").textContent = t("history.error"); return; }
+    $("historyStatus").textContent = t("history.lead");
+    (message.releases || []).forEach((release, index) => {
+      const item = document.createElement("article");
+      item.className = "release";
+      const header = document.createElement("header");
+      const title = document.createElement("b"); title.textContent = release.title;
+      const day = document.createElement("span"); day.className = "day"; day.textContent = release.day || "";
+      header.append(title, day);
+      const badges = [];
+      if (index === 0) badges.push(t("history.latest"));
+      if (state.installed && release.tag === state.installed) badges.push(t("history.installed"));
+      for (const text of badges) { const badge = document.createElement("span"); badge.className = "badge"; badge.textContent = text; header.appendChild(badge); }
+      item.append(header, renderNotes(release.body));
+      list.appendChild(item);
+    });
   }
 
   function confirmRemove(component) {
@@ -217,8 +298,16 @@
         state.installed = message.installed; state.helper = message.helper;
         renderStatus();
         break;
-      case "progress":
+      case "progress": {
         $("progressText").textContent = message.text;
+        const known = typeof message.fraction === "number";
+        $("progressBar").classList.toggle("hidden", !known);
+        if (known) $("progressFill").style.width = Math.round(Math.min(Math.max(message.fraction, 0), 1) * 100) + "%";
+        $("progressDetail").textContent = message.detail || "";
+        break;
+      }
+      case "history":
+        renderHistory(message);
         break;
       case "installed":
         busy = false;
@@ -261,6 +350,7 @@
     });
   }
   $("confirmNo").addEventListener("click", () => $("confirm").classList.add("hidden"));
+  $("welcomeHistory").addEventListener("click", () => run({ type: "history" }));
 
   // A few fixed stars on the side panel.
   const stars = $("stars");
@@ -285,8 +375,12 @@
         if (message.type === "ready") reply({ type: "init", language, installed, helper: null, root: "C:\\Users\\you\\AppData\\Local\\Programs\\Castor",
           license: "MIT License\n\nCopyright (c) …\n\nPermission is hereby granted, free of charge, to any person obtaining a copy…",
           notices: "# Third-Party Notices\n\n## ONNX Runtime\nMIT License…\n\n## Microsoft Edge WebView2 SDK\nBSD 3-Clause License…" });
+        if (message.type === "history") reply({ type: "history", releases: [
+          { tag: "v1.0.0-d", title: "Castor v1.0.0 (d)", day: "2026-10-17", body: "## 変更\n- 首と肩が頭と一緒に動きます\n- **口**が元の絵のままに\n\n## 確認範囲\nCI のテストが成功しています。" },
+          { tag: "v1.0.0-d-beta", title: "Castor v1.0.0 (d-beta)", day: "2026-10-16", body: "- 頭の後ろの空白を修正\n- `Castor Settings` を追加" },
+        ] }, 500);
         if (message.type === "install") {
-          reply({ type: "progress", text: language === "ja" ? "ダウンロードしています… 42%" : "Downloading… 42%" }, 700);
+          reply({ type: "progress", text: language === "ja" ? "ダウンロードしています… 42%" : "Downloading… 42%", fraction: 0.42, detail: "164 / 390 MB" }, 700);
           reply({ type: "installed", version: "v1.0.0", component: message.component }, 1800);
           reply({ type: "status", installed: "v1.0.0", helper: null }, 1800);
         }

@@ -223,3 +223,24 @@ private actor InstallerGate {
     for kept in installs.suffix(2) {#expect(FileManager.default.fileExists(atPath:root.appendingPathComponent(kept.folder).path))}
     #expect(try DesktopInstaller.selected(root:root)?.folder==installs[2].folder)
 }
+@Test func installerReportsDownloadProgressThenEachStep() async throws {
+    let root=FileManager.default.temporaryDirectory.appendingPathComponent("castor-progress-\(UUID().uuidString)")
+    defer {try? FileManager.default.removeItem(at:root)}
+    let archive=installerZIP(["CastorPet.exe","swiftCore.dll"])
+    let(release,manifest)=try installerFixture(archive,version:"v1")
+    // The download grows the file in two halves, slowly enough to be seen.
+    let download: @Sendable(URL,URL) async throws -> Void = {_,to in
+        try archive.prefix(archive.count/2).write(to:to)
+        try await Task.sleep(nanoseconds:500_000_000)
+        try archive.write(to:to)
+    }
+    final class Recorder: @unchecked Sendable { let lock=NSLock(); var values:[DesktopInstallProgress]=[] }
+    let recorder=Recorder()
+    _=try await DesktopInstaller.install(root:root,release:release,manifest:manifest,platform:"windows_x86_64",extract:installerExtract,stamp:{_ in},
+        download:download,progress:{ value in recorder.lock.withLock { recorder.values.append(value) } })
+    let values=recorder.lock.withLock { recorder.values }
+    let received=values.compactMap { if case let .downloading(received,_) = $0 { received } else { nil } }
+    #expect(received.contains { $0>0 && $0<Int64(archive.count) })
+    #expect(received.last==Int64(archive.count))
+    #expect(Array(values.suffix(3))==[.verifying,.extracting,.finishing])
+}
