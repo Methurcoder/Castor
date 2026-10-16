@@ -39,6 +39,7 @@
     "library.rename": "名前を変更",
     "library.renameTitle": "ペットの名前",
     "library.renameSave": "保存",
+    "quality.hint": "ペットを保存したあと、デスクトップのペットを右クリックして「2枚からQualityを作る」を選ぶと、2枚の画像から作成できます。",
   };
   const FALLBACK_EN = {
     "drop.hint": "You can also drop an image here",
@@ -61,6 +62,7 @@
     "library.rename": "Rename",
     "library.renameTitle": "Pet name",
     "library.renameSave": "Save",
+    "quality.hint": "After saving a pet, right-click it on the desktop and choose “Create Quality from two images” to use two images.",
   };
   let language = (navigator.language || "ja").startsWith("ja") ? "ja" : "en";
   let catalog = {};
@@ -92,14 +94,30 @@
   function openRename(pet) {
     pendingRename = pet.id;
     $("renameInput").value = pet.name || "";
-    $("renameDialog").classList.remove("hidden");
+    $("renameDialog").showModal();
     $("renameInput").focus();
     $("renameInput").select();
   }
   function closeRename(save) {
     if (save && pendingRename) host.send({ type: "renamePet", id: pendingRename, name: $("renameInput").value });
+    const id = pendingRename;
     pendingRename = null;
-    $("renameDialog").classList.add("hidden");
+    $("renameDialog").close();
+    const card = [...$("petGrid").children].find((item) => item.dataset.petId === id);
+    const rename = card && card.querySelector(".pet-rename");
+    (rename || libraryTab()).focus();
+  }
+
+  const libraryTab = () => document.querySelector('#tabs [data-view="library"]');
+
+  function updateEditingActions() {
+    const canEdit = view === "create" && !!prepared && !busy;
+    $("adjustButton").disabled = !canEdit;
+    $("aiButton").disabled = !canEdit;
+    $("saveButton").disabled = !canEdit;
+    $("saveButton").classList.toggle("primary", canEdit);
+    $("importButton").disabled = busy;
+    $("newPetButton").disabled = busy;
   }
 
   function showView(name) {
@@ -109,6 +127,22 @@
     $("emptyState").classList.toggle("hidden", name !== "create" || !!prepared);
     $("reviewState").classList.toggle("hidden", name !== "create" || !prepared);
     document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.view === name));
+    updateEditingActions();
+  }
+
+  function startNewPet() {
+    if (busy) return;
+    prepared = null;
+    $("preview").onload = null;
+    $("preview").removeAttribute("src");
+    $("markers").replaceChildren();
+    $("legend").replaceChildren();
+    $("warnings").replaceChildren();
+    clearTimeout(toastTimer);
+    $("toast").classList.add("hidden");
+    host.send({ type: "newPet" });
+    showView("create");
+    $("importButton").focus();
   }
 
   function openLibrary() {
@@ -124,6 +158,7 @@
     for (const pet of pets) {
       const card = document.createElement("div");
       card.className = "pet-card" + (pet.selected ? " selected" : "");
+      card.dataset.petId = pet.id;
       card.tabIndex = 0;
       card.setAttribute("role", "button");
       const thumb = document.createElement("div");
@@ -163,18 +198,46 @@
       const remove = document.createElement("button");
       remove.className = "pet-delete";
       remove.title = t("library.delete");
+      remove.setAttribute("aria-label", t("library.delete") + " — " + date.textContent);
       remove.innerHTML = '<svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg>';
       remove.addEventListener("click", (event) => {
         event.stopPropagation();
+        if (busy || pet.selected) return;
         pendingDelete = pet.id;
-        $("confirmDelete").classList.remove("hidden");
+        renderDeleteDetails();
+        $("confirmDelete").showModal();
+        $("deleteNo").focus();
       });
       const choose = () => { if (!busy && !pet.selected) host.send({ type: "selectPet", id: pet.id }); };
       card.addEventListener("click", choose);
-      card.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); choose(); } });
+      card.addEventListener("keydown", (event) => { if (event.target === card && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); choose(); } });
       card.append(thumb, title, meta, remove);
       grid.appendChild(card);
     }
+  }
+
+  function renderDeleteDetails() {
+    const pet = pets.find((item) => item.id === pendingDelete);
+    if (!pet) return;
+    const image = $("deletePreview");
+    const thumbnail = thumbnails[pet.id];
+    image.classList.toggle("hidden", !thumbnail);
+    if (thumbnail) image.src = thumbnail;
+    else image.removeAttribute("src");
+    const date = $("deleteDate");
+    date.dateTime = pet.created || "";
+    date.textContent = pet.created ? new Intl.DateTimeFormat(language === "ja" ? "ja-JP" : "en-US", {
+      year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+    }).format(new Date(pet.created)) : "";
+  }
+
+  function closeDeleteDialog() {
+    const id = pendingDelete;
+    pendingDelete = null;
+    $("confirmDelete").close();
+    const card = [...$("petGrid").children].find((item) => item.dataset.petId === id);
+    const remove = card && card.querySelector(".pet-delete");
+    (remove || libraryTab()).focus();
   }
 
   function applyLanguage() {
@@ -188,10 +251,12 @@
     busy = true;
     $("busyText").textContent = text || "";
     $("busy").classList.remove("hidden");
+    updateEditingActions();
   }
   function hideBusy() {
     busy = false;
     $("busy").classList.add("hidden");
+    updateEditingActions();
   }
 
   let toastTimer = null;
@@ -206,13 +271,11 @@
 
   // ---- Review ---------------------------------------------------------------
   function renderReview() {
+    if (!prepared) return;
     if (view !== "create") showView("create");
     $("emptyState").classList.add("hidden");
     $("reviewState").classList.remove("hidden");
-    $("adjustButton").disabled = false;
-    $("aiButton").disabled = false;
-    $("saveButton").disabled = false;
-    $("saveButton").classList.add("primary");
+    updateEditingActions();
 
     const chip = $("estimatorChip");
     chip.textContent = t("estimator." + prepared.estimator);
@@ -302,6 +365,7 @@
       case "thumbnail":
         thumbnails[message.id] = message.data;
         if (view === "library") renderLibrary();
+        if (pendingDelete === message.id) renderDeleteDetails();
         break;
       case "busy": showBusy(message.text); break;
       case "idle": hideBusy(); break;
@@ -333,25 +397,27 @@
     else if (tab.dataset.view === "settings") window.castorSettings.open();
     else showView("create");
   }));
-  $("aiButton").addEventListener("click", () => { if (!busy && prepared) host.send({ type: "aiSetup" }); });
-  $("newPetButton").addEventListener("click", () => showView("create"));
+  $("aiButton").addEventListener("click", () => { if (view === "create" && !busy && prepared) host.send({ type: "aiSetup" }); });
+  $("newPetButton").addEventListener("click", startNewPet);
   $("renameNo").addEventListener("click", () => closeRename(false));
   $("renameYes").addEventListener("click", () => closeRename(true));
   $("renameInput").addEventListener("keydown", (event) => {
     if (event.key === "Enter") { event.preventDefault(); closeRename(true); }
-    if (event.key === "Escape") { event.preventDefault(); closeRename(false); }
   });
-  $("deleteNo").addEventListener("click", () => { pendingDelete = null; $("confirmDelete").classList.add("hidden"); });
+  $("renameDialog").addEventListener("cancel", (event) => { event.preventDefault(); closeRename(false); });
+  $("deleteNo").addEventListener("click", closeDeleteDialog);
+  $("confirmDelete").addEventListener("cancel", (event) => { event.preventDefault(); closeDeleteDialog(); });
   $("deleteYes").addEventListener("click", () => {
-    $("confirmDelete").classList.add("hidden");
-    if (pendingDelete) host.send({ type: "deletePet", id: pendingDelete });
-    pendingDelete = null;
+    const id = pendingDelete;
+    closeDeleteDialog();
+    libraryTab().focus();
+    if (id && !busy) host.send({ type: "deletePet", id });
   });
   $("importButton").addEventListener("click", openImage);
   $("emptyState").addEventListener("click", openImage);
-  $("adjustButton").addEventListener("click", () => layoutMarkers());
+  $("adjustButton").addEventListener("click", () => { if (view === "create" && prepared && !busy) layoutMarkers(); });
   $("saveButton").addEventListener("click", () => {
-    if (!prepared || busy) return;
+    if (view !== "create" || !prepared || busy) return;
     host.send({ type: "save", markers: prepared.markers });
   });
   $("cancelButton").addEventListener("click", () => host.send({ type: "cancel" }));

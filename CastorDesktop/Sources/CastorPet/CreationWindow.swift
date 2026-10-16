@@ -141,6 +141,9 @@ final class CreationWindow {
             sourceName = (message["name"] as? String).map { URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent }
             analyse(data)
         case "save": save(message["markers"])
+        case "newPet":
+            guard task == nil else { return }
+            prepared = nil
         case "cancel":
             task?.cancel(); task = nil; generation += 1
             post(["type": "idle"])

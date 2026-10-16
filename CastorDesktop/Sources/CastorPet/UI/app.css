@@ -140,6 +140,7 @@ body {
 .tool:disabled { opacity: 0.32; cursor: default; }
 .tool.accent { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .tool.primary { color: #fff; background: var(--accent-strong); }
+.quality-hint { width: min(100%, 1180px); flex-shrink: 0; color: var(--sub); font-size: 12.5px; line-height: 1.5; }
 
 /* My Pets */
 .library { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 14px; padding: 22px 24px; overflow: auto; }
@@ -169,16 +170,19 @@ body {
 .pet-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 12.5px; color: var(--sub); }
 .pet-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--accent-strong); color: #fff; }
 .pet-delete { position: absolute; top: 14px; right: 14px; width: 28px; height: 28px; border-radius: 50%; border: 0; cursor: pointer;
-  display: none; place-items: center; background: rgba(0,0,0,.55); color: #fff; }
+  display: grid; place-items: center; background: rgba(0,0,0,.55); color: #fff; }
 .pet-delete svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
-.pet-card:hover .pet-delete, .pet-delete:focus-visible { display: grid; }
+.pet-delete:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 .pet-card.selected .pet-delete { display: none; }
 .library-empty { color: var(--sub); font-size: 14px; padding: 30px 0; text-align: center; }
 .library .hint { color: var(--sub); font-size: 12.5px; margin-top: auto; }
-.modal { position: fixed; inset: 0; z-index: 6; display: grid; place-items: center; background: rgba(0,0,0,.45); }
-.modal-box { width: min(420px, 90vw); border-radius: 16px; padding: 22px; display: grid; gap: 12px; }
+.modal { padding: 0; border: 0; max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); border-radius: 16px; background: transparent; color: var(--text); }
+.modal::backdrop { background: rgba(0,0,0,.45); }
+.modal-box { width: min(420px, calc(100vw - 32px)); border-radius: 16px; padding: 22px; display: grid; gap: 12px; }
 .modal-box h3 { font-size: 17px; }
 .modal-box p { font-size: 13.5px; color: var(--sub); line-height: 1.6; }
+.delete-summary { display: flex; align-items: center; gap: 16px; font-size: 14px; }
+.delete-summary img { width: 76px; height: 96px; object-fit: contain; border-radius: 10px; background: var(--track); }
 .modal-row { display: flex; justify-content: flex-end; gap: 10px; }
 .ghost.danger { color: #fff; background: var(--accent-strong); border-color: transparent; }
 

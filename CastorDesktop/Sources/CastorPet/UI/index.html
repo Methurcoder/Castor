@@ -94,39 +94,38 @@
         <svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M5 19h14"/></svg>
         <span data-t="Save Pet">ペットを保存</span>
       </button>
-      <button class="tool" disabled title="">
-        <svg viewBox="0 0 24 24"><rect x="3" y="6" width="12" height="12" rx="2.5"/><rect x="9" y="3" width="12" height="12" rx="2.5"/></svg>
-        <span data-t="Add Quality View">Quality用の画像を追加</span>
-      </button>
     </div>
     <div class="segmented small" id="kindSwitch">
       <button class="on" data-kind="standard">Standard</button>
-      <button data-kind="quality2d" disabled>2D Quality</button>
-      <button data-kind="quality3d" disabled>3D Quality</button>
     </div>
   </nav>
+  <p class="quality-hint" data-t="quality.hint">ペットを保存したあと、デスクトップのペットを右クリックして「2枚からQualityを作る」を選ぶと、2枚の画像から作成できます。</p>
 </main>
 
-<div class="modal hidden" id="confirmDelete">
+<dialog class="modal" id="confirmDelete" aria-labelledby="deleteTitle" aria-describedby="deleteDate deleteText">
   <div class="modal-box glass">
-    <h3 data-t="library.deleteTitle">このペットを削除しますか？</h3>
-    <p data-t="library.deleteText">ペットのファイルをごみ箱に移します。ごみ箱から元に戻せます。</p>
+    <h3 id="deleteTitle" data-t="library.deleteTitle">このペットを削除しますか？</h3>
+    <div class="delete-summary">
+      <img id="deletePreview" class="hidden" alt="">
+      <time id="deleteDate"></time>
+    </div>
+    <p id="deleteText" data-t="library.deleteText">ペットのファイルをごみ箱に移します。ごみ箱から元に戻せます。</p>
     <div class="modal-row">
       <button class="ghost" id="deleteNo" data-t="Cancel">キャンセル</button>
       <button class="ghost danger" id="deleteYes" data-t="library.delete">削除する</button>
     </div>
   </div>
-</div>
-<div class="modal hidden" id="renameDialog">
+</dialog>
+<dialog class="modal" id="renameDialog" aria-labelledby="renameTitle">
   <div class="modal-box glass">
-    <h3 data-t="library.renameTitle">ペットの名前</h3>
+    <h3 id="renameTitle" data-t="library.renameTitle">ペットの名前</h3>
     <input class="text-input" id="renameInput" maxlength="40" autocomplete="off">
     <div class="modal-row">
       <button class="ghost" id="renameNo" data-t="Cancel">キャンセル</button>
       <button class="ghost danger" id="renameYes" data-t="library.renameSave">保存</button>
     </div>
   </div>
-</div>
+</dialog>
 <div class="toast hidden" id="toast"></div>
 
 <script src="app.js"></script>
