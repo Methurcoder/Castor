@@ -37,7 +37,6 @@ struct QualityArilsPetView: View {
             }
         }
         .onAppear {
-            NaturalFaceMotionSettingsStore.offerOnce()
             guard engine == nil, !loadFailed else { return }
             loadEngine()
         }

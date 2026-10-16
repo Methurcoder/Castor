@@ -578,17 +578,6 @@ do {
     showError("ペットを開けませんでした。既存データは変更していません。\n\n\(error.localizedDescription)")
     exit(1)
 }
-// One-time offer of the face motion beta, shown at the first launch after the update.
-if !preferences.naturalFaceMotionOffered && preferenceSaveAllowed {
-    let japanese = preferences.displayLanguage == .japanese
-    let text = japanese ? "ベータ版の機能で顔がより自然に動きます。試しますか？（設定でオフにできます。）"
-        : "A beta feature makes the face move more naturally. Try it? (You can turn it off in Settings.)"
-    let options = japanese ? "試す\n今はしない" : "Try it\nNot now"
-    preferences.naturalFaceMotionOffered = true
-    preferences.naturalFaceMotion = text.withCString { title in options.withCString { castor_choose_option(title, $0) } } == 1
-    do { try DesktopPreferenceStore(root: WindowsRiggingFlow.directory).save(preferences) }
-    catch { showError(error.localizedDescription) }
-}
 let player = PetPlayback(asset: asset, wideHeadMovement: preferences.widerHeadMovement, naturalFaceMotion: preferences.naturalFaceMotion)
 player.automaticTurn = preferences.automaticTurn
 player.presentationMode = preferences.qualityPresentationMode ?? player.presentationMode

@@ -1,4 +1,3 @@
-import AppKit
 import Arils
 import Combine
 import SwiftUI
@@ -45,7 +44,6 @@ struct ArilsPetView: View {
             }
         }
         .onAppear {
-            NaturalFaceMotionSettingsStore.offerOnce()
             guard engine == nil, !loadFailed else { return }
             loadEngine()
         }
@@ -108,33 +106,15 @@ enum WideHeadRangeSettingsStore {
     static let defaultEnabled = false
 }
 
-/// More natural face motion (beta): hair beside the head follows it. Applied
-/// as an Arils pet loads, so pets made earlier get it too. Off until the
-/// person accepts the one-time offer or turns it on in Settings.
+/// More natural face motion: hair beside the head, the neck and the shoulders
+/// follow the head. Applied as an Arils pet loads, so pets made earlier get it
+/// too. On unless turned off in Settings; the key is new with the default
+/// change, so a "Not now" given to the earlier beta offer does not carry over.
 enum NaturalFaceMotionSettingsStore {
-    static let enabledKey = "Castor.Pet.NaturalFaceMotion.v1"
-    static let offeredKey = "Castor.Pet.NaturalFaceMotion.Offered.v1"
-    static let defaultEnabled = false
+    static let enabledKey = "Castor.Pet.NaturalFaceMotion.v2"
+    static let defaultEnabled = true
 
-    /// Asks once, the first time an Arils pet appears after the update.
-    @MainActor
-    static func offerOnce() {
-        let defaults = UserDefaults.standard
-        guard !defaults.bool(forKey: offeredKey) else { return }
-        defaults.set(true, forKey: offeredKey)
-        DispatchQueue.main.async {
-            let language = (defaults.string(forKey: "Castor.SettingsDisplayLanguage")).flatMap(SettingsDisplayLanguage.init(rawValue:))
-                ?? .systemDefault
-            func S(_ key: String) -> String { CastorSettingsStrings.text(key, language: language) }
-            let alert = NSAlert()
-            alert.messageText = S("pet.natural_face.offer")
-            alert.informativeText = S("pet.natural_face.offer.detail")
-            alert.addButton(withTitle: S("pet.natural_face.offer.try"))
-            alert.addButton(withTitle: S("pet.natural_face.offer.later"))
-            NSApp.activate(ignoringOtherApps: true)
-            if alert.runModal() == .alertFirstButtonReturn {
-                defaults.set(true, forKey: enabledKey)
-            }
-        }
+    static var isEnabled: Bool {
+        UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? defaultEnabled
     }
 }

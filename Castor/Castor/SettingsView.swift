@@ -276,17 +276,7 @@ struct CastorSettingsView: View {
             }
 
             Section {
-                Toggle(isOn: $isNaturalFaceMotionEnabled) {
-                    HStack(spacing: 7) {
-                        Text(S("settings.natural_face.label"))
-                        Text("BETA")
-                            .font(.caption2.monospaced().weight(.bold))
-                            .foregroundStyle(.orange)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(.orange.opacity(0.12), in: Capsule())
-                    }
-                }
+                Toggle(S("settings.natural_face.label"), isOn: $isNaturalFaceMotionEnabled)
             } footer: {
                 Text(S("settings.natural_face.help"))
             }

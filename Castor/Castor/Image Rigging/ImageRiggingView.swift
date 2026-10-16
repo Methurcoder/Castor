@@ -849,11 +849,11 @@ struct ImageRiggingView: View {
                     faceLayout: faceLayout
                 )
                 guard frontGeneration == arilsImageGeneration else { return }
-                // The preview shows the face motion beta when it is on; the
-                // saved pet stays as built either way.
+                // The preview shows the face motion setting; the saved pet
+                // stays as built either way.
                 arilsEngine = CharacterEngine(
                     avatar: avatar,
-                    configuration: .init(followingHair: UserDefaults.standard.bool(forKey: NaturalFaceMotionSettingsStore.enabledKey))
+                    configuration: .init(followingHair: NaturalFaceMotionSettingsStore.isEnabled)
                 )
                 arilsPreviewMode = .standard
                 isArilsPreviewOn = true
@@ -1164,7 +1164,7 @@ struct ImageRiggingView: View {
                 ) else { return }
                 let engine = try QualityCharacterEngine(
                     archive: archive,
-                    configuration: .init(followingHair: UserDefaults.standard.bool(forKey: NaturalFaceMotionSettingsStore.enabledKey))
+                    configuration: .init(followingHair: NaturalFaceMotionSettingsStore.isEnabled)
                 )
                 engine.automaticTurn = isQualityAutoTurnOn
                 qualityEngine = engine

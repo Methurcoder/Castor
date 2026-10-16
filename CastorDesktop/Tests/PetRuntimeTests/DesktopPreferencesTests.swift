@@ -58,3 +58,14 @@ import Testing
         #expect(try JSONDecoder().decode(DesktopPreferences.self, from: encoded).qualityPresentationMode == mode)
     }
 }
+
+@Test func naturalFaceMotionStartsOnEvenWhereTheBetaWasDeclined() throws {
+    // v1.0.0 (d-beta) stored the beta as "naturalFaceMotion"; it is now on by
+    // default under a new key, and can still be turned off.
+    let old = Data(#"{"naturalFaceMotion": false, "naturalFaceMotionOffered": true}"#.utf8)
+    var preferences = try JSONDecoder().decode(DesktopPreferences.self, from: old)
+    #expect(preferences.naturalFaceMotion)
+    preferences.naturalFaceMotion = false
+    let reloaded = try JSONDecoder().decode(DesktopPreferences.self, from: JSONEncoder().encode(preferences))
+    #expect(!reloaded.naturalFaceMotion)
+}

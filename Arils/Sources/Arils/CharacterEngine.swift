@@ -36,8 +36,8 @@ public final class CharacterEngine {
         /// validated (`ExtendedHeadRange`). Edges the image does not contain
         /// can show at the extremes.
         public var extendedHeadRange: Bool
-        /// More natural face motion (beta): hair beside the head follows it
-        /// (`FollowingHair`), added to the avatar as the engine is created.
+        /// More natural face motion: hair beside the head, the neck and the
+        /// shoulders follow it (`FollowingHair`), added as the engine is created.
         public var followingHair: Bool
 
         public init(
