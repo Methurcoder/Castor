@@ -57,12 +57,10 @@ int castor_expand_zip(const char *archive,const char *destination,int (*cancelle
     DWORD exit=1;if(!GetExitCodeProcess(process.hProcess,&exit)||exit!=0)result=result==0?0:-1;
     CloseHandle(process.hThread);CloseHandle(process.hProcess);return result;
 }
-int castor_pet_shortcut(const char *executablePath,const char *rootPath,int remove) {
-    std::wstring executable=install_wide(executablePath),root=install_wide(rootPath);
-    for(WCHAR& c:executable)if(c==L'/')c=L'\\';for(WCHAR& c:root)if(c==L'/')c=L'\\';
-    if(executable.empty()||root.empty())return -1;
-    WCHAR programs[MAX_PATH];if(FAILED(SHGetFolderPathW(nullptr,CSIDL_PROGRAMS,nullptr,SHGFP_TYPE_CURRENT,programs)))return -1;
-    std::wstring file=std::wstring(programs)+L"\\Castor.lnk";
+/// One Start menu entry for CastorPet.exe. Only an entry that already points
+/// at a Castor-* install under root is replaced or removed.
+static int pet_link(const std::wstring& file,const std::wstring& executable,const std::wstring& root,
+                    const wchar_t *arguments,const wchar_t *description,int remove) {
     HRESULT com=CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);
     if(FAILED(com)&&com!=RPC_E_CHANGED_MODE)return -1;
     IShellLinkW *link=nullptr;IPersistFile *persist=nullptr;int result=-1;
@@ -84,8 +82,8 @@ int castor_pet_shortcut(const char *executablePath,const char *rootPath,int remo
             if(remove)result=!existing||DeleteFileW(file.c_str())?1:-1;
             else {
                 status=link->SetPath(executable.c_str());
-                if(SUCCEEDED(status))status=link->SetArguments(L"");
-                if(SUCCEEDED(status))status=link->SetDescription(L"Castor");
+                if(SUCCEEDED(status))status=link->SetArguments(arguments);
+                if(SUCCEEDED(status))status=link->SetDescription(description);
                 auto split=executable.find_last_of(L"\\/");
                 if(SUCCEEDED(status)&&split!=std::wstring::npos)status=link->SetWorkingDirectory(executable.substr(0,split).c_str());
                 // The app icon ships as Castor.ico beside the executable.
@@ -104,6 +102,16 @@ int castor_pet_shortcut(const char *executablePath,const char *rootPath,int remo
         }
     }
     if(persist)persist->Release();if(link)link->Release();if(SUCCEEDED(com))CoUninitialize();return result;
+}
+int castor_pet_shortcut(const char *executablePath,const char *rootPath,int remove) {
+    std::wstring executable=install_wide(executablePath),root=install_wide(rootPath);
+    for(WCHAR& c:executable)if(c==L'/')c=L'\\';for(WCHAR& c:root)if(c==L'/')c=L'\\';
+    if(executable.empty()||root.empty())return -1;
+    WCHAR programs[MAX_PATH];if(FAILED(SHGetFolderPathW(nullptr,CSIDL_PROGRAMS,nullptr,SHGFP_TYPE_CURRENT,programs)))return -1;
+    int result=pet_link(std::wstring(programs)+L"\\Castor.lnk",executable,root,L"",L"Castor",remove);
+    // A second entry opens straight to the settings page, so searching "Castor" finds both, as on the Mac.
+    if(result>0)pet_link(std::wstring(programs)+L"\\Castor Settings.lnk",executable,root,L"--settings",L"Castor settings",remove);
+    return result;
 }
 int castor_native_windows_x64(void) {
     typedef BOOL(WINAPI *MachineQuery)(HANDLE,USHORT*,USHORT*);

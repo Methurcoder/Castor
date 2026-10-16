@@ -57,7 +57,8 @@ private let menuManual: UINT_PTR = 13
 private let menuEditManual: UINT_PTR = 14
 private let menuLibrary: UINT_PTR = 15
 private let wmExitSizeMove: UINT = 0x0232
-/// Sent by a second launch (Start menu, setup's Launch) to the running Castor: show the Castor window.
+/// Sent by a second launch (Start menu, setup's Launch) to the running Castor: show the Castor window,
+/// on the settings page when wParam is 1.
 private let wmShowCastor: UINT = 0x8000 + 50
 private var singleInstance: HANDLE?
 private let frameMilliseconds: UINT = 33
@@ -426,7 +427,7 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
         return 0
     case wmShowCastor:
         if let window = PetWindow.shared,
-           !openCreationWindow(language: window.preferences.displayLanguage, view: "library", unavailable: {}) {
+           !openCreationWindow(language: window.preferences.displayLanguage, view: wParam == 1 ? "settings" : "library", unavailable: {}) {
             window.showMenu()
         }
         return 0
@@ -501,19 +502,48 @@ private func firstPet(language: SettingsDisplayLanguage) throws -> PetAsset? {
 
 // MARK: - Entry
 
+/// After an update the running Castor is an older version in another folder.
+/// It is asked to close (its pet window quits on WM_CLOSE in every version),
+/// so this launch replaces it instead of only bringing it forward. False when
+/// the running Castor is this same executable, or it did not close in time.
+private func replaceOtherVersion(_ running: HWND) -> Bool {
+    var processID: DWORD = 0
+    _ = GetWindowThreadProcessId(running, &processID)
+    let access = DWORD(0x1000 /* PROCESS_QUERY_LIMITED_INFORMATION */) | DWORD(0x0010_0000 /* SYNCHRONIZE */)
+    guard processID != 0, processID != GetCurrentProcessId(), let process = OpenProcess(access, false, processID) else { return false }
+    defer { CloseHandle(process) }
+    var theirs = [WCHAR](repeating: 0, count: 32768)
+    var theirLength = DWORD(theirs.count)
+    var ours = [WCHAR](repeating: 0, count: 32768)
+    let ourLength = GetModuleFileNameW(nil, &ours, DWORD(ours.count))
+    guard QueryFullProcessImageNameW(process, 0, &theirs, &theirLength), ourLength > 0 else { return false }
+    let theirPath = String(decoding: theirs.prefix(Int(theirLength)), as: UTF16.self).lowercased()
+    let ourPath = String(decoding: ours.prefix(Int(ourLength)), as: UTF16.self).lowercased()
+    guard theirPath != ourPath else { return false }
+    _ = PostMessageW(running, 0x0010 /* WM_CLOSE */, 0, 0)
+    return WaitForSingleObject(process, 8000) == 0 /* WAIT_OBJECT_0 */
+}
+
 private func runNativeApplication() {
 _ = SetProcessDPIAware()
 let arguments = CommandLine.arguments.dropFirst()
 let wideHeadMovement = arguments.contains("--wide-head")
 let openingFile = arguments.contains { !$0.hasPrefix("--") }
+let startView = arguments.contains("--settings") ? "settings" : "library"
 // One Castor per sign-in: launching it again brings the running one's window forward instead of a second pet.
+// A Castor from another folder (the version before an update) is closed and replaced instead.
 if !openingFile {
     singleInstance = wide("Local\\CastorPet").withUnsafeBufferPointer { CreateMutexW(nil, false, $0.baseAddress) }
-    if GetLastError() == 183 /* ERROR_ALREADY_EXISTS */ {
+    let alreadyRunning = GetLastError() == 183 /* ERROR_ALREADY_EXISTS */
+    let running = wide("CastorPetWindow").withUnsafeBufferPointer({ FindWindowW($0.baseAddress, nil) })
+    let creating = wide("CastorCreationWindow").withUnsafeBufferPointer({ FindWindowW($0.baseAddress, nil) })
+    if let other = running ?? creating, replaceOtherVersion(other) {
+        // The older version has quit; start this one normally.
+    } else if alreadyRunning {
         _ = AllowSetForegroundWindow(DWORD.max)   // ASFW_ANY: let the running Castor come to the front
-        if let running = wide("CastorPetWindow").withUnsafeBufferPointer({ FindWindowW($0.baseAddress, nil) }) {
-            _ = PostMessageW(running, wmShowCastor, 0, 0)
-        } else if let creating = wide("CastorCreationWindow").withUnsafeBufferPointer({ FindWindowW($0.baseAddress, nil) }) {
+        if let running {
+            _ = PostMessageW(running, wmShowCastor, startView == "settings" ? 1 : 0, 0)
+        } else if let creating {
             _ = ShowWindow(creating, 9 /* SW_RESTORE */)
             _ = SetForegroundWindow(creating)
         }
@@ -571,7 +601,12 @@ guard window.create() else {
     exit(1)
 }
 if showWindowAtStart {
-    _ = openCreationWindow(language: window.preferences.displayLanguage, view: "library", unavailable: {})
+    _ = openCreationWindow(language: window.preferences.displayLanguage, view: startView, unavailable: {})
+}
+// Installs made by an older setup only have the "Castor" entry; refresh it so "Castor Settings" appears too.
+if WindowsRiggingFlow.installedVersion() != nil, let folder = try? WindowsRiggingFlow.applicationFolder() {
+    let executable = folder.appendingPathComponent("CastorPet.exe").path
+    _ = executable.withCString { file in folder.deletingLastPathComponent().path.withCString { castor_pet_shortcut(file, $0, 0) } }
 }
 
 var message = MSG()

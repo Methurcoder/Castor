@@ -72,11 +72,24 @@ enum WindowsRiggingFlow {
         guard FileManager.default.fileExists(atPath:executable.path),
               executable.path.withCString({castor_launch_file($0)})>0 else {throw FlowError.dialogFailed}
     }
-    static func openSetup() throws {
+    /// The folder this CastorPet.exe runs from.
+    static func applicationFolder() throws -> URL {
         var buffer=[WCHAR](repeating:0,count:32768)
         let length=buffer.withUnsafeMutableBufferPointer {GetModuleFileNameW(nil,$0.baseAddress,DWORD($0.count))}
         guard length>0,Int(length)<buffer.count else {throw FlowError.dialogFailed}
-        let folder=URL(fileURLWithPath:String(decoding:buffer.prefix(Int(length)),as:UTF16.self)).deletingLastPathComponent()
+        return URL(fileURLWithPath:String(decoding:buffer.prefix(Int(length)),as:UTF16.self)).deletingLastPathComponent()
+    }
+
+    /// The release tag the installer recorded beside this executable, if it was installed.
+    static func installedVersion() -> String? {
+        guard let folder=try? applicationFolder(),
+              let data=try? Data(contentsOf:folder.appendingPathComponent("CastorInstall.json")),
+              let record=try? JSONDecoder().decode(DesktopInstalledApp.self,from:data) else {return nil}
+        return record.version
+    }
+
+    static func openSetup() throws {
+        let folder=try applicationFolder()
         let setup=folder.appendingPathComponent("CastorSetup.exe")
         if FileManager.default.fileExists(atPath:setup.path) {
             guard setup.path.withCString({castor_launch_file($0)})>0 else {throw FlowError.dialogFailed}

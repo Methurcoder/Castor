@@ -306,6 +306,7 @@ final class CreationWindow {
             var message: [String: Any] = ["type": type, "prefs": try preferencesObject(currentPreferences())]
             if type == "settings" {
                 message["voices"] = ((try? WindowsVoiceFlow.voices()) ?? []).map { ["id": $0.id, "name": $0.name] }
+                if let version = WindowsRiggingFlow.installedVersion() { message["version"] = version }
             }
             post(message)
         } catch { fail(error) }
@@ -359,7 +360,7 @@ final class CreationWindow {
                     post(["type": "idle"])
                     post(["type": "toast", "message": say("音声モデルの準備ができました。", "The voice model is ready.")])
                 }
-            case "openSetup": try WindowsRiggingFlow.openSetup()
+            case "openSetup", "openUpdater": try WindowsRiggingFlow.openSetup()
             case "openHelper": try WindowsRiggingFlow.startSpeechHelper()
             case "recognition": post(["type": "recognition", "text": WindowsVoiceFlow.recognitionStatus(language: language)])
             case "micPrivacy": _ = "ms-settings:privacy-microphone".withCString { castor_open_url($0) }

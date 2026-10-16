@@ -524,6 +524,8 @@
       codexEndpoint: "Codex の接続先", claudeEndpoint: "Claude Code の接続先", workspacePath: "作業フォルダ（フルパス）",
       "advanced.note": "Codex / Claude Code に操作を頼むときの接続先です。外部へ送る前には毎回確認します。",
       "ai.note": "会話はこの PC で動く LM Studio / Ollama を使います。",
+      "update.title": "アップデート", "update.note": "新しい版の確認と入れ替えは、ダウンローダーで行います。ペットと設定はそのまま残ります。",
+      "update.version": "使っている版", openUpdater: "ダウンローダーを開く",
     },
     en: {
       "page.general": "General", "page.voice": "Voice", "page.ai": "AI", "page.advanced": "Advanced",
@@ -545,6 +547,8 @@
       codexEndpoint: "Codex endpoint", claudeEndpoint: "Claude Code endpoint", workspacePath: "Workspace folder (full path)",
       "advanced.note": "Endpoints for asking Codex / Claude Code to act. Castor asks every time before sending anything out.",
       "ai.note": "Chat uses LM Studio / Ollama running on this PC.",
+      "update.title": "Updates", "update.note": "The downloader checks for and installs new versions. Your pets and settings stay.",
+      "update.version": "Version in use", openUpdater: "Open the downloader",
     },
   };
   const t = (key) => (TEXT[ui.language()] || TEXT.ja)[key] || TEXT.ja[key] || key;
@@ -553,6 +557,7 @@
   let draft = null;     // the copy being edited
   let voices = [];      // [{ id, name }]
   let models = [];      // [{ name, label }]
+  let version = "";     // installed version, when known
   let page = "general";
 
   const percent = (values) => values.map((v) => ({ value: v, label: Math.round(v * 100) + "%" }));
@@ -568,6 +573,10 @@
       { key: "evasionStyle", type: "select", options: () => ["cute", "calm", "cool", "proud", "robot"].map((v) => ({ value: v, label: t("evasion." + v) })), when: () => draft.evasionEnabled },
       { key: "buttonDodgeEnabled", type: "toggle" },
       { key: "microphoneEnabled", type: "toggle" },
+      { heading: "update.title" },
+      { note: "update.note" },
+      { info: () => version ? t("update.version") + ": " + version : "" },
+      { actions: ["openUpdater"] },
     ],
     voice: [
       { key: "systemTTSEnabled", type: "toggle" },
@@ -699,6 +708,13 @@
         heading.className = "settings-heading"; heading.textContent = t(field.heading);
         form.appendChild(heading); continue;
       }
+      if (field.info) {
+        const text = field.info();
+        if (!text) continue;
+        const info = document.createElement("p");
+        info.className = "settings-note"; info.textContent = text;
+        form.appendChild(info); continue;
+      }
       if (field.note) {
         const note = document.createElement("p");
         note.className = "settings-note"; note.textContent = t(field.note);
@@ -747,6 +763,7 @@
         case "settings":
           saved = message.prefs; draft = JSON.parse(JSON.stringify(saved));
           voices = message.voices || [];
+          version = message.version || "";
           render(); return true;
         case "settingsSaved":
           saved = message.prefs; draft = JSON.parse(JSON.stringify(saved));
@@ -782,7 +799,7 @@
   };
   function mockReply(message) {
     const reply = (m, delay) => setTimeout(() => window.castorSettings.receive(m), delay || 0);
-    if (message.type === "settingsLoad") reply({ type: "settings", prefs: mockStore, voices: [{ id: "haruka", name: "Microsoft Haruka" }, { id: "zira", name: "Microsoft Zira" }] });
+    if (message.type === "settingsLoad") reply({ type: "settings", prefs: mockStore, version: "v1.0.0-d", voices: [{ id: "haruka", name: "Microsoft Haruka" }, { id: "zira", name: "Microsoft Zira" }] });
     if (message.type === "settingsSave") { mockStore = JSON.parse(JSON.stringify(message.prefs)); reply({ type: "settingsSaved", prefs: mockStore }, 200); }
     if (message.type === "loadModels") reply({ type: "models", items: [{ name: "qwen3-8b", label: "qwen3-8b (8B)" }, { name: "gemma-3-1b", label: "gemma-3-1b (1B) — 小さいモデル: 操作の依頼には向きません" }] }, 400);
     if (message.type === "voiceAction" && message.action === "recognition") reply({ type: "recognition", text: "Microsoft Speech Recognizer 8.0 (ja-JP)" });
