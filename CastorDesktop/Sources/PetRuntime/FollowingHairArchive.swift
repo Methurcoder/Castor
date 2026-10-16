@@ -6,18 +6,22 @@ import Foundation
 /// Applies the "more natural face motion" beta to a stored archive: decodes
 /// the head and body textures, lets `FollowingHair` add the side hair layer,
 /// and stores the changed textures back as PNG. The archive is returned
-/// unchanged when the rig has no side hair or a texture cannot be read.
+/// unchanged when nothing follows the head or a texture cannot be read.
 enum FollowingHairArchive {
     static func apply(to archive: AvatarArchive) -> AvatarArchive {
         let rig = archive.rig
         guard let head = rig.firstPart(ofKind: .head), let bodyID = head.parentID,
               let headLayer = bitmap(archive.texturePNGs[head.id]),
               let bodyLayer = bitmap(archive.texturePNGs[bodyID]),
-              let result = FollowingHair.apply(rig: rig, layers: [head.id: headLayer, bodyID: bodyLayer]),
-              let body = result.layers[bodyID], let side = result.layers[SideHairRegion.partID] else { return archive }
+              let result = FollowingHair.apply(rig: rig, layers: [head.id: headLayer, bodyID: bodyLayer]) else { return archive }
         var textures = archive.texturePNGs
-        textures[bodyID] = png(body)
-        textures[SideHairRegion.partID] = png(side)
+        // Without side hair only the neck and shoulders follow; the body
+        // texture is then unchanged.
+        if let side = result.layers[SideHairRegion.partID] {
+            guard let body = result.layers[bodyID] else { return archive }
+            textures[bodyID] = png(body)
+            textures[SideHairRegion.partID] = png(side)
+        }
         return AvatarArchive(rig: result.rig, texturePNGs: textures)
     }
 

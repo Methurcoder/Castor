@@ -69,17 +69,21 @@ extension AvatarArchive {
 
 public extension RiggedAvatar {
     /// This avatar with the "more natural face motion" beta applied (see
-    /// `FollowingHair`), or unchanged when it has no side hair to move.
+    /// `FollowingHair`): side hair when there is any, and the neck and
+    /// shoulders. Unchanged when nothing follows the head.
     func withFollowingHair() -> RiggedAvatar {
         guard let head = rig.firstPart(ofKind: .head), let bodyID = head.parentID,
               let headImage = textures[head.id], let bodyImage = textures[bodyID],
               let headLayer = Bitmap(image: headImage), let bodyLayer = Bitmap(image: bodyImage),
-              let result = FollowingHair.apply(rig: rig, layers: [head.id: headLayer, bodyID: bodyLayer]),
-              let body = result.layers[bodyID]?.cgImage(),
-              let side = result.layers[SideHairRegion.partID]?.cgImage() else { return self }
+              let result = FollowingHair.apply(rig: rig, layers: [head.id: headLayer, bodyID: bodyLayer]) else { return self }
         var textures = textures
-        textures[bodyID] = body
-        textures[SideHairRegion.partID] = side
+        // Without side hair only the neck and shoulders follow; the body
+        // texture is then unchanged.
+        if let sideLayer = result.layers[SideHairRegion.partID] {
+            guard let body = result.layers[bodyID]?.cgImage(), let side = sideLayer.cgImage() else { return self }
+            textures[bodyID] = body
+            textures[SideHairRegion.partID] = side
+        }
         return RiggedAvatar(rig: result.rig, textures: textures)
     }
 }

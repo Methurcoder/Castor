@@ -1605,3 +1605,26 @@ private struct FailingInpainter: OcclusionInpaintingProviding {
     #expect(limits.scaled(by: 0.5) == limits)
     #expect(limits.scaled(by: .nan) == limits)
 }
+
+@Test func faceMotionBetaMovesTheNeckEvenWithoutSideHair() throws {
+    // Short hair well inside the face box, a white shirt below: nothing
+    // hangs beside the head, but the neck should still follow it.
+    let w = 96, h = 128
+    var bitmap = Bitmap(width: w, height: h)
+    for y in 12..<124 { for x in 34..<62 {
+        let skin = (38..<58).contains(x) && (24..<56).contains(y)
+        bitmap.setRGBA(x: x, y: y, skin ? SIMD4(0.94, 0.8, 0.75, 1) : y >= 60 ? SIMD4(0.95, 0.95, 0.97, 1) : SIMD4(0.24, 0.2, 0.27, 1))
+    }}
+    let mask = FloatPlane(width: w, height: h, values: (0..<(w * h)).map { bitmap.alpha(x: $0 % w, y: $0 / w) })
+    let layout = FaceLayout(
+        headRect: CGRect(x: 30, y: 10, width: 36, height: 48),
+        eyeLeftRect: CGRect(x: 37, y: 30, width: 8, height: 5), eyeRightRect: CGRect(x: 51, y: 30, width: 8, height: 5),
+        mouthRect: CGRect(x: 44, y: 44, width: 8, height: 3), confidence: 1
+    )
+    let build = RigLayerBuilder.build(source: bitmap, analysisMask: mask, extractionMask: mask, layout: layout, maskIsAuthoritative: true)
+    let avatar = RiggedAvatar(rig: build.rig, textures: try build.layers.mapValues { try #require($0.cgImage()) })
+    let following = avatar.withFollowingHair()
+    #expect(following.rig.part(withID: SideHairRegion.partID) == nil)
+    let body = try #require(following.rig.part(withID: "body"))
+    #expect(body.deformations.contains { if case .warpKeyform = $0 { true } else { false } })
+}
