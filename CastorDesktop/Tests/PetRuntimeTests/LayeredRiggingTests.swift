@@ -31,7 +31,7 @@ private var confirmedMarkers: PortableFaceLayout {
     let prepared = try await LayeredRigging.prepare(image)
     #expect(prepared.face.sourceLabel == "Illustration heuristic" || prepared.face.sourceLabel == "Template (manual review)")
     let archive = try LayeredRigging.build(prepared, markers: confirmedMarkers)
-    #expect(Set(archive.texturePNGs.keys) == Set(["body", "neckSeam", "head", "eyeLeft", "eyeRight", "mouth"]))
+    #expect(Set(archive.texturePNGs.keys) == Set(["body", "neckSeam", "head", "eyeLeft", "eyeRight", "mouth", "mouthCavity"]))
     #expect(archive.rig.parts.first { $0.id == "eyeLeft" }?.parentID == "head")
     #expect(archive.rig.firstPart(ofKind: .head)?.deformations.isEmpty == false)
     #expect(prepared.source.rgba == image.rgba)

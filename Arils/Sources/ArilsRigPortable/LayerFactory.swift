@@ -16,6 +16,8 @@ public struct ExtractedLayers: Sendable {
     public var eyeLeft: Bitmap
     public var eyeRight: Bitmap
     public var mouth: Bitmap
+    /// The mouth interior shown while speaking (see `mouthCavityKeyforms`).
+    public var mouthCavity: Bitmap
 }
 
 /// Cuts the source image into part layers and repairs everything a moving part
@@ -27,62 +29,64 @@ public struct ExtractedLayers: Sendable {
 ///   blinking and speech reveal skin instead of transparency;
 /// - eye/mouth cutouts get feathered edges so they blend while moving.
 public enum LayerFactory {
-    /// Five procedural mouth poses on the existing 4x4 mouth mesh: four
-    /// corners of (open, form) plus a neutral center corrective.
+    /// The drawn mouth at rest; opening lowers the part below the lip line by
+    /// the mouth interior's height (`mouthCavityRect`), and the form widens or
+    /// narrows it. Closed and neutral is the drawing exactly, so a pet at
+    /// rest keeps the mouth it was drawn with.
     public static func mouthWarpKeyforms(mesh: DeformableMesh) -> [WarpKeyformKey] {
+        let minX = mesh.vertices.map(\.x).min() ?? 0
+        let maxX = mesh.vertices.map(\.x).max() ?? minX
+        let minY = mesh.vertices.map(\.y).min() ?? 0
+        let maxY = mesh.vertices.map(\.y).max() ?? minY
+        let height = max(1, maxY - minY)
+        let centerX = (minX + maxX) * 0.5
+        let lipLine = minY + height * mouthLipLine
         func offsets(open: Float, form: Float) -> [SIMD2<Float>] {
-            let minX = mesh.vertices.map(\.x).min() ?? 0
-            let maxX = mesh.vertices.map(\.x).max() ?? minX
-            let minY = mesh.vertices.map(\.y).min() ?? 0
-            let maxY = mesh.vertices.map(\.y).max() ?? minY
-            let height = max(1, maxY - minY)
-            let centerX = (minX + maxX) * 0.5
-            let pivotY = minY + height * 0.32
-            let normalizedForm = min(max(form, -1), 1)
-            let normalizedOpen = min(max(open, 0), 1)
-            let closedScaleX = 0.94 + normalizedForm * 0.20
-            let openScaleX = 0.92 + normalizedForm * 0.22
-            let scaleX = closedScaleX
-                + (openScaleX - closedScaleX) * normalizedOpen
-            let openScaleY = 1.15 - normalizedForm * 0.12
-            let scaleY = 0.16 + (openScaleY - 0.16) * normalizedOpen
-            let downward = normalizedOpen * height * 0.06
+            let scaleX = 1 + form * 0.08 - open * 0.04
             return mesh.vertices.map { vertex in
-                let target = SIMD2(
-                    centerX + (vertex.x - centerX) * scaleX,
-                    pivotY + (vertex.y - pivotY) * scaleY + downward
-                )
-                return target - vertex
+                let below = Interpolation.smoothstep(lipLine, lipLine + height * 0.2, vertex.y)
+                return SIMD2((vertex.x - centerX) * (scaleX - 1), open * height * mouthCavityDepth * below)
             }
         }
+        return [(0, -1), (0, 1), (1, -1), (1, 1)].map { open, form in
+            WarpKeyformKey(parameterXValue: open, parameterYValue: form, vertexOffsets: offsets(open: open, form: form))
+        }
+    }
 
-        return [
-            WarpKeyformKey(
-                parameterXValue: 0,
-                parameterYValue: -1,
-                vertexOffsets: offsets(open: 0, form: -1)
-            ),
-            WarpKeyformKey(
-                parameterXValue: 0,
-                parameterYValue: 1,
-                vertexOffsets: offsets(open: 0, form: 1)
-            ),
-            WarpKeyformKey(
-                parameterXValue: 1,
-                parameterYValue: -1,
-                vertexOffsets: offsets(open: 1, form: -1)
-            ),
-            WarpKeyformKey(
-                parameterXValue: 1,
-                parameterYValue: 1,
-                vertexOffsets: offsets(open: 1, form: 1)
-            ),
-            WarpKeyformKey(
-                parameterXValue: 0.5,
-                parameterYValue: 0,
-                vertexOffsets: offsets(open: 0.5, form: 0)
-            ),
-        ]
+    /// The mouth interior, drawn over the mouth: collapsed onto the lip line
+    /// when closed (no area, so nothing shows), its full height when open.
+    public static func mouthCavityKeyforms(mesh: DeformableMesh) -> [WarpKeyformKey] {
+        let minX = mesh.vertices.map(\.x).min() ?? 0
+        let maxX = mesh.vertices.map(\.x).max() ?? minX
+        let minY = mesh.vertices.map(\.y).min() ?? 0
+        let centerX = (minX + maxX) * 0.5
+        func offsets(open: Float, form: Float) -> [SIMD2<Float>] {
+            let scaleX = 1 + form * 0.15
+            return mesh.vertices.map { vertex in
+                let x = centerX + (vertex.x - centerX) * scaleX
+                let y = minY + (vertex.y - minY) * open
+                return SIMD2(x, y) - vertex
+            }
+        }
+        return [(0, -1), (0, 1), (1, -1), (1, 1)].map { open, form in
+            WarpKeyformKey(parameterXValue: open, parameterYValue: form, vertexOffsets: offsets(open: open, form: form))
+        }
+    }
+
+    /// Where the lips meet, as a fraction of the mouth box height.
+    static let mouthLipLine: Float = 0.5
+    /// How far the mouth opens, as a fraction of the mouth box height.
+    static let mouthCavityDepth: Float = 0.55
+
+    /// The mouth interior's box: below the lip line, narrower than the mouth.
+    public static func mouthCavityRect(for plan: PartPlan) -> CGRect {
+        let mouth = plan.mouthRect
+        return CGRect(
+            x: mouth.midX - mouth.width * 0.32,
+            y: mouth.minY + mouth.height * CGFloat(mouthLipLine),
+            width: mouth.width * 0.64,
+            height: max(2, mouth.height * CGFloat(mouthCavityDepth))
+        )
     }
 
     /// Builds the bounded mask an optional ML backend may repair. Coverage is
@@ -519,45 +523,22 @@ public enum LayerFactory {
         /// Builds a dark, filled oral cavity in the lower center of the mouth
         /// crop. The closed keyform compresses this region to a lip line; open
         /// keyforms reveal it without requiring a second authored texture.
-        func synthesizedMouthLayer() -> Bitmap {
-            var layer = featureLayer(rect: plan.mouthRect, feather: 0.2)
-            guard layer.width >= 4, layer.height >= 4 else { return layer }
-            var cavity = Bitmap(width: layer.width, height: layer.height)
-            let center = SIMD2(Float(layer.width) * 0.5, Float(layer.height) * 0.64)
-            let radius = SIMD2(
-                max(2, Float(layer.width) * 0.34),
-                max(2, Float(layer.height) * 0.27)
-            )
-            let dark = SIMD4<Float>(0.10, 0.018, 0.035, 0.96)
-            for y in 0..<cavity.height {
-                for x in 0..<cavity.width {
-                    let dx = (Float(x) - center.x) / radius.x
-                    let dy = (Float(y) - center.y) / radius.y
-                    let distance = dx * dx + dy * dy
-                    if distance >= 0.68, distance <= 1 {
-                        cavity.setRGBA(x: x, y: y, dark)
-                    }
-                }
-            }
-            HoleFiller.fillHole(
-                in: &cavity,
-                region: CGRect(x: 0, y: 0, width: cavity.width, height: cavity.height)
-            ) { x, y in
-                let dx = (Float(x) - center.x) / radius.x
-                let dy = (Float(y) - center.y) / radius.y
-                return dx * dx + dy * dy < 0.68
-            }
-            for y in 0..<layer.height {
-                for x in 0..<layer.width {
-                    let replacement = cavity.rgba(x: x, y: y)
-                    guard replacement.w > 0.01 else { continue }
-                    let dx = (Float(x) - center.x) / radius.x
-                    let dy = (Float(y) - center.y) / radius.y
-                    // Preserve the source upper lip while replacing the region
-                    // that becomes visible only as the lower mesh opens.
-                    if dx * dx + dy * dy <= 1, Float(y) >= center.y - radius.y * 0.35 {
-                        layer.setRGBA(x: x, y: y, replacement)
-                    }
+        /// A dark mouth interior with a softer tongue tone low down; its
+        /// edge is feathered so it reads as an opening, not a sticker.
+        func mouthCavityLayer() -> Bitmap {
+            let rect = mouthCavityRect(for: plan)
+            let width = max(2, Int(rect.width.rounded(.up))), height = max(2, Int(rect.height.rounded(.up)))
+            var layer = Bitmap(width: width, height: height)
+            let throat = SIMD3<Float>(0.10, 0.02, 0.035), tongue = SIMD3<Float>(0.52, 0.16, 0.18)
+            for y in 0..<height {
+                for x in 0..<width {
+                    let dx = (Float(x) + 0.5) / Float(width) * 2 - 1
+                    let dy = (Float(y) + 0.5) / Float(height) * 2 - 1
+                    let distance = (dx * dx + dy * dy).squareRoot()
+                    let alpha = 0.96 * (1 - Interpolation.smoothstep(0.8, 1, distance))
+                    guard alpha > 0 else { continue }
+                    let tone = throat + (tongue - throat) * Interpolation.smoothstep(0.1, 0.9, dy)
+                    layer.setRGBA(x: x, y: y, SIMD4(tone.x * alpha, tone.y * alpha, tone.z * alpha, alpha))
                 }
             }
             return layer
@@ -569,7 +550,8 @@ public enum LayerFactory {
             head: head,
             eyeLeft: featureLayer(rect: plan.eyeLeftRect, feather: 0.16, shape: eyeLeftShape),
             eyeRight: featureLayer(rect: plan.eyeRightRect, feather: 0.16, shape: eyeRightShape),
-            mouth: synthesizedMouthLayer()
+            mouth: featureLayer(rect: plan.mouthRect, feather: 0.2),
+            mouthCavity: mouthCavityLayer()
         )
     }
 

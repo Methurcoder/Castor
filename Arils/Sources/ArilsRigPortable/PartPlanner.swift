@@ -177,7 +177,19 @@ public enum PartPlanner {
 
         let eyeLeft = padded(layout.eyeLeftRect, x: 0.18, y: 0.22, fallback: templateEye(offset: -0.19))
         let eyeRight = padded(layout.eyeRightRect, x: 0.18, y: 0.22, fallback: templateEye(offset: 0.19))
-        let mouth = padded(layout.mouthRect, x: 0.3, y: 0.35, fallback: templateMouth)
+        // The mouth cut is erased and redrawn while speaking. An estimator box
+        // far wider than a drawn mouth (half the face, past the chin) would
+        // blur that whole area, so it shrinks around its centre to a quarter
+        // of the head width and 0.7x that height. The head is the reference
+        // because a box this wrong usually comes with misplaced eyes.
+        var mouth = padded(layout.mouthRect, x: 0.3, y: 0.35, fallback: templateMouth)
+        let mouthLimit = headRect.width * 0.25
+        if mouth.width > mouthLimit || mouth.height > mouthLimit * 0.7 {
+            let width = min(mouth.width, mouthLimit), height = min(mouth.height, mouthLimit * 0.7)
+            let shrunk = CGRect(x: mouth.midX - width / 2, y: mouth.midY - height / 2, width: width, height: height)
+                .intersection(featureBounds)
+            if !shrunk.isNull, shrunk.width >= 2, shrunk.height >= 2 { mouth = shrunk }
+        }
 
         return PartPlan(
             imageWidth: imageWidth,

@@ -1065,7 +1065,7 @@ private func makePlan() async -> (PartPlan, Bitmap, FloatPlane) {
     let rig = BindingSynthesizer.makeRig(plan: plan)
 
     #expect(rig.formatVersion == AvatarRig.currentFormatVersion)
-    #expect(rig.parts.count == 6)
+    #expect(rig.parts.count == 7)
     #expect(rig.firstPart(ofKind: .head)?.parentID == "body")
     #expect(rig.part(withID: "neckSeam")?.parentID == "body")
     #expect(rig.firstPart(ofKind: .eyeLeft)?.parentID == "head")
@@ -1078,10 +1078,12 @@ private func makePlan() async -> (PartPlan, Bitmap, FloatPlane) {
             parameterY: .mouthForm,
             keys
         ) = $0 {
-            return keys.count == 5
+            return keys.count == 4
         }
         return false
     })
+    #expect(mouth.id == "mouth")
+    #expect(rig.part(withID: "mouthCavity")?.parentID == "head")
 
     // Pivots normalized, draw order sane (body behind head behind eyes).
     for part in rig.parts {
@@ -1113,21 +1115,35 @@ private func makePlan() async -> (PartPlan, Bitmap, FloatPlane) {
     #expect(simd_distance(rest[0], pitched[0]) < 0.001)
 }
 
-@Test func layerFactorySynthesizesADarkMouthInteriorForOpenKeyforms() async {
+@Test func mouthKeepsTheDrawingAtRestAndOpensOntoADarkInterior() async {
     let (plan, bitmap, mask) = await makePlan()
-    let layers = LayerFactory.extract(
-        source: bitmap,
-        subjectMask: mask,
-        plan: plan
-    )
-    let lowerStart = layers.mouth.height / 2
-    let darkOpaquePixels = (lowerStart..<layers.mouth.height).reduce(0) { count, y in
-        count + (0..<layers.mouth.width).filter { x in
-            layers.mouth.alpha(x: x, y: y) > 0.8
-                && layers.mouth.luminance(x: x, y: y) < 0.15
+    let layers = LayerFactory.extract(source: bitmap, subjectMask: mask, plan: plan)
+    // The interior is a separate dark layer...
+    let darkOpaquePixels = (0..<layers.mouthCavity.height).reduce(0) { count, y in
+        count + (0..<layers.mouthCavity.width).filter { x in
+            layers.mouthCavity.alpha(x: x, y: y) > 0.8 && layers.mouthCavity.luminance(x: x, y: y) < 0.15
         }.count
     }
     #expect(darkOpaquePixels > 2)
+    // ...so the mouth layer is the drawing itself.
+    let centre = (x: layers.mouth.width / 2, y: layers.mouth.height / 2)
+    let drawn = bitmap.rgba(x: Int(plan.mouthRect.minX) + centre.x, y: Int(plan.mouthRect.minY) + centre.y)
+    let cut = layers.mouth.rgba(x: centre.x, y: centre.y)
+    #expect(simd_reduce_max(simd_abs(drawn - cut)) < 0.02)
+
+    // Closed: the mouth is undeformed and the interior has no height.
+    let rig = BindingSynthesizer.makeRig(plan: plan)
+    let evaluator = DeformationEvaluator(rig: rig)
+    let mouth = rig.part(withID: "mouth")!, cavity = rig.part(withID: "mouthCavity")!
+    let closed = evaluator.evaluate(parameters: [.mouthOpen: 0, .mouthForm: 0])
+    for (moved, rest) in zip(closed[mouth.id]!, mouth.mesh.vertices) {
+        #expect(simd_distance(moved, rest) < 0.001)
+    }
+    let closedHeights = closed[cavity.id]!.map(\.y)
+    #expect(closedHeights.max()! - closedHeights.min()! < 0.001)
+    // Open: the interior reaches its full height below the lip line.
+    let open = evaluator.evaluate(parameters: [.mouthOpen: 1, .mouthForm: 0])[cavity.id]!.map(\.y)
+    #expect(open.max()! - open.min()! > Float(cavity.rect.height) * 0.9)
 }
 
 @Test func avatarArchiveRoundTrips() async throws {
@@ -1514,7 +1530,7 @@ private struct FailingInpainter: OcclusionInpaintingProviding {
     let avatar = try await AutoRigPipeline().makeAvatar(from: SyntheticCharacter.cgImage())
     #expect(avatar.rig.imageWidth == SyntheticCharacter.size.width)
     #expect(avatar.rig.imageHeight == SyntheticCharacter.size.height)
-    #expect(avatar.rig.parts.count == 6)
+    #expect(avatar.rig.parts.count == 7)
     for part in avatar.rig.parts {
         #expect(avatar.textures[part.id] != nil, "missing texture for \(part.id)")
         #expect(part.mesh.vertexCount > 0)

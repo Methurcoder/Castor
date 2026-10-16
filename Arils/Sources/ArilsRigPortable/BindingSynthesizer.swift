@@ -172,6 +172,27 @@ public enum BindingSynthesizer {
             ]
         )
 
+        // The interior shown while speaking, over the drawn mouth; listed
+        // after it so lookups of the mouth find the drawn one.
+        let cavityRect = LayerFactory.mouthCavityRect(for: plan)
+        let cavityMesh = DeformableMesh.grid(rect: cavityRect, columns: 4, rows: 4)
+        let mouthCavity = AvatarPart(
+            id: "mouthCavity",
+            kind: .mouth,
+            parentID: "head",
+            rect: cavityRect,
+            pivot: SIMD2(0.5, 0),
+            zOrder: 21,
+            mesh: cavityMesh,
+            deformations: [
+                .warpKeyform(
+                    parameterX: .mouthOpen,
+                    parameterY: .mouthForm,
+                    keys: LayerFactory.mouthCavityKeyforms(mesh: cavityMesh)
+                ),
+            ]
+        )
+
         let physics = PhysicsRig(channels: [
             SwayChannel(output: .hairFrontSway, frequency: 1.7, dampingRatio: 0.25, headDrive: 0.9, breeze: 0.25),
             SwayChannel(output: .hairBackSway, frequency: 1.0, dampingRatio: 0.30, headDrive: 1.2, breeze: 0.35),
@@ -186,6 +207,7 @@ public enum BindingSynthesizer {
                 neckSeam,
                 head,
                 mouth,
+                mouthCavity,
                 eyePart(id: "eyeLeft", kind: .eyeLeft, rect: plan.eyeLeftRect, openParameter: .eyeLeftOpen, z: 30),
                 eyePart(id: "eyeRight", kind: .eyeRight, rect: plan.eyeRightRect, openParameter: .eyeRightOpen, z: 31),
             ],

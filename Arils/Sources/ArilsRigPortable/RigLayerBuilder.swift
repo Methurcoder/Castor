@@ -28,10 +28,16 @@ public enum RigLayerBuilder {
     public static func build(source: Bitmap, extractionMask: FloatPlane, plan: PartPlan,
                              maskIsAuthoritative: Bool, inpaintedSource: Bitmap? = nil,
                              poseSweep: PoseSweepPlan = .supportedHead) -> RigLayerBuild {
+        // An estimated cut-out of a picture on a background loses the gaps
+        // and the colour fringe the background leaves behind.
+        let (source, extractionMask) = maskIsAuthoritative
+            ? (source, extractionMask)
+            : MatteCleanup.apply(source: source, mask: extractionMask, plan: plan)
         let cut = LayerFactory.extract(source: source, subjectMask: extractionMask, plan: plan,
                                        sharpenMaskEdges: !maskIsAuthoritative, inpaintedSource: inpaintedSource)
         let layers = ["body": cut.body, "neckSeam": cut.neckSeam, "head": cut.head,
-                      "eyeLeft": cut.eyeLeft, "eyeRight": cut.eyeRight, "mouth": cut.mouth]
+                      "eyeLeft": cut.eyeLeft, "eyeRight": cut.eyeRight, "mouth": cut.mouth,
+                      "mouthCavity": cut.mouthCavity]
         let alpha = layers.mapValues { $0.alphaPlane() }
         var rig = BindingSynthesizer.makeRig(plan: plan)
         rig.validatedPoseLimits = PoseSweepValidator.validate(rig: rig, plan: poseSweep,
