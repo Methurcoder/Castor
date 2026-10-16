@@ -57,6 +57,9 @@ private let menuManual: UINT_PTR = 13
 private let menuEditManual: UINT_PTR = 14
 private let menuLibrary: UINT_PTR = 15
 private let wmExitSizeMove: UINT = 0x0232
+/// Sent by a second launch (Start menu, setup's Launch) to the running Castor: show the Castor window.
+private let wmShowCastor: UINT = 0x8000 + 50
+private var singleInstance: HANDLE?
 private let frameMilliseconds: UINT = 33
 
 private func wide(_ string: String) -> [WCHAR] {
@@ -421,6 +424,12 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
             } catch { showError("処理を完了できませんでした。既存のペットと保存データは保持しています。\n\n\(error.localizedDescription)") }
         }
         return 0
+    case wmShowCastor:
+        if let window = PetWindow.shared,
+           !openCreationWindow(language: window.preferences.displayLanguage, view: "library", unavailable: {}) {
+            window.showMenu()
+        }
+        return 0
     case wmExitSizeMove:
         PetWindow.shared?.rememberPosition()
         return 0
@@ -496,6 +505,22 @@ private func runNativeApplication() {
 _ = SetProcessDPIAware()
 let arguments = CommandLine.arguments.dropFirst()
 let wideHeadMovement = arguments.contains("--wide-head")
+let openingFile = arguments.contains { !$0.hasPrefix("--") }
+// One Castor per sign-in: launching it again brings the running one's window forward instead of a second pet.
+if !openingFile {
+    singleInstance = wide("Local\\CastorPet").withUnsafeBufferPointer { CreateMutexW(nil, false, $0.baseAddress) }
+    if GetLastError() == 183 /* ERROR_ALREADY_EXISTS */ {
+        _ = AllowSetForegroundWindow(DWORD.max)   // ASFW_ANY: let the running Castor come to the front
+        if let running = wide("CastorPetWindow").withUnsafeBufferPointer({ FindWindowW($0.baseAddress, nil) }) {
+            _ = PostMessageW(running, wmShowCastor, 0, 0)
+        } else if let creating = wide("CastorCreationWindow").withUnsafeBufferPointer({ FindWindowW($0.baseAddress, nil) }) {
+            _ = ShowWindow(creating, 9 /* SW_RESTORE */)
+            _ = SetForegroundWindow(creating)
+        }
+        exit(0)
+    }
+}
+var showWindowAtStart = false
 var preferences = DesktopPreferences()
 var preferenceSaveAllowed=true
 do { preferences = try DesktopPreferenceStore(root: WindowsRiggingFlow.directory).load() }
@@ -508,6 +533,8 @@ do {
         asset = try PetSource.loadAsset(contentsOf: URL(fileURLWithPath: path))
     } else if let saved = try WindowsRiggingFlow.defaultPet() {
         asset = try PetSource.loadAsset(contentsOf: saved)
+        // A plain launch shows the Castor window too, so its pages are found without the pet's menu.
+        showWindowAtStart = !arguments.contains("--pet-only")
     } else {
         guard let created = try firstPet(language: preferences.displayLanguage) else { exit(0) }
         asset = created
@@ -542,6 +569,9 @@ PetWindow.shared = window
 guard window.create() else {
     showError("Could not create the pet window.")
     exit(1)
+}
+if showWindowAtStart {
+    _ = openCreationWindow(language: window.preferences.displayLanguage, view: "library", unavailable: {})
 }
 
 var message = MSG()
