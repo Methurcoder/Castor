@@ -534,3 +534,11 @@ private func expectNeckAligned(
     let avatar = try await AutoRigPipeline().makeAvatar(from: syntheticCharacterImage())
     _ = try AvatarMetalView(avatar: avatar)
 }
+
+@Test @MainActor func faceMotionBetaIsASettingNotPartOfTheSavedPet() async throws {
+    let built = try await CharacterEngine.make(image: syntheticCharacterImage())
+    let following = CharacterEngine(avatar: built.avatar, configuration: .init(followingHair: true))
+    #expect(following.avatar.rig != built.avatar.rig)
+    let saved = try CharacterEngine(archiveData: following.archiveData())
+    #expect(saved.avatar.rig == built.avatar.rig)
+}

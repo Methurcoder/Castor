@@ -68,6 +68,9 @@ public final class CharacterEngine {
 
     public let avatar: RiggedAvatar
     public let configuration: Configuration
+    /// The avatar as built, before load-time options such as `followingHair`;
+    /// archives store this so the option stays a setting, not part of the pet.
+    private let builtAvatar: RiggedAvatar
 
     /// The head pose range this engine allows: the archive's validated
     /// limits, widened when `extendedHeadRange` is on.
@@ -140,6 +143,7 @@ public final class CharacterEngine {
     // MARK: - Creation
 
     public init(avatar: RiggedAvatar, configuration: Configuration = Configuration()) {
+        self.builtAvatar = avatar
         let avatar = configuration.followingHair ? avatar.withFollowingHair() : avatar
         self.avatar = avatar
         self.configuration = configuration
@@ -190,7 +194,7 @@ public final class CharacterEngine {
     }
 
     public func archiveData() throws -> Data {
-        try AvatarArchive(avatar: avatar).data()
+        try AvatarArchive(avatar: builtAvatar).data()
     }
 
     // MARK: - View
