@@ -33,6 +33,10 @@
     "library.deleteTitle": "このペットを削除しますか？",
     "library.deleteText": "ペットのファイルをごみ箱に移します。ごみ箱から元に戻せます。",
     "library.delete": "削除する",
+    "library.unnamed": "名前なし",
+    "library.rename": "名前を変更",
+    "library.renameTitle": "ペットの名前",
+    "library.renameSave": "保存",
   };
   const FALLBACK_EN = {
     "drop.hint": "You can also drop an image here",
@@ -49,6 +53,10 @@
     "library.deleteTitle": "Delete this pet?",
     "library.deleteText": "The pet's file moves to the Recycle Bin, where you can restore it.",
     "library.delete": "Delete",
+    "library.unnamed": "Unnamed",
+    "library.rename": "Rename",
+    "library.renameTitle": "Pet name",
+    "library.renameSave": "Save",
   };
   let language = (navigator.language || "ja").startsWith("ja") ? "ja" : "en";
   let catalog = {};
@@ -75,6 +83,20 @@
   let pets = [];              // [{ id, created, selected }]
   const thumbnails = {};      // id -> data URL
   let pendingDelete = null;
+  let pendingRename = null;
+
+  function openRename(pet) {
+    pendingRename = pet.id;
+    $("renameInput").value = pet.name || "";
+    $("renameDialog").classList.remove("hidden");
+    $("renameInput").focus();
+    $("renameInput").select();
+  }
+  function closeRename(save) {
+    if (save && pendingRename) host.send({ type: "renamePet", id: pendingRename, name: $("renameInput").value });
+    pendingRename = null;
+    $("renameDialog").classList.add("hidden");
+  }
 
   function showView(name) {
     view = name;
@@ -109,6 +131,19 @@
       } else {
         thumb.innerHTML = '<span class="loading"></span>';
       }
+      const title = document.createElement("div");
+      title.className = "pet-title";
+      const name = document.createElement("span");
+      name.className = "pet-name" + (pet.name ? "" : " unnamed");
+      name.textContent = pet.name || t("library.unnamed");
+      const rename = document.createElement("button");
+      rename.className = "pet-rename";
+      rename.title = t("library.rename");
+      rename.setAttribute("aria-label", t("library.rename"));
+      rename.innerHTML = '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>';
+      rename.addEventListener("click", (event) => { event.stopPropagation(); openRename(pet); });
+      rename.addEventListener("keydown", (event) => event.stopPropagation());
+      title.append(name, rename);
       const meta = document.createElement("div");
       meta.className = "pet-meta";
       const date = document.createElement("span");
@@ -132,7 +167,7 @@
       const choose = () => { if (!busy && !pet.selected) host.send({ type: "selectPet", id: pet.id }); };
       card.addEventListener("click", choose);
       card.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); choose(); } });
-      card.append(thumb, meta, remove);
+      card.append(thumb, title, meta, remove);
       grid.appendChild(card);
     }
   }
@@ -285,6 +320,12 @@
   const openImage = () => { if (!busy) { showView("create"); host.send({ type: "openImage" }); } };
   $("libraryButton").addEventListener("click", () => (view === "library" ? showView("create") : openLibrary()));
   $("newPetButton").addEventListener("click", () => showView("create"));
+  $("renameNo").addEventListener("click", () => closeRename(false));
+  $("renameYes").addEventListener("click", () => closeRename(true));
+  $("renameInput").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") { event.preventDefault(); closeRename(true); }
+    if (event.key === "Escape") { event.preventDefault(); closeRename(false); }
+  });
   $("deleteNo").addEventListener("click", () => { pendingDelete = null; $("confirmDelete").classList.add("hidden"); });
   $("deleteYes").addEventListener("click", () => {
     $("confirmDelete").classList.add("hidden");
@@ -344,6 +385,7 @@
       return canvas.toDataURL("image/png");
     };
     let mockPets = ["CastorPet-A.json", "CastorPet-B.json", "CastorPet-C.json"], mockSelected = "CastorPet-A.json";
+    const mockNames = { "CastorPet-A.json": "しろちゃん" };
     return {
       listen: (h) => { handler = h; },
       send: (message) => {
@@ -356,11 +398,12 @@
         }
         if (message.type === "save") { reply({ type: "busy", text: "…" }); reply({ type: "saved" }, 700); }
         if (message.type === "cancel") reply({ type: "idle" });
+        if (message.type === "renamePet") { mockNames[message.id] = message.name.trim().slice(0, 40); message = { type: "library" }; }
         if (message.type === "library" || message.type === "selectPet" || message.type === "deletePet") {
           const now = Date.now();
           if (message.type === "deletePet") mockPets = mockPets.filter((p) => p !== message.id);
           if (message.type === "selectPet") mockSelected = message.id;
-          reply({ type: "library", items: mockPets.map((id, i) => ({ id, created: new Date(now - i * 86400000).toISOString(), selected: id === mockSelected })) });
+          reply({ type: "library", items: mockPets.map((id, i) => ({ id, created: new Date(now - i * 86400000).toISOString(), selected: id === mockSelected, name: mockNames[id] || null })) });
           mockPets.forEach((id, i) => reply({ type: "thumbnail", id, data: sample() }, 300 + i * 200));
           if (message.type === "selectPet") reply({ type: "toast", message: language === "ja" ? "デスクトップのペットを入れ替えました。" : "Swapped the pet on your desktop." });
         }

@@ -70,8 +70,9 @@ public struct PortablePetLibrary {
             throw LibraryError.shownOnDesktop
         }
         try recycle(file)
-        let picture = thumbnailFile(for: file)
-        if FileManager.default.fileExists(atPath: picture.path) { try? recycle(picture) }
+        for extra in [thumbnailFile(for: file), nameFile(for: file)] where FileManager.default.fileExists(atPath: extra.path) {
+            try? recycle(extra)
+        }
     }
 
     public func selectedFile() throws -> URL? {
@@ -88,13 +89,42 @@ public struct PortablePetLibrary {
         try JSONEncoder().encode(url.path).write(to: root.appendingPathComponent("LastPet.json"), options: .atomic)
     }
 
+    public static let maximumNameLength = 40
+
+    public func nameFile(for file: URL) -> URL { file.deletingPathExtension().appendingPathExtension("name.txt") }
+
+    /// The pet's display name, if one was given.
+    public func name(of file: URL) -> String? {
+        guard let text = try? String(contentsOf: nameFile(for: file), encoding: .utf8) else { return nil }
+        let name = Self.cleanName(text)
+        return name.isEmpty ? nil : name
+    }
+
+    /// Names a saved pet; an empty name removes it. The pet file itself is never rewritten.
+    public func setName(_ name: String, for file: URL) throws {
+        guard file.deletingLastPathComponent().standardizedFileURL.path == libraryFolder.standardizedFileURL.path,
+              FileManager.default.fileExists(atPath: file.path) else { throw LibraryError.notInLibrary }
+        let cleaned = Self.cleanName(name)
+        let target = nameFile(for: file)
+        if cleaned.isEmpty { try? FileManager.default.removeItem(at: target); return }
+        try Data(cleaned.utf8).write(to: target, options: .atomic)
+    }
+
+    /// One line, no control characters, at most `maximumNameLength` characters.
+    static func cleanName(_ text: String) -> String {
+        let line = text.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) }
+        return String(String.UnicodeScalarView(line)).trimmingCharacters(in: .whitespacesAndNewlines)
+            .prefix(maximumNameLength).trimmingCharacters(in: .whitespaces)
+    }
+
     @discardableResult
-    public func saveNew(_ data: Data) throws -> URL {
+    public func saveNew(_ data: Data, name: String? = nil) throws -> URL {
         _ = try PetSource.loadAsset(data: data)
         let library = root.appendingPathComponent("Library", isDirectory: true)
         try FileManager.default.createDirectory(at: library, withIntermediateDirectories: true)
         let file = library.appendingPathComponent("CastorPet-\(UUID().uuidString).json")
         try data.write(to: file, options: .withoutOverwriting)
+        if let name { try? setName(name, for: file) }
         // Failure here leaves a recoverable new library file and the previous selection.
         try remember(file)
         return file

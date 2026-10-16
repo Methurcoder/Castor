@@ -30,6 +30,8 @@ final class CreationWindow {
     private var sources: [String] = []
     private var initialView: String?
     private var prepared: PreparedPortableRig?
+    /// The imported image's file name, offered as the new pet's name.
+    private var sourceName: String?
     private var task: Task<Void, Never>?
     private var generation = 0
     private var timer: UINT_PTR = 0
@@ -116,11 +118,17 @@ final class CreationWindow {
             sendInit()
         case "openImage":
             guard task == nil else { return }
-            do { if let url = try WindowsRiggingFlow.choose(kind: "image") { analyse(try Data(contentsOf: url)) } }
+            do {
+                if let url = try WindowsRiggingFlow.choose(kind: "image") {
+                    sourceName = url.deletingPathExtension().lastPathComponent
+                    analyse(try Data(contentsOf: url))
+                }
+            }
             catch { fail(error) }
         case "openImageData":
             guard task == nil, let text = message["data"] as? String, let comma = text.firstIndex(of: ","),
                   let data = Data(base64Encoded: String(text[text.index(after: comma)...])) else { return }
+            sourceName = (message["name"] as? String).map { URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent }
             analyse(data)
         case "save": save(message["markers"])
         case "cancel":
@@ -132,6 +140,9 @@ final class CreationWindow {
         case "library": sendLibrary()
         case "selectPet": selectPet(message["id"])
         case "deletePet": deletePet(message["id"])
+        case "renamePet":
+            guard let library, let file = libraryFile(message["id"]) else { return }
+            do { try library.setName(message["name"] as? String ?? "", for: file); sendLibrary() } catch { fail(error) }
         case "closed": finish()
         default: break
         }
@@ -243,10 +254,11 @@ final class CreationWindow {
         guard task == nil, let prepared, let markers = layout(from: value) else { return }
         do { try markers.validate(width: prepared.source.width, height: prepared.source.height) }
         catch { fail(error); return }
+        let name = sourceName
         run(say("頭・体・目・口のレイヤーと可動範囲を作成しています…", "Building the head, body, eye and mouth layers…"), {
             let asset = PetAsset.standard(try LayeredRigging.build(prepared, markers: markers))
             let data = try LayeredRigging.savedPetData(source: prepared.source, asset: asset)
-            _ = try PortablePetLibrary(root: WindowsRiggingFlow.directory).saveNew(data)
+            _ = try PortablePetLibrary(root: WindowsRiggingFlow.directory).saveNew(data, name: name)
             return asset
         }) { [self] result in
             switch result {
@@ -272,6 +284,7 @@ final class CreationWindow {
         let dates = ISO8601DateFormatter()
         post(["type": "library", "items": entries.map { entry -> [String: Any] in
             ["id": entry.file.lastPathComponent, "created": dates.string(from: entry.created),
+             "name": library.name(of: entry.file) ?? NSNull(),
              "selected": entry.file.standardizedFileURL.path == shown]
         }])
         let files = entries.map(\.file)

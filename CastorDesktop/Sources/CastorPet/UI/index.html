@@ -106,6 +106,16 @@
     </div>
   </div>
 </div>
+<div class="modal hidden" id="renameDialog">
+  <div class="modal-box glass">
+    <h3 data-t="library.renameTitle">ペットの名前</h3>
+    <input class="text-input" id="renameInput" maxlength="40" autocomplete="off">
+    <div class="modal-row">
+      <button class="ghost" id="renameNo" data-t="Cancel">キャンセル</button>
+      <button class="ghost danger" id="renameYes" data-t="library.renameSave">保存</button>
+    </div>
+  </div>
+</div>
 <div class="toast hidden" id="toast"></div>
 
 <script src="app.js"></script>

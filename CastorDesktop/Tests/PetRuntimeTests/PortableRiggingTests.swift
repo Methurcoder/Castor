@@ -127,3 +127,25 @@ private func illustration(opaque: Bool = false) throws -> PortableRigImage {
     #expect(try library.entries().map(\.file.lastPathComponent) == [second.lastPathComponent])
     #expect(throws: (any Error).self) { try library.remove(root.appendingPathComponent("elsewhere.json")) { _ in } }
 }
+
+@Test func portableLibraryNamesPetsBesideTheirFilesAndKeepsThemClean() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let library = PortablePetLibrary(root: root)
+    let draft = try PortableRigBuilder.prepare(illustration())
+    let data = try PortableRigBuilder.savedPetData(image: draft.image, archive: try PortableRigBuilder.build(image: draft.image, layout: draft.layout))
+    let named = try library.saveNew(data, name: "  うちの子\n2  ")
+    #expect(library.name(of: named) == "うちの子2")
+    #expect(try Data(contentsOf: named) == data)                 // the pet file is untouched
+    let unnamed = try library.saveNew(data)
+    #expect(library.name(of: unnamed) == nil)
+    try library.setName(String(repeating: "あ", count: 60), for: unnamed)
+    #expect(library.name(of: unnamed)?.count == PortablePetLibrary.maximumNameLength)
+    try library.setName("   ", for: unnamed)
+    #expect(library.name(of: unnamed) == nil)
+    #expect(try library.entries().count == 2)                    // name files are not pets
+    #expect(throws: (any Error).self) { try library.setName("x", for: root.appendingPathComponent("elsewhere.json")) }
+    var recycled: [String] = []
+    try library.remove(named) { recycled.append($0.lastPathComponent); try FileManager.default.removeItem(at: $0) }
+    #expect(recycled.contains(library.nameFile(for: named).lastPathComponent))
+}
