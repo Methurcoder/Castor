@@ -100,3 +100,30 @@ private func illustration(opaque: Bool = false) throws -> PortableRigImage {
     #expect(try library.selectedFile() == second)
     #expect(try Data(contentsOf: second) == data)
 }
+
+@Test func portableLibraryListsNewestFirstDrawsThumbnailsAndKeepsTheShownPet() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let library = PortablePetLibrary(root: root)
+    #expect(try library.entries().isEmpty)
+    let draft = try PortableRigBuilder.prepare(illustration())
+    let archive = try PortableRigBuilder.build(image: draft.image, layout: draft.layout)
+    let data = try PortableRigBuilder.savedPetData(image: draft.image, archive: archive)
+    let first = try library.saveNew(data)
+    Thread.sleep(forTimeInterval: 0.05)
+    let second = try library.saveNew(data)
+    #expect(try library.entries().map(\.file.lastPathComponent) == [second, first].map(\.lastPathComponent))
+    let png = try library.thumbnail(for: first)
+    #expect(png.starts(with: [137, 80, 78, 71]))
+    let picture = try PortableRigImage(png: png)
+    #expect(picture.width == 208 && picture.height == 272)
+    #expect(picture.rgba.enumerated().contains { $0.offset % 4 == 3 && $0.element > 0 })
+    #expect(try library.thumbnail(for: first) == png)          // cached beside the file
+    #expect(try library.entries().count == 2)                   // the picture is not a pet
+    var recycled: [String] = []
+    #expect(throws: (any Error).self) { try library.remove(second) { recycled.append($0.lastPathComponent) } }   // shown on the desktop
+    try library.remove(first) { recycled.append($0.lastPathComponent); try FileManager.default.removeItem(at: $0) }
+    #expect(recycled == [first.lastPathComponent, library.thumbnailFile(for: first).lastPathComponent])
+    #expect(try library.entries().map(\.file.lastPathComponent) == [second.lastPathComponent])
+    #expect(throws: (any Error).self) { try library.remove(root.appendingPathComponent("elsewhere.json")) { _ in } }
+}

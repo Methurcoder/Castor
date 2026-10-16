@@ -25,6 +25,14 @@
     "Add Quality View": "Quality用の画像を追加",
     "Check the face markers before rigging.": "リギングの前に顔マーカーを確認してください。",
     "Cancel": "キャンセル",
+    "My Pets": "ペット一覧",
+    "library.new": "＋ 新しく作る",
+    "library.empty": "まだペットがありません。画像を読み込んで作ってみましょう。",
+    "library.hint": "選ぶとデスクトップのペットが入れ替わります。削除したペットはごみ箱に移ります。",
+    "library.shown": "表示中",
+    "library.deleteTitle": "このペットを削除しますか？",
+    "library.deleteText": "ペットのファイルをごみ箱に移します。ごみ箱から元に戻せます。",
+    "library.delete": "削除する",
   };
   const FALLBACK_EN = {
     "drop.hint": "You can also drop an image here",
@@ -33,6 +41,14 @@
     "estimator.heuristic": "Illustration heuristic (model not installed)",
     "estimator.template": "Template (needs review)",
     "saved": "The pet was saved and shown on the desktop.",
+    "My Pets": "My Pets",
+    "library.new": "+ Create new",
+    "library.empty": "No pets yet. Import an image to make one.",
+    "library.hint": "Choosing a pet swaps the one on your desktop. Deleted pets go to the Recycle Bin.",
+    "library.shown": "On desktop",
+    "library.deleteTitle": "Delete this pet?",
+    "library.deleteText": "The pet's file moves to the Recycle Bin, where you can restore it.",
+    "library.delete": "Delete",
   };
   let language = (navigator.language || "ja").startsWith("ja") ? "ja" : "en";
   let catalog = {};
@@ -55,6 +71,71 @@
   // ---- State ---------------------------------------------------------------
   let prepared = null;        // { width, height, markers }
   let busy = false;
+  let view = "create";        // "create" | "library"
+  let pets = [];              // [{ id, created, selected }]
+  const thumbnails = {};      // id -> data URL
+  let pendingDelete = null;
+
+  function showView(name) {
+    view = name;
+    $("libraryState").classList.toggle("hidden", name !== "library");
+    $("emptyState").classList.toggle("hidden", name !== "create" || !!prepared);
+    $("reviewState").classList.toggle("hidden", name !== "create" || !prepared);
+    $("libraryButton").classList.toggle("on", name === "library");
+  }
+
+  function openLibrary() {
+    showView("library");
+    host.send({ type: "library" });
+  }
+
+  function renderLibrary() {
+    const grid = $("petGrid");
+    grid.innerHTML = "";
+    $("libraryEmpty").classList.toggle("hidden", pets.length > 0);
+    const format = new Intl.DateTimeFormat(language === "ja" ? "ja-JP" : "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    for (const pet of pets) {
+      const card = document.createElement("div");
+      card.className = "pet-card" + (pet.selected ? " selected" : "");
+      card.tabIndex = 0;
+      card.setAttribute("role", "button");
+      const thumb = document.createElement("div");
+      thumb.className = "pet-thumb";
+      if (thumbnails[pet.id]) {
+        const image = document.createElement("img");
+        image.src = thumbnails[pet.id];
+        image.alt = "";
+        thumb.appendChild(image);
+      } else {
+        thumb.innerHTML = '<span class="loading"></span>';
+      }
+      const meta = document.createElement("div");
+      meta.className = "pet-meta";
+      const date = document.createElement("span");
+      date.textContent = pet.created ? format.format(new Date(pet.created)) : "";
+      meta.appendChild(date);
+      if (pet.selected) {
+        const badge = document.createElement("span");
+        badge.className = "pet-badge";
+        badge.textContent = t("library.shown");
+        meta.appendChild(badge);
+      }
+      const remove = document.createElement("button");
+      remove.className = "pet-delete";
+      remove.title = t("library.delete");
+      remove.innerHTML = '<svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg>';
+      remove.addEventListener("click", (event) => {
+        event.stopPropagation();
+        pendingDelete = pet.id;
+        $("confirmDelete").classList.remove("hidden");
+      });
+      const choose = () => { if (!busy && !pet.selected) host.send({ type: "selectPet", id: pet.id }); };
+      card.addEventListener("click", choose);
+      card.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); choose(); } });
+      card.append(thumb, meta, remove);
+      grid.appendChild(card);
+    }
+  }
 
   function applyLanguage() {
     document.documentElement.lang = language;
@@ -85,6 +166,7 @@
 
   // ---- Review ---------------------------------------------------------------
   function renderReview() {
+    if (view !== "create") showView("create");
     $("emptyState").classList.add("hidden");
     $("reviewState").classList.remove("hidden");
     $("adjustButton").disabled = false;
@@ -166,6 +248,16 @@
         language = message.language === "en" ? "en" : "ja";
         catalog = message.strings || {};
         applyLanguage();
+        if (message.view === "library") openLibrary();
+        break;
+      case "showLibrary": openLibrary(); break;
+      case "library":
+        pets = message.items || [];
+        renderLibrary();
+        break;
+      case "thumbnail":
+        thumbnails[message.id] = message.data;
+        if (view === "library") renderLibrary();
         break;
       case "busy": showBusy(message.text); break;
       case "idle": hideBusy(); break;
@@ -190,7 +282,15 @@
   });
 
   // ---- UI events ------------------------------------------------------------
-  const openImage = () => { if (!busy) host.send({ type: "openImage" }); };
+  const openImage = () => { if (!busy) { showView("create"); host.send({ type: "openImage" }); } };
+  $("libraryButton").addEventListener("click", () => (view === "library" ? showView("create") : openLibrary()));
+  $("newPetButton").addEventListener("click", () => showView("create"));
+  $("deleteNo").addEventListener("click", () => { pendingDelete = null; $("confirmDelete").classList.add("hidden"); });
+  $("deleteYes").addEventListener("click", () => {
+    $("confirmDelete").classList.add("hidden");
+    if (pendingDelete) host.send({ type: "deletePet", id: pendingDelete });
+    pendingDelete = null;
+  });
   $("importButton").addEventListener("click", openImage);
   $("emptyState").addEventListener("click", openImage);
   $("adjustButton").addEventListener("click", () => layoutMarkers());
@@ -227,7 +327,7 @@
 
   applyLanguage();
   host.send({ type: "ready", sources: [...new Set([...document.querySelectorAll("[data-t]")].map((e) => e.dataset.t)
-    .concat(PARTS.map((p) => p.label)))] });
+    .concat(PARTS.map((p) => p.label)).concat(["library.shown"]))] });
 
   // ---- Mock host for previewing outside Castor ----------------------------
   function mockHost() {
@@ -243,6 +343,7 @@
       g.fillStyle = "#4a6fd0"; g.beginPath(); g.arc(258, 238, 16, 0, 7); g.arc(342, 238, 16, 0, 7); g.fill();
       return canvas.toDataURL("image/png");
     };
+    let mockPets = ["CastorPet-A.json", "CastorPet-B.json", "CastorPet-C.json"], mockSelected = "CastorPet-A.json";
     return {
       listen: (h) => { handler = h; },
       send: (message) => {
@@ -255,6 +356,14 @@
         }
         if (message.type === "save") { reply({ type: "busy", text: "…" }); reply({ type: "saved" }, 700); }
         if (message.type === "cancel") reply({ type: "idle" });
+        if (message.type === "library" || message.type === "selectPet" || message.type === "deletePet") {
+          const now = Date.now();
+          if (message.type === "deletePet") mockPets = mockPets.filter((p) => p !== message.id);
+          if (message.type === "selectPet") mockSelected = message.id;
+          reply({ type: "library", items: mockPets.map((id, i) => ({ id, created: new Date(now - i * 86400000).toISOString(), selected: id === mockSelected })) });
+          mockPets.forEach((id, i) => reply({ type: "thumbnail", id, data: sample() }, 300 + i * 200));
+          if (message.type === "selectPet") reply({ type: "toast", message: language === "ja" ? "デスクトップのペットを入れ替えました。" : "Swapped the pet on your desktop." });
+        }
       },
     };
   }

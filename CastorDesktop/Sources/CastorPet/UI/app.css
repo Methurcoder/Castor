@@ -139,6 +139,37 @@ body {
 .tool.accent { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .tool.primary { color: #fff; background: var(--accent-strong); }
 
+/* My Pets */
+.library { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 14px; padding: 22px 24px; overflow: auto; }
+.library-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.library-head h2 { font-size: 22px; font-weight: 700; }
+.pet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+.pet-card { position: relative; display: grid; gap: 8px; padding: 10px; border-radius: 16px; cursor: pointer; text-align: left;
+  border: 1px solid var(--panel-border); background: var(--track); color: var(--text); font: inherit; }
+.pet-card:hover { border-color: var(--accent); }
+.pet-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.pet-thumb { aspect-ratio: 208 / 272; border-radius: 10px; display: grid; place-items: center; overflow: hidden;
+  background-image: linear-gradient(45deg, rgba(128,128,128,.12) 25%, transparent 25%), linear-gradient(-45deg, rgba(128,128,128,.12) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(128,128,128,.12) 75%), linear-gradient(-45deg, transparent 75%, rgba(128,128,128,.12) 75%);
+  background-size: 16px 16px; background-position: 0 0, 0 8px, 8px -8px, -8px 0; }
+.pet-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.pet-thumb .loading { width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--track); border-top-color: var(--accent); animation: spin 0.9s linear infinite; }
+.pet-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 12.5px; color: var(--sub); }
+.pet-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--accent-strong); color: #fff; }
+.pet-delete { position: absolute; top: 14px; right: 14px; width: 28px; height: 28px; border-radius: 50%; border: 0; cursor: pointer;
+  display: none; place-items: center; background: rgba(0,0,0,.55); color: #fff; }
+.pet-delete svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.pet-card:hover .pet-delete, .pet-delete:focus-visible { display: grid; }
+.pet-card.selected .pet-delete { display: none; }
+.library-empty { color: var(--sub); font-size: 14px; padding: 30px 0; text-align: center; }
+.library .hint { color: var(--sub); font-size: 12.5px; margin-top: auto; }
+.modal { position: fixed; inset: 0; z-index: 6; display: grid; place-items: center; background: rgba(0,0,0,.45); }
+.modal-box { width: min(420px, 90vw); border-radius: 16px; padding: 22px; display: grid; gap: 12px; }
+.modal-box h3 { font-size: 17px; }
+.modal-box p { font-size: 13.5px; color: var(--sub); line-height: 1.6; }
+.modal-row { display: flex; justify-content: flex-end; gap: 10px; }
+.ghost.danger { color: #fff; background: var(--accent-strong); border-color: transparent; }
+
 .toast { position: fixed; left: 50%; bottom: 112px; transform: translateX(-50%); z-index: 5; padding: 10px 18px; border-radius: 12px; background: var(--panel); border: 1px solid var(--panel-border); backdrop-filter: blur(20px); font-size: 14px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
 .toast.error { border-color: var(--accent); }
 .hidden { display: none !important; }

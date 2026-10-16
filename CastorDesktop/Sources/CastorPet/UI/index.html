@@ -16,6 +16,9 @@
     <button role="tab" data-mode="rig" class="on" data-t="Rigging">リギング</button>
   </div>
   <div class="round-buttons">
+    <button class="round" id="libraryButton" data-title="My Pets" title="ペット一覧">
+      <svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/></svg>
+    </button>
     <button class="round" id="voiceButton" data-title="Voice" title="声">
       <svg viewBox="0 0 24 24"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2" /></svg>
     </button>
@@ -45,6 +48,16 @@
         <ul class="legend" id="legend"></ul>
         <ul class="warnings" id="warnings"></ul>
       </aside>
+    </div>
+
+    <div class="library hidden" id="libraryState">
+      <div class="library-head">
+        <h2 data-t="My Pets">ペット一覧</h2>
+        <button class="tool accent" id="newPetButton"><span data-t="library.new">＋ 新しく作る</span></button>
+      </div>
+      <div class="pet-grid" id="petGrid"></div>
+      <p class="library-empty hidden" id="libraryEmpty" data-t="library.empty">まだペットがありません。画像を読み込んで作ってみましょう。</p>
+      <p class="hint" data-t="library.hint">選ぶとデスクトップのペットが入れ替わります。削除したペットはごみ箱に移ります。</p>
     </div>
 
     <div class="busy hidden" id="busy">
@@ -83,6 +96,16 @@
   </nav>
 </main>
 
+<div class="modal hidden" id="confirmDelete">
+  <div class="modal-box glass">
+    <h3 data-t="library.deleteTitle">このペットを削除しますか？</h3>
+    <p data-t="library.deleteText">ペットのファイルをごみ箱に移します。ごみ箱から元に戻せます。</p>
+    <div class="modal-row">
+      <button class="ghost" id="deleteNo" data-t="Cancel">キャンセル</button>
+      <button class="ghost danger" id="deleteYes" data-t="library.delete">削除する</button>
+    </div>
+  </div>
+</div>
 <div class="toast hidden" id="toast"></div>
 
 <script src="app.js"></script>

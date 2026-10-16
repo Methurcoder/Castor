@@ -28,6 +28,7 @@ final class CreationWindow {
     private let onSettings: () -> SettingsDisplayLanguage?
     private let onUnavailable: () -> Void
     private var sources: [String] = []
+    private var initialView: String?
     private var prepared: PreparedPortableRig?
     private var task: Task<Void, Never>?
     private var generation = 0
@@ -44,13 +45,18 @@ final class CreationWindow {
     /// Shows the window, or brings an open one forward. False when WebView2 or
     /// the page files are missing; callers then use the native dialogs.
     /// `onUnavailable` covers WebView2 failing after the window appeared.
-    static func open(language: SettingsDisplayLanguage, onCreated: @escaping (PetAsset) -> Void,
+    /// `view: "library"` opens on My Pets instead of creation.
+    static func open(language: SettingsDisplayLanguage, view: String? = nil, onCreated: @escaping (PetAsset) -> Void,
                      onSettings: @escaping () -> SettingsDisplayLanguage?, onUnavailable: @escaping () -> Void) -> Bool {
-        if current != nil { return castor_webview_open("Castor", "", "", 0, 0, 1, nil, nil) == 1 }
+        if let window = current {
+            if view == "library" { window.post(["type": "showLibrary"]) }
+            return castor_webview_open("Castor", "", "", 0, 0, 1, nil, nil) == 1
+        }
         guard let ui = uiFolder, let root = try? WindowsRiggingFlow.directory else { return false }
         let data = root.appendingPathComponent("WebView2", isDirectory: true)
         try? FileManager.default.createDirectory(at: data, withIntermediateDirectories: true)
         let window = CreationWindow(language: language, onCreated: onCreated, onSettings: onSettings, onUnavailable: onUnavailable)
+        window.initialView = view
         current = window
         let status = castor_webview_open("Castor", nativePath(ui), nativePath(data), 1180, 800, castor_system_dark(), { json, _ in
             guard let json, let data = String(cString: json).data(using: .utf8),
@@ -123,6 +129,9 @@ final class CreationWindow {
         case "voice", "settings":
             if let updated = onSettings() { language = updated; sendInit() }
         case "aiSetup": suggest()
+        case "library": sendLibrary()
+        case "selectPet": selectPet(message["id"])
+        case "deletePet": deletePet(message["id"])
         case "closed": finish()
         default: break
         }
@@ -136,7 +145,9 @@ final class CreationWindow {
             let label = CastorAppStrings.label(source, language: language)
             if label != source { strings[source] = label }
         }
-        post(["type": "init", "language": language == .japanese ? "ja" : "en", "strings": strings])
+        var message: [String: Any] = ["type": "init", "language": language == .japanese ? "ja" : "en", "strings": strings]
+        if let view = initialView { message["view"] = view; initialView = nil }
+        post(message)
     }
 
     private func post(_ message: [String: Any]) {
@@ -242,9 +253,70 @@ final class CreationWindow {
             case .success(let asset):
                 onCreated(asset)
                 post(["type": "saved", "message": say("ペットを保存して、デスクトップに表示しました。", "The pet was saved and shown on the desktop.")])
+                sendLibrary()
             case .failure(let error):
                 fail(error)
             }
+        }
+    }
+
+    // MARK: My Pets
+
+    private var library: PortablePetLibrary? { (try? WindowsRiggingFlow.directory).map { PortablePetLibrary(root: $0) } }
+
+    /// The list now; pictures follow one by one as they are drawn (cached after the first time).
+    private func sendLibrary() {
+        guard let library else { return }
+        let entries = (try? library.entries()) ?? []
+        let shown = (try? library.selectedFile())?.standardizedFileURL.path
+        let dates = ISO8601DateFormatter()
+        post(["type": "library", "items": entries.map { entry -> [String: Any] in
+            ["id": entry.file.lastPathComponent, "created": dates.string(from: entry.created),
+             "selected": entry.file.standardizedFileURL.path == shown]
+        }])
+        let files = entries.map(\.file)
+        Task.detached(priority: .utility) {
+            for file in files {
+                guard let png = try? library.thumbnail(for: file) else { continue }
+                let message = Box(["type": "thumbnail", "id": file.lastPathComponent, "data": "data:image/png;base64," + png.base64EncodedString()])
+                CreationWindow.enqueue { CreationWindow.current?.post(message.value) }
+            }
+        }
+    }
+
+    /// Only names the page received from `sendLibrary`, resolved inside the library folder.
+    private func libraryFile(_ id: Any?) -> URL? {
+        guard let id = id as? String, let library else { return nil }
+        return (try? library.entries())?.first { $0.file.lastPathComponent == id }?.file
+    }
+
+    private func selectPet(_ id: Any?) {
+        guard task == nil, let library, let file = libraryFile(id) else { return }
+        run(say("ペットを読み込んでいます…", "Loading the pet…"), { try PetSource.loadAsset(contentsOf: file) }) { [self] result in
+            switch result {
+            case .success(let asset):
+                do { try library.remember(file) } catch { fail(error); return }
+                onCreated(asset)
+                post(["type": "idle"])
+                post(["type": "toast", "message": say("デスクトップのペットを入れ替えました。", "Swapped the pet on your desktop.")])
+                sendLibrary()
+            case .failure(let error):
+                fail(error)
+            }
+        }
+    }
+
+    private func deletePet(_ id: Any?) {
+        guard task == nil, let library, let file = libraryFile(id) else { return }
+        do {
+            try library.remove(file) { url in
+                guard CreationWindow.nativePath(url).withCString({ castor_recycle_directory($0) }) > 0 else {
+                    throw CocoaError(.fileWriteUnknown)
+                }
+            }
+            sendLibrary()
+        } catch {
+            fail(error)
         }
     }
 

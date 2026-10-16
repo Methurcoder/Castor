@@ -55,6 +55,7 @@ private let menuClearChat: UINT_PTR = 11
 private let menuListen: UINT_PTR = 12
 private let menuManual: UINT_PTR = 13
 private let menuEditManual: UINT_PTR = 14
+private let menuLibrary: UINT_PTR = 15
 private let wmExitSizeMove: UINT = 0x0232
 private let frameMilliseconds: UINT = 33
 
@@ -316,8 +317,8 @@ private final class PetWindow {
     func showMenu() {
         guard let hwnd, let menu = CreatePopupMenu() else { return }
         let japanese=preferences.displayLanguage == .japanese
-        for (id, title) in [(menuNew, japanese ? "1枚から新しいペットを作る":"Create a pet from one image"), (menuNewQuality, japanese ? "2枚からQualityを作る":"Create Quality from two images"),
-                            (menuManual, japanese ? "手動リグを作る":"Create a manual rig"), (menuOpen, japanese ? "保存したペットを開く":"Open a saved pet"), (menuExport, japanese ? "ペットを書き出す":"Export pet"), (menuGIF, japanese ? "GIFを作ってXで共有":"Create GIF and share on X"), (menuChat, japanese ? "ローカル会話":"Chat / Request an action"), (menuSettings, japanese ? "設定・モデル・性格":"Settings / Models / Personality"), (menuClearChat, japanese ? "会話履歴を消す":"Clear conversation"), (menuListen, japanese ? "マイクから会話する（確認して送信）":"Speak (review before sending)")] {
+        for (id, title) in [(menuNew, japanese ? "1枚から新しいペットを作る":"Create a pet from one image"), (menuLibrary, japanese ? "ペット一覧（作ったペットを選ぶ）":"My Pets (choose a saved pet)"), (menuNewQuality, japanese ? "2枚からQualityを作る":"Create Quality from two images"),
+                            (menuManual, japanese ? "手動リグを作る":"Create a manual rig"), (menuOpen, japanese ? "ファイルからペットを開く":"Open a pet file"), (menuExport, japanese ? "ペットを書き出す":"Export pet"), (menuGIF, japanese ? "GIFを作ってXで共有":"Create GIF and share on X"), (menuChat, japanese ? "ローカル会話":"Chat / Request an action"), (menuSettings, japanese ? "設定・モデル・性格":"Settings / Models / Personality"), (menuClearChat, japanese ? "会話履歴を消す":"Clear conversation"), (menuListen, japanese ? "マイクから会話する（確認して送信）":"Speak (review before sending)")] {
             let title = wide(title)
             _ = title.withUnsafeBufferPointer { AppendMenuW(menu, mfString, id, $0.baseAddress) }
         }
@@ -391,6 +392,9 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
                 if command == UInt16(menuEditManual), case let .manual(pet) = window.currentAsset {
                     asset = try WindowsManualRiggingFlow.edit(pet, language: window.preferences.displayLanguage)
                 }
+                if command == UInt16(menuLibrary), !openCreationWindow(language: window.preferences.displayLanguage, view: "library", unavailable: legacyNewPet) {
+                    asset = try WindowsRiggingFlow.startNewPet(quality: false)
+                }
                 if command == UInt16(menuNew), !openCreationWindow(language: window.preferences.displayLanguage, unavailable: legacyNewPet) {
                     asset = try WindowsRiggingFlow.startNewPet(quality: false)
                 }
@@ -428,9 +432,9 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
 
 /// The Mac-style creation window. New pets replace the one on the desktop;
 /// before the pet window exists (first launch) they go to `firstPet`.
-private func openCreationWindow(language: SettingsDisplayLanguage, firstPet: ((PetAsset) -> Void)? = nil,
+private func openCreationWindow(language: SettingsDisplayLanguage, view: String? = nil, firstPet: ((PetAsset) -> Void)? = nil,
                                 unavailable: @escaping () -> Void) -> Bool {
-    CreationWindow.open(language: language, onCreated: { asset in
+    CreationWindow.open(language: language, view: view, onCreated: { asset in
         if let window = PetWindow.shared { window.show(asset) } else { firstPet?(asset) }
     }, onSettings: creationSettings, onUnavailable: unavailable)
 }
