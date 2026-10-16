@@ -149,3 +149,22 @@ private func illustration(opaque: Bool = false) throws -> PortableRigImage {
     try library.remove(named) { recycled.append($0.lastPathComponent); try FileManager.default.removeItem(at: $0) }
     #expect(recycled.contains(library.nameFile(for: named).lastPathComponent))
 }
+
+@Test func preferencesSurviveTheSettingsPageRoundTrip() throws {
+    var original = DesktopPreferences()
+    original.petOpacity = 0.6; original.scale = 1.25; original.neuralSpeed = 1.5; original.evasionStyle = .robot
+    original.provider = .ollama; original.ollamaModel = "qwen3:8b"; original.positionX = 120
+    // What the page receives, edits as plain JSON, and sends back.
+    var object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
+    object["scale"] = 2                    // a whole number, as the page's select sends it
+    object["automaticTurn"] = false
+    object["displayLanguage"] = "en"
+    let decoded = try JSONDecoder().decode(DesktopPreferences.self, from: JSONSerialization.data(withJSONObject: object))
+    var expected = original
+    expected.scale = 2; expected.automaticTurn = false; expected.displayLanguage = .english
+    #expect(decoded == expected)
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    try DesktopPreferenceStore(root: root).save(decoded)
+    #expect(try DesktopPreferenceStore(root: root).load() == decoded)
+}

@@ -27,6 +27,9 @@ final class CreationWindow {
     private let onCreated: (PetAsset) -> Void
     private let onSettings: () -> SettingsDisplayLanguage?
     private let onUnavailable: () -> Void
+    /// The settings page reads and stores the same preferences as the pet.
+    private let currentPreferences: () -> DesktopPreferences
+    private let applyPreferences: (DesktopPreferences) throws -> Void
     private var sources: [String] = []
     private var initialView: String?
     private var prepared: PreparedPortableRig?
@@ -37,11 +40,14 @@ final class CreationWindow {
     private var timer: UINT_PTR = 0
 
     private init(language: SettingsDisplayLanguage, onCreated: @escaping (PetAsset) -> Void,
-                 onSettings: @escaping () -> SettingsDisplayLanguage?, onUnavailable: @escaping () -> Void) {
+                 onSettings: @escaping () -> SettingsDisplayLanguage?, onUnavailable: @escaping () -> Void,
+                 currentPreferences: @escaping () -> DesktopPreferences, applyPreferences: @escaping (DesktopPreferences) throws -> Void) {
         self.language = language
         self.onCreated = onCreated
         self.onSettings = onSettings
         self.onUnavailable = onUnavailable
+        self.currentPreferences = currentPreferences
+        self.applyPreferences = applyPreferences
     }
 
     /// Shows the window, or brings an open one forward. False when WebView2 or
@@ -49,15 +55,19 @@ final class CreationWindow {
     /// `onUnavailable` covers WebView2 failing after the window appeared.
     /// `view: "library"` opens on My Pets instead of creation.
     static func open(language: SettingsDisplayLanguage, view: String? = nil, onCreated: @escaping (PetAsset) -> Void,
-                     onSettings: @escaping () -> SettingsDisplayLanguage?, onUnavailable: @escaping () -> Void) -> Bool {
+                     onSettings: @escaping () -> SettingsDisplayLanguage?, onUnavailable: @escaping () -> Void,
+                     currentPreferences: @escaping () -> DesktopPreferences,
+                     applyPreferences: @escaping (DesktopPreferences) throws -> Void) -> Bool {
         if let window = current {
             if view == "library" { window.post(["type": "showLibrary"]) }
+            if view == "settings" || view == "voice" { window.post(["type": "showSettings", "page": view == "voice" ? "voice" : NSNull()]) }
             return castor_webview_open("Castor", "", "", 0, 0, 1, nil, nil) == 1
         }
         guard let ui = uiFolder, let root = try? WindowsRiggingFlow.directory else { return false }
         let data = root.appendingPathComponent("WebView2", isDirectory: true)
         try? FileManager.default.createDirectory(at: data, withIntermediateDirectories: true)
-        let window = CreationWindow(language: language, onCreated: onCreated, onSettings: onSettings, onUnavailable: onUnavailable)
+        let window = CreationWindow(language: language, onCreated: onCreated, onSettings: onSettings, onUnavailable: onUnavailable,
+                                    currentPreferences: currentPreferences, applyPreferences: applyPreferences)
         window.initialView = view
         current = window
         let status = castor_webview_open("Castor", nativePath(ui), nativePath(data), 1180, 800, castor_system_dark(), { json, _ in
@@ -140,6 +150,10 @@ final class CreationWindow {
         case "library": sendLibrary()
         case "selectPet": selectPet(message["id"])
         case "deletePet": deletePet(message["id"])
+        case "settingsLoad": sendSettings(type: "settings")
+        case "settingsSave": saveSettings(message["prefs"])
+        case "loadModels": loadModels(message["prefs"])
+        case "voiceAction": voiceAction(message["action"] as? String, message["prefs"])
         case "renamePet":
             guard let library, let file = libraryFile(message["id"]) else { return }
             do { try library.setName(message["name"] as? String ?? "", for: file); sendLibrary() } catch { fail(error) }
@@ -270,6 +284,85 @@ final class CreationWindow {
                 fail(error)
             }
         }
+    }
+
+    // MARK: Settings
+
+    private func preferencesObject(_ preferences: DesktopPreferences) throws -> Any {
+        try JSONSerialization.jsonObject(with: JSONEncoder().encode(preferences))
+    }
+
+    /// Decodes the page's copy with the store's own rules; unknown or missing keys keep their defaults.
+    private func decodePreferences(_ value: Any?) throws -> DesktopPreferences {
+        guard let value, JSONSerialization.isValidJSONObject(value) else { throw DesktopPreferenceStore.StoreError.invalidPreferences }
+        return try JSONDecoder().decode(DesktopPreferences.self, from: JSONSerialization.data(withJSONObject: value))
+    }
+
+    private func sendSettings(type: String) {
+        do {
+            var message: [String: Any] = ["type": type, "prefs": try preferencesObject(currentPreferences())]
+            if type == "settings" {
+                message["voices"] = ((try? WindowsVoiceFlow.voices()) ?? []).map { ["id": $0.id, "name": $0.name] }
+            }
+            post(message)
+        } catch { fail(error) }
+    }
+
+    private func saveSettings(_ value: Any?) {
+        do {
+            let updated = try decodePreferences(value)
+            // The same checks the native settings applied before storing.
+            _ = try DesktopConversation.endpoint(updated.lmStudioEndpoint)
+            _ = try DesktopConversation.endpoint(updated.ollamaEndpoint)
+            guard let neural = URL(string: updated.neuralEndpoint), (0.5...2).contains(updated.neuralSpeed) else {
+                throw DesktopPreferenceStore.StoreError.invalidPreferences
+            }
+            _ = try NeuralSpeechTransport(endpoint: neural)
+            try applyPreferences(updated)
+            if updated.displayLanguage != language {
+                language = updated.displayLanguage
+                sendInit()
+            }
+            sendSettings(type: "settingsSaved")
+        } catch { fail(error) }
+    }
+
+    private func loadModels(_ value: Any?) {
+        guard task == nil, let preferences = try? decodePreferences(value) else { return }
+        let small = CastorSettingsStrings.text("desktop.settings.models.small_suffix", language: language)
+        run(say("モデル一覧を読み込んでいます…", "Loading models…"), { try await DesktopConversation.models(preferences: preferences) }) { [self] result in
+            switch result {
+            case .success(let models):
+                post(["type": "idle"])
+                post(["type": "models", "items": models.map { model -> [String: Any] in
+                    ["name": model.name, "label": model.name + (model.parameterSizeLabel.map { " (\($0))" } ?? "") + (model.isSmallModel ? small : "")]
+                }])
+            case .failure(let error):
+                fail(error)
+            }
+        }
+    }
+
+    private func voiceAction(_ action: String?, _ value: Any?) {
+        do {
+            switch action {
+            case "prepare":
+                guard task == nil, let preferences = try? decodePreferences(value), let endpoint = URL(string: preferences.neuralEndpoint) else { return }
+                let transport = try NeuralSpeechTransport(endpoint: endpoint)
+                run(say("音声モデルを準備しています。追加のモデルは大きい場合があります…", "Preparing the voice model. Extra models can be large…"), {
+                    try await transport.preload(model: preferences.neuralModel)
+                }) { [self] result in
+                    if case .failure(let error) = result { fail(error); return }
+                    post(["type": "idle"])
+                    post(["type": "toast", "message": say("音声モデルの準備ができました。", "The voice model is ready.")])
+                }
+            case "openSetup": try WindowsRiggingFlow.openSetup()
+            case "openHelper": try WindowsRiggingFlow.startSpeechHelper()
+            case "recognition": post(["type": "recognition", "text": WindowsVoiceFlow.recognitionStatus(language: language)])
+            case "micPrivacy": _ = "ms-settings:privacy-microphone".withCString { castor_open_url($0) }
+            default: break
+            }
+        } catch { fail(error) }
     }
 
     // MARK: My Pets

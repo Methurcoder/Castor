@@ -11,21 +11,11 @@
 <div class="glow glow-b"></div>
 
 <header class="top">
-  <div class="segmented" id="modeSwitch" role="tablist">
-    <button role="tab" data-mode="ai" data-t="Setting with AI">AIで設定</button>
-    <button role="tab" data-mode="rig" class="on" data-t="Rigging">リギング</button>
-  </div>
-  <div class="round-buttons">
-    <button class="round" id="libraryButton" data-title="My Pets" title="ペット一覧">
-      <svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/></svg>
-    </button>
-    <button class="round" id="voiceButton" data-title="Voice" title="声">
-      <svg viewBox="0 0 24 24"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2" /></svg>
-    </button>
-    <button class="round" id="settingsButton" data-title="Settings" title="設定">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.6M12 18.6v2.6M21.2 12h-2.6M5.4 12H2.8M18.5 5.5l-1.8 1.8M7.3 16.7l-1.8 1.8M18.5 18.5l-1.8-1.8M7.3 7.3 5.5 5.5"/></svg>
-    </button>
-  </div>
+  <nav class="segmented tabs" id="tabs" role="tablist">
+    <button role="tab" data-view="create" class="on" data-t="tab.create">作成</button>
+    <button role="tab" data-view="library" data-t="My Pets">ペット一覧</button>
+    <button role="tab" data-view="settings" data-t="Settings">設定</button>
+  </nav>
 </header>
 
 <main class="stage">
@@ -60,6 +50,23 @@
       <p class="hint" data-t="library.hint">選ぶとデスクトップのペットが入れ替わります。削除したペットはごみ箱に移ります。</p>
     </div>
 
+    <div class="settings hidden" id="settingsState">
+      <nav class="settings-nav" id="settingsNav">
+        <button data-page="general">一般</button>
+        <button data-page="voice">音声</button>
+        <button data-page="ai">AI</button>
+        <button data-page="advanced">詳細</button>
+      </nav>
+      <div class="settings-body">
+        <div class="settings-form" id="settingsForm"></div>
+        <div class="settings-footer">
+          <span class="settings-status" id="settingsStatus"></span>
+          <button class="ghost" id="settingsRevert">元に戻す</button>
+          <button class="ghost danger" id="settingsSave">保存</button>
+        </div>
+      </div>
+    </div>
+
     <div class="busy hidden" id="busy">
       <div class="spinner"></div>
       <p id="busyText"></p>
@@ -78,6 +85,10 @@
       <button class="tool" id="adjustButton" disabled>
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="9" cy="10" r="1"/><circle cx="15" cy="10" r="1"/><path d="M9 15c1.7 1.4 4.3 1.4 6 0"/></svg>
         <span data-t="Adjust Face">顔を調整</span>
+      </button>
+      <button class="tool" id="aiButton" disabled>
+        <svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18"/></svg>
+        <span data-t="ai.suggest">AIで目印を提案</span>
       </button>
       <button class="tool" id="saveButton" disabled>
         <svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M5 19h14"/></svg>
@@ -119,5 +130,6 @@
 <div class="toast hidden" id="toast"></div>
 
 <script src="app.js"></script>
+<script src="settings.js"></script>
 </body>
 </html>

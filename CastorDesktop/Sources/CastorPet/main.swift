@@ -369,7 +369,11 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
                     if case var .quality(quality) = asset { quality.preferredPresentationMode = window.player.presentationMode; asset = .quality(quality) }
                     try WindowsRiggingFlow.shareGIF(asset: asset)
                 }
-                if command == UInt16(menuSettings), let updated = try WindowsConversationFlow.settings(window.preferences) { try window.applyPreferences(updated) }
+                // Settings open on the creation window's settings page; the native list remains without WebView2.
+                if command == UInt16(menuSettings), !openCreationWindow(language: window.preferences.displayLanguage, view: "settings", unavailable: {
+                    do { if let window = PetWindow.shared, let updated = try WindowsConversationFlow.settings(window.preferences) { try window.applyPreferences(updated) } }
+                    catch { showError(error.localizedDescription) }
+                }), let updated = try WindowsConversationFlow.settings(window.preferences) { try window.applyPreferences(updated) }
                 if command == UInt16(menuChat) || command == UInt16(menuListen) {
                     var prompt = ""
                     if command == UInt16(menuListen) {
@@ -436,7 +440,13 @@ private func openCreationWindow(language: SettingsDisplayLanguage, view: String?
                                 unavailable: @escaping () -> Void) -> Bool {
     CreationWindow.open(language: language, view: view, onCreated: { asset in
         if let window = PetWindow.shared { window.show(asset) } else { firstPet?(asset) }
-    }, onSettings: creationSettings, onUnavailable: unavailable)
+    }, onSettings: creationSettings, onUnavailable: unavailable, currentPreferences: {
+        PetWindow.shared?.preferences ?? ((try? DesktopPreferenceStore(root: WindowsRiggingFlow.directory).load()) ?? DesktopPreferences())
+    }, applyPreferences: { updated in
+        if let window = PetWindow.shared { try window.applyPreferences(updated) }
+        else { try DesktopPreferenceStore(root: WindowsRiggingFlow.directory).save(updated) }
+        castor_set_ui_language(updated.displayLanguage == .japanese ? 1 : 0)
+    })
 }
 
 /// The native dialogs, for systems without the WebView2 Runtime.

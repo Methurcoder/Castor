@@ -26,6 +26,8 @@
     "Check the face markers before rigging.": "リギングの前に顔マーカーを確認してください。",
     "Cancel": "キャンセル",
     "My Pets": "ペット一覧",
+    "tab.create": "作成",
+    "ai.suggest": "AIで目印を提案",
     "library.new": "＋ 新しく作る",
     "library.empty": "まだペットがありません。画像を読み込んで作ってみましょう。",
     "library.hint": "選ぶとデスクトップのペットが入れ替わります。削除したペットはごみ箱に移ります。",
@@ -46,6 +48,8 @@
     "estimator.template": "Template (needs review)",
     "saved": "The pet was saved and shown on the desktop.",
     "My Pets": "My Pets",
+    "tab.create": "Create",
+    "ai.suggest": "Suggest markers with AI",
     "library.new": "+ Create new",
     "library.empty": "No pets yet. Import an image to make one.",
     "library.hint": "Choosing a pet swaps the one on your desktop. Deleted pets go to the Recycle Bin.",
@@ -101,9 +105,10 @@
   function showView(name) {
     view = name;
     $("libraryState").classList.toggle("hidden", name !== "library");
+    $("settingsState").classList.toggle("hidden", name !== "settings");
     $("emptyState").classList.toggle("hidden", name !== "create" || !!prepared);
     $("reviewState").classList.toggle("hidden", name !== "create" || !prepared);
-    $("libraryButton").classList.toggle("on", name === "library");
+    document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.view === name));
   }
 
   function openLibrary() {
@@ -205,6 +210,7 @@
     $("emptyState").classList.add("hidden");
     $("reviewState").classList.remove("hidden");
     $("adjustButton").disabled = false;
+    $("aiButton").disabled = false;
     $("saveButton").disabled = false;
     $("saveButton").classList.add("primary");
 
@@ -284,7 +290,10 @@
         catalog = message.strings || {};
         applyLanguage();
         if (message.view === "library") openLibrary();
+        if (message.view === "settings" || message.view === "voice") window.castorSettings.open(message.view === "voice" ? "voice" : null);
+        if (window.castorSettings) window.castorSettings.rerender();
         break;
+      case "showSettings": window.castorSettings.open(message.page || null); break;
       case "showLibrary": openLibrary(); break;
       case "library":
         pets = message.items || [];
@@ -306,6 +315,7 @@
       case "saved": hideBusy(); toast(message.message || t("saved")); break;
       case "error": hideBusy(); toast(message.message, true); break;
       case "toast": toast(message.message); break;
+      default: if (window.castorSettings) window.castorSettings.receive(message);
       case "markers":
         // An AI proposal: shown for review, never saved without the user.
         if (!prepared) break;
@@ -318,7 +328,12 @@
 
   // ---- UI events ------------------------------------------------------------
   const openImage = () => { if (!busy) { showView("create"); host.send({ type: "openImage" }); } };
-  $("libraryButton").addEventListener("click", () => (view === "library" ? showView("create") : openLibrary()));
+  document.querySelectorAll("#tabs button").forEach((tab) => tab.addEventListener("click", () => {
+    if (tab.dataset.view === "library") openLibrary();
+    else if (tab.dataset.view === "settings") window.castorSettings.open();
+    else showView("create");
+  }));
+  $("aiButton").addEventListener("click", () => { if (!busy && prepared) host.send({ type: "aiSetup" }); });
   $("newPetButton").addEventListener("click", () => showView("create"));
   $("renameNo").addEventListener("click", () => closeRename(false));
   $("renameYes").addEventListener("click", () => closeRename(true));
@@ -340,14 +355,6 @@
     host.send({ type: "save", markers: prepared.markers });
   });
   $("cancelButton").addEventListener("click", () => host.send({ type: "cancel" }));
-  $("voiceButton").addEventListener("click", () => host.send({ type: "voice" }));
-  $("settingsButton").addEventListener("click", () => host.send({ type: "settings" }));
-  for (const button of $("modeSwitch").querySelectorAll("button")) {
-    button.addEventListener("click", () => {
-      if (button.dataset.mode === "ai") { host.send({ type: "aiSetup" }); return; }
-      $("modeSwitch").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === button));
-    });
-  }
   window.addEventListener("resize", layoutMarkers);
 
   // Drag and drop an image file from Explorer.
@@ -365,6 +372,9 @@
     reader.onload = () => host.send({ type: "openImageData", name: file.name, data: String(reader.result) });
     reader.readAsDataURL(file);
   });
+
+  // A small surface for settings.js (loaded after this file).
+  window.castorUI = { send: (message) => host.send(message), showView, toast, language: () => language };
 
   applyLanguage();
   host.send({ type: "ready", sources: [...new Set([...document.querySelectorAll("[data-t]")].map((e) => e.dataset.t)
