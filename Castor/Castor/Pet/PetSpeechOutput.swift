@@ -51,6 +51,8 @@ final class PetSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
     private var audioPlayer: AVAudioPlayer?
     private var synthesisTask: Task<Void, Never>?
     private var prefetchedAudio: (index: Int, task: Task<Data, Error>)?
+    /// A streamed reply collected for a neural voice until the stream ends.
+    private var pendingNeuralText = ""
     private var speechMetadata = OllamaSpeechMetadata.fallback
     private var shouldUseNeuralVoice = true
     private var languageContext = PetSpeechLanguageContext()
@@ -179,7 +181,7 @@ final class PetSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
 
         shouldUseNeuralVoice = Self.shouldAttemptNeuralVoice(engine: NeuralVoiceEngineStore.selected)
         segments = shouldUseNeuralVoice
-            ? PetSpeechSegmenter.neuralReplySegments(from: text, isFirstSpokenText: true)
+            ? PetSpeechSegmenter.neuralReplySegments(from: text)
             : PetSpeechSegmenter.spokenReplySegments(from: text, isFirstSpokenText: true)
         Self.logger.info("Speak requested; chars=\(text.count) segments=\(self.segments.count)")
         guard !segments.isEmpty else {
@@ -222,10 +224,10 @@ final class PetSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
         hasReportedFirstAudioReceived = false
     }
 
-    /// Appends a sentence produced mid-stream. The sentence is re-split with the same tuning as
-    /// `speak(...)` (the system voice: short natural phrases, the very first spoken text shrunk
-    /// to its earliest pause; a neural voice: whole sentences) so TTS request sizes and reader
-    /// granularity match the full-reply path. If
+    /// Appends a sentence produced mid-stream. For the system voice the sentence is re-split with
+    /// the same tuning as `speak(...)` (short natural phrases; the very first spoken text shrunk
+    /// to its earliest pause) so TTS request sizes and reader granularity match the full-reply
+    /// path. A neural voice collects the sentences and reads the whole reply at `finishStreaming()`. If
     /// nothing is currently speaking, playback starts immediately; otherwise the new segments are
     /// queued and picked up once earlier ones finish. No-op if `beginStreaming(...)` was not
     /// called or the stream was already stopped/finished.
@@ -236,21 +238,14 @@ final class PetSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
 
         let wasEmpty = segments.isEmpty
         languageContext.observe(sentence)
-        var newSegments = shouldUseNeuralVoice
-            ? PetSpeechSegmenter.neuralReplySegments(from: sentence, isFirstSpokenText: wasEmpty)
-            : PetSpeechSegmenter.spokenReplySegments(from: sentence, isFirstSpokenText: wasEmpty)
-        guard !newSegments.isEmpty else {
+        // A neural voice reads the whole reply at once, when the stream ends.
+        if shouldUseNeuralVoice {
+            pendingNeuralText += pendingNeuralText.isEmpty ? sentence : " " + sentence
             return
         }
-        // A neural voice reads a queued sentence and the next one together,
-        // as long as neither has been sent for synthesis yet.
-        if shouldUseNeuralVoice, let lastIndex = segments.indices.last,
-           lastIndex > currentSegmentIndex, prefetchedAudio?.index != lastIndex,
-           let merged = PetSpeechSegmenter.neuralJoin(segments[lastIndex], newSegments[0]) {
-            segments[lastIndex] = merged
-            newSegments.removeFirst()
-            Self.logger.info("Streamed sentence joined the queued segment; chars=\(merged.count)")
-            guard !newSegments.isEmpty else { return }
+        let newSegments = PetSpeechSegmenter.spokenReplySegments(from: sentence, isFirstSpokenText: wasEmpty)
+        guard !newSegments.isEmpty else {
+            return
         }
 
         let wasWaitingForThisSegment = streamWaitTask != nil && segments.count == currentSegmentIndex
@@ -277,7 +272,16 @@ final class PetSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
         isStreamFinished = true
         isStreamingReply = false
 
-        if segments.isEmpty {
+        if !pendingNeuralText.isEmpty {
+            segments = PetSpeechSegmenter.neuralReplySegments(from: pendingNeuralText)
+            pendingNeuralText = ""
+            Self.logger.info("Streamed reply complete; neural segments=\(self.segments.count)")
+            streamWaitTask?.cancel()
+            streamWaitTask = nil
+            currentSegmentIndex = 0
+            isSpeaking = true
+            speakCurrentSegment()
+        } else if segments.isEmpty {
             streamWaitTask?.cancel()
             streamWaitTask = nil
             finishAllSegments()
@@ -289,6 +293,7 @@ final class PetSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     func stop() {
+        pendingNeuralText = ""
         streamWaitTask?.cancel()
         streamWaitTask = nil
         isStreamingReply = false

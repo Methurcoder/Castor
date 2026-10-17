@@ -451,7 +451,7 @@ struct NeuralSpeechClient {
 
         let transport = try NeuralSpeechTransport(endpoint:endpoint,session:session)
         let (data,httpResponse) = try await transport.response(for:payload,
-            timeout:model == Self.qwenEnglishModel ? 120:20)
+            timeout:model == Self.qwenEnglishModel ? 300:20)
         let elapsed = Date().timeIntervalSince(startedAt)
         let serverTiming = httpResponse.value(forHTTPHeaderField: "Server-Timing") ?? "missing"
         Self.logger.info(

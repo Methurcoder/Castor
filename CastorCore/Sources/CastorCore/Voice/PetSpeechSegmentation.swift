@@ -15,19 +15,17 @@ public enum PetSpeechSegmenter {
     }
 
     /// The longest text a neural voice reads in one request. Qwen restarts its
-    /// intonation with every request, so it reads whole sentences, joined up
-    /// to this length, rather than short phrases.
-    public static let neuralSegmentLength = 160
+    /// intonation with every request and generates no faster in pieces, so it
+    /// reads a whole reply at once; only a very long reply is divided.
+    public static let neuralSegmentLength = 400
 
-    /// Segments for a neural voice: whole sentences, consecutive ones joined
-    /// while they fit in `neuralSegmentLength`. Only a sentence longer than
-    /// that is split, at its most natural pause. The first sentence of a reply
-    /// stays alone so the voice starts without waiting for the rest.
-    public static func neuralReplySegments(from text: String, isFirstSpokenText: Bool) -> [String] {
+    /// Segments for a neural voice: the whole reply as one request, divided
+    /// between sentences only beyond `neuralSegmentLength` (and a single
+    /// sentence longer than that at its most natural pause).
+    public static func neuralReplySegments(from text: String) -> [String] {
         var joined: [String] = []
         for sentence in segments(from: text, maximumLength: neuralSegmentLength) {
-            if let last = joined.last, !(isFirstSpokenText && joined.count == 1),
-               let merged = neuralJoin(last, sentence) {
+            if let last = joined.last, let merged = neuralJoin(last, sentence) {
                 joined[joined.count - 1] = merged
             } else {
                 joined.append(sentence)
