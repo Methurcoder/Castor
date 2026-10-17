@@ -1684,6 +1684,29 @@ struct CastorCoreTests {
         ])
     }
 
+    @Test func neuralSegmentsKeepWholeSentencesAndJoinThem() {
+        let text = "こんにちは。今日はまず状況を確認して、必要な情報をゆっくり整理して、それから次にできることを一緒に考えてみましょう。焦らなくて大丈夫です。"
+        let segments = PetSpeechSegmenter.neuralReplySegments(from: text, isFirstSpokenText: true)
+        // The first sentence alone, the rest whole and joined: never cut mid-phrase.
+        #expect(segments == [
+            "こんにちは。",
+            "今日はまず状況を確認して、必要な情報をゆっくり整理して、それから次にできることを一緒に考えてみましょう。焦らなくて大丈夫です。"
+        ])
+        #expect(PetSpeechSegmenter.neuralReplySegments(from: text, isFirstSpokenText: false).count == 1)
+        // The short-phrase tuning for the system voice cuts the same text into many pieces.
+        #expect(PetSpeechSegmenter.spokenReplySegments(from: text, isFirstSpokenText: true).count > 5)
+    }
+
+    @Test func neuralSegmentsSplitOnlyBeyondTheLimit() {
+        let sentence = String(repeating: "あいうえおかきくけこ、", count: 20) + "おわり。"
+        let segments = PetSpeechSegmenter.neuralReplySegments(from: sentence + "次の文です。", isFirstSpokenText: false)
+        #expect(segments.allSatisfy { $0.count <= PetSpeechSegmenter.neuralSegmentLength })
+        #expect(segments.joined() == sentence + "次の文です。")
+        #expect(segments.count == 2)
+        #expect(PetSpeechSegmenter.neuralJoin("Hello there.", "How are you?") == "Hello there. How are you?")
+        #expect(PetSpeechSegmenter.neuralJoin(sentence, "次の文です。") == nil)
+    }
+
     @Test func petSpeechSegmenterSplitsEnglishSentencesAndKeepsClosers() {
         let segments = PetSpeechSegmenter.segments(
             from: #"She said, "Give me a moment." Then she smiled! Are you still there?"#
