@@ -777,6 +777,17 @@ private struct VoiceSettingsPane: View {
                         : "Could not open the speech helper. Install or repair it using Setup.",
                         systemImage: "exclamationmark.triangle")
                         .foregroundStyle(.orange)
+                } else if speechLauncher.exitedUnexpectedly {
+                    Label(language == .japanese
+                        ? "音声helperが終了しました。もう一度「ロード」を押してください。続く場合は導入GUIで修復するか、ポート8000を使う他のアプリを確認してください。"
+                        : "The speech helper stopped. Press Load again. If it keeps stopping, repair it using Setup or check for other apps using port 8000.",
+                        systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                } else if speechLauncher.canStop {
+                    Text(language == .japanese
+                        ? "音声helperはバックグラウンドで動いています。Castor を終了するか「Qwen音声を停止」で止まります。"
+                        : "The speech helper runs in the background. It stops with Castor or with Stop Qwen speech.")
+                        .foregroundStyle(.secondary)
                 } else if speechLauncher.didOpenHelper {
                     Text(language == .japanese
                         ? "音声helperを開きました。OSの確認が出た場合は、手元で開くことを許可してください。"

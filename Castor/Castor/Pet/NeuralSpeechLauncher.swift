@@ -2,7 +2,9 @@ import AppKit
 import CastorCore
 import Observation
 
-/// Opens the packaged speech GUI through Launch Services; no shell or local pip.
+/// Starts the packaged speech helper through Launch Services; no shell or local pip.
+/// A helper Castor starts runs in the background without a window, and is
+/// stopped from Voice settings or when Castor quits.
 @MainActor
 @Observable
 final class NeuralSpeechLauncher {
@@ -12,6 +14,8 @@ final class NeuralSpeechLauncher {
     private(set) var launchFailed = false
     private(set) var stopFailed = false
     private(set) var canStop = false
+    /// The helper Castor started ended without being asked to stop.
+    private(set) var exitedUnexpectedly = false
     @ObservationIgnored private var application: NSRunningApplication?
     @ObservationIgnored private var controlFile: URL?
     @ObservationIgnored private var pollTimer: Timer?
@@ -23,7 +27,7 @@ final class NeuralSpeechLauncher {
     }
     func start() async {
         guard !isLaunching else { return }
-        isLaunching = true; launchFailed = false; stopFailed = false
+        isLaunching = true; launchFailed = false; stopFailed = false; exitedUnexpectedly = false
         defer { isLaunching = false }
         guard let url = Self.helperURL() else { launchFailed = true; return }
         let configuration = NSWorkspace.OpenConfiguration()
@@ -49,6 +53,8 @@ final class NeuralSpeechLauncher {
                 controlFile = file
                 configuration.createsNewApplicationInstance = true
                 configuration.arguments = ["--start"]
+                // It runs without a window; Voice settings stays in front.
+                configuration.activates = false
             }
             application = try await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
             didOpenHelper = true; canStop = true
@@ -56,6 +62,7 @@ final class NeuralSpeechLauncher {
             pollTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated {
                     guard let self, self.application?.isTerminated == true else { return }
+                    if self.canStop { self.exitedUnexpectedly = true }
                     self.canStop = false; self.didOpenHelper = false
                     if let file = self.controlFile { NeuralSpeechHelperControl.remove(file) }
                     self.controlFile = nil; self.application = nil

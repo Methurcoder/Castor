@@ -16,6 +16,9 @@ import SwiftUI
     private var generation = 0
     private var parentWatchdog: Timer?
     private var ownedControlFile: URL?
+    /// Started by Castor: no window, and nothing left running once the
+    /// speech runtime is gone, so Castor sees the helper end.
+    var runsInBackground = false
     var japanese: Bool { Locale.preferredLanguages.first?.hasPrefix("ja") == true }
     func text(_ ja: String, _ en: String) -> String { japanese ? ja : en }
 
@@ -51,6 +54,7 @@ import SwiftUI
         guard let runtime = Bundle.main.url(forResource: "CastorSpeechRuntime", withExtension: nil),
               FileManager.default.isExecutableFile(atPath: runtime.path) else {
             status = text("音声ランタイムがありません。導入GUIで修復してください。", "Speech runtime is missing. Repair using Setup.")
+            if runsInBackground { NSApp.terminate(nil) }
             return
         }
         let task = Process(); task.executableURL = runtime; task.arguments = ["--headless"]
@@ -64,6 +68,7 @@ import SwiftUI
                 guard let self, self.process === task else { return }
                 self.process = nil; self.running = false; self.modelReady = false
                 self.status = self.text("停止しました。起動できない場合はポート8000の使用と導入状態を確認してください。", "Stopped. If startup failed, check port 8000 and repair using Setup.")
+                if self.runsInBackground { NSApp.terminate(nil) }
             }
         }
         do {
@@ -83,8 +88,10 @@ import SwiftUI
                 try? await Task.sleep(for: .milliseconds(250))
             }
             status = text("起動を確認できません。停止後、修復して再試行してください。", "Startup could not be confirmed. Stop, repair, then retry.")
+            if runsInBackground { NSApp.terminate(nil) }
         } catch {
             status = text("音声ランタイムを起動できませんでした。導入GUIで修復してください。", "Could not start speech runtime. Repair using Setup.")
+            if runsInBackground { NSApp.terminate(nil) }
         }
     }
 
@@ -138,7 +145,36 @@ import SwiftUI
     func applicationWillTerminate(_ notification: Notification) { SpeechHelperModel.shared.stopBeforeQuit() }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 }
-@main struct CastorNeuralTTSApp: App {
+
+/// Started from Castor's Voice settings: runs without a window or Dock icon.
+/// Castor stops it with its control file, and it ends with Castor.
+@MainActor final class BackgroundSpeechHelperDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        SpeechHelperModel.shared.runsInBackground = true
+        Task { await SpeechHelperModel.shared.start() }
+    }
+    func applicationWillTerminate(_ notification: Notification) { SpeechHelperModel.shared.stopBeforeQuit() }
+}
+
+@main enum CastorNeuralTTSMain {
+    static func main() {
+        MainActor.assumeIsolated {
+            // Only a launch Castor owns runs in the background; opening the
+            // helper by hand still shows its window.
+            if CommandLine.arguments.contains("--start"), SpeechHelperModel.shared.attachToParent() {
+                let application = NSApplication.shared
+                application.setActivationPolicy(.prohibited)
+                let delegate = BackgroundSpeechHelperDelegate()
+                application.delegate = delegate
+                withExtendedLifetime(delegate) { application.run() }
+            } else {
+                CastorNeuralTTSApp.main()
+            }
+        }
+    }
+}
+
+struct CastorNeuralTTSApp: App {
     @NSApplicationDelegateAdaptor(SpeechHelperDelegate.self) private var delegate
     @StateObject private var model = SpeechHelperModel.shared
     var body: some Scene {
