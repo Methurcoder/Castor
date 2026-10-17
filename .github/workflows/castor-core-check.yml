@@ -15,9 +15,30 @@ permissions:
   contents: read
 
 jobs:
+  macos:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Run CastorCore tests
+        run: swift test --package-path CastorCore
+
+  linux:
+    runs-on: ubuntu-latest
+    container: swift:6.2-noble
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Run CastorCore tests
+        run: swift test --package-path CastorCore
+
   windows:
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Check out source
         uses: actions/checkout@v6
@@ -28,9 +49,5 @@ jobs:
           branch: swift-6.2-release
           tag: 6.2-RELEASE
 
-      - name: Keep only the diagnostics
-        shell: pwsh
-        run: Remove-Item CastorCore/Tests/CastorCoreTests/CastorCoreTests.swift
-
       - name: Run CastorCore tests
-        run: swift test --package-path CastorCore --filter WindowsConnectDiagnostics
+        run: swift test --package-path CastorCore

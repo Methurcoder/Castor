@@ -1,0 +1,42 @@
+name: Connect probe (temporary)
+
+on:
+  push:
+    branches: [claude/windows-bridge-diagnose]
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: compnerd/gha-setup-swift@main
+        with:
+          branch: swift-6.2-release
+          tag: 6.2-RELEASE
+      - name: Raw socket to a closed port
+        shell: pwsh
+        run: python -c "import socket,time;t=time.time();s=socket.socket();s.settimeout(10);r='connected'`ntry:`n s.connect(('127.0.0.1',9))`nexcept Exception as e:`n r=type(e).__name__+' '+str(e)`nprint('RAW',round(time.time()-t,2),r)"
+      - name: Start a local server
+        shell: pwsh
+        run: Start-Process python -ArgumentList '-m','http.server','8765' -WindowStyle Hidden
+      - name: Build probe
+        run: swift build --package-path Diagnostics/ConnectProbe
+      - name: Run probe
+        timeout-minutes: 6
+        run: swift run --skip-build --package-path Diagnostics/ConnectProbe
+
+  linux:
+    runs-on: ubuntu-latest
+    container: swift:6.2-noble
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - name: Start a local server
+        run: (python3 -m http.server 8765 >/dev/null 2>&1 &) ; sleep 1
+      - name: Run probe
+        timeout-minutes: 10
+        run: swift run --package-path Diagnostics/ConnectProbe
