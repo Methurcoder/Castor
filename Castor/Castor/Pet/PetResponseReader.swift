@@ -30,7 +30,18 @@ struct PetResponseReader: View {
                 .padding(.trailing, isExpanded ? 34 : 38)
                 .padding(.vertical, isExpanded ? 80 : 12)
             }
-            .scrollClipDisabled()
+            // Full screen lets earlier lines run past the edges; the small
+            // reader keeps them inside its frame, fading out toward the top.
+            .scrollClipDisabled(isExpanded)
+            .safeAreaPadding(.top, isExpanded ? 0 : Self.compactFadeHeight)
+            .mask(LinearGradient(stops: isExpanded
+                ? [.init(color: .black, location: 0), .init(color: .black, location: 1)]
+                : [.init(color: .clear, location: 0),
+                   .init(color: .black.opacity(0.35), location: 0.18),
+                   .init(color: .black, location: 0.40),
+                   .init(color: .black, location: 0.88),
+                   .init(color: .clear, location: 1)],
+                startPoint: .top, endPoint: .bottom))
             .onAppear {
                 scrollToCurrent(using: proxy, animated: false)
             }
@@ -69,6 +80,10 @@ struct PetResponseReader: View {
             }
         }
     }
+
+    /// Room above the current line in the small reader, where the previous
+    /// line shows faded.
+    private static let compactFadeHeight: CGFloat = 20
 
     private func textFont(for index: Int) -> Font {
         let isCurrent = index == displayedIndex
