@@ -62,6 +62,11 @@ public nonisolated enum CodexJSONValue: Codable, Equatable, Sendable {
         return value
     }
 
+    public var arrayValue: [CodexJSONValue]? {
+        guard case .array(let value) = self else { return nil }
+        return value
+    }
+
     public var boolValue: Bool? {
         guard case .bool(let value) = self else { return nil }
         return value
@@ -126,6 +131,7 @@ public nonisolated enum CodexAppServerError: LocalizedError, Equatable {
     case notConnected
     case malformedResponse
     case server(String)
+    case serverNotRunning
     case turnFailed(String)
     case disconnected(String)
 
@@ -143,9 +149,24 @@ public nonisolated enum CodexAppServerError: LocalizedError, Equatable {
             "Codex App Server is not connected."
         case .malformedResponse:
             "Codex App Server returned an unreadable response."
+        case .serverNotRunning:
+            (SettingsDisplayLanguage(rawValue: UserDefaults.standard.string(forKey: "Castor.SettingsDisplayLanguage") ?? "")
+                ?? .systemDefault) == .japanese
+                ? "Codex につながりませんでした。Codex が起動していません。設定の「Castor から Codex を起動」をオンにするか、Codex を起動してから、もう一度話しかけてください。"
+                : "Could not reach Codex: it is not running. Turn on “Start Codex with Castor” in Settings, or start Codex, then talk again."
         case .server(let message), .turnFailed(let message), .disconnected(let message):
-            message
+            Self.readable(message)
         }
+    }
+
+    /// Provider errors arrive as JSON text ({"type":"error","status":400,"error":
+    /// {"message": …}}); the nested message is what a person can act on.
+    public static func readable(_ message: String) -> String {
+        guard let data = message.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return message }
+        if let nested = object["error"] as? [String: Any], let text = nested["message"] as? String, !text.isEmpty { return text }
+        if let text = object["message"] as? String, !text.isEmpty { return text }
+        return message
     }
 }
 
@@ -165,6 +186,9 @@ public final class CodexAppServerSession {
     private var activeTurnID: String?
     private var activeOperationID: UUID?
     private var threadConfigurationKey: String?
+    /// The model to start threads with when Codex's configured default is not
+    /// offered to this account (nil: use the configured default).
+    private var modelOverride: String??
     private var responseBuffer = ""
     private var imageGenerationRequested = false
     private var generatedImage: Data?
@@ -315,6 +339,7 @@ public final class CodexAppServerSession {
         isConnected = false
         threadID = nil
         threadConfigurationKey = nil
+        modelOverride = nil
         failPendingWork(with: CodexAppServerError.disconnected("Codex App Server disconnected."))
     }
 
@@ -383,6 +408,9 @@ public final class CodexAppServerSession {
         if !trimmedWorkspace.isEmpty {
             params["cwd"] = .string(trimmedWorkspace)
         }
+        if let model = await supportedModelOverride() {
+            params["model"] = .string(model)
+        }
 
         let result = try await request(method: "thread/start", params: params)
         guard let newThreadID = result["thread"]?.objectValue?["id"]?.stringValue else {
@@ -391,6 +419,36 @@ public final class CodexAppServerSession {
         threadID = newThreadID
         threadConfigurationKey = configurationKey
         return newThreadID
+    }
+
+    /// Codex's own default model can be one this account cannot use (the
+    /// Codex app may have written it for another sign-in); every turn then
+    /// fails with "model is not supported". Compare it with the models the
+    /// account is offered and fall back to the offered default.
+    private func supportedModelOverride() async -> String? {
+        if let modelOverride { return modelOverride }
+        var configured: String?
+        if let config = try? await request(method: "config/read", params: [:]) {
+            configured = config["config"]?.objectValue?["model"]?.stringValue
+        }
+        var offered: [(model: String, isDefault: Bool)] = []
+        if let list = try? await request(method: "model/list", params: [:]) {
+            for entry in list["data"]?.arrayValue ?? [] {
+                guard let item = entry.objectValue,
+                      let model = item["model"]?.stringValue ?? item["id"]?.stringValue else { continue }
+                offered.append((model, item["isDefault"]?.boolValue ?? false))
+            }
+        }
+        let choice = Self.modelOverride(configured: configured, offered: offered)
+        modelOverride = .some(choice)
+        return choice
+    }
+
+    /// nil keeps Codex's configured model; otherwise the offered default.
+    nonisolated static func modelOverride(configured: String?, offered: [(model: String, isDefault: Bool)]) -> String? {
+        guard let configured, !configured.isEmpty, !offered.isEmpty,
+              !offered.contains(where: { $0.model == configured }) else { return nil }
+        return offered.first(where: \.isDefault)?.model ?? offered.first?.model
     }
 
     private func request(
@@ -449,9 +507,11 @@ public final class CodexAppServerSession {
             }
         } catch {
             guard !Task.isCancelled else { return }
+            // Closed before the handshake finished: nothing is listening there.
+            let neverConnected = !isConnected
             isConnected = false
             failPendingWork(
-                with: CodexAppServerError.disconnected(
+                with: neverConnected ? CodexAppServerError.serverNotRunning : CodexAppServerError.disconnected(
                     "Codex App Server connection closed: \(error.localizedDescription)"
                 )
             )

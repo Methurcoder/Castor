@@ -47,3 +47,21 @@ import Testing
     #expect(decoded.status(of: .codex)?.state == .ready)
     #expect(decoded.status(of: .claudeCode) == nil)
 }
+
+@Test func codexProviderErrorsShowTheirNestedMessage() {
+    let raw = #"{"type":"error","status":400,"error":{"type":"invalid_request_error","message":"The 'gpt-6-luna' model is not supported when using Codex with a ChatGPT account."}}"#
+    #expect(CodexAppServerError.readable(raw) == "The 'gpt-6-luna' model is not supported when using Codex with a ChatGPT account.")
+    #expect(CodexAppServerError.turnFailed(raw).errorDescription == CodexAppServerError.readable(raw))
+    #expect(CodexAppServerError.readable("Plain text stays.") == "Plain text stays.")
+}
+
+@MainActor @Test func codexFallsBackToAnOfferedModelOnlyWhenTheConfiguredOneIsNotOffered() {
+    let offered = [(model: "gpt-5.6-terra", isDefault: false), (model: "gpt-5.6-sol", isDefault: true)]
+    // The configured default this account cannot use: start with the offered default.
+    #expect(CodexAppServerSession.modelOverride(configured: "gpt-6-luna", offered: offered) == "gpt-5.6-sol")
+    // A configured model the account is offered, or none at all, is left to Codex.
+    #expect(CodexAppServerSession.modelOverride(configured: "gpt-5.6-terra", offered: offered) == nil)
+    #expect(CodexAppServerSession.modelOverride(configured: nil, offered: offered) == nil)
+    // Without a model list, nothing is guessed.
+    #expect(CodexAppServerSession.modelOverride(configured: "gpt-6-luna", offered: []) == nil)
+}
