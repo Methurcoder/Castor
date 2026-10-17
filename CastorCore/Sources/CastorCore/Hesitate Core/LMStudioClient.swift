@@ -20,7 +20,12 @@ public nonisolated struct LMStudioClient: Sendable {
     public func models() async throws -> [OllamaModel] {
         var request = URLRequest(url: endpoint.appending(path: "api/v1/models"))
         request.timeoutInterval = 8
-        let (data, response) = try await session.data(for: request)
+        let data: Data, response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch where LocalServiceProbe.isNotRunning(error) {
+            throw LMStudioClientError.notRunning
+        }
         try validate(response: response, data: data)
         let responseBody = try JSONDecoder().decode(LMStudioModelsResponse.self, from: data)
         return responseBody.models
@@ -50,7 +55,15 @@ public nonisolated struct LMStudioClient: Sendable {
         guard !content.isEmpty else { throw LMStudioClientError.emptyResponse };return content
     }
 
+    /// LM Studio's server answers at this address, checked in seconds before a long request.
+    public func checkRunning() async throws {
+        guard await LocalServiceProbe.isRunning(endpoint.appending(path: "v1/models"), session: session) else {
+            throw LMStudioClientError.notRunning
+        }
+    }
+
     public func chat(model: String, messages: [OllamaChatMessage]) async throws -> String {
+        try await checkRunning()
         do {
             return try await nonStreamingChat(
                 model: model,
@@ -72,6 +85,7 @@ public nonisolated struct LMStudioClient: Sendable {
         messages: [OllamaChatMessage],
         onDelta: @escaping (String) -> Void
     ) async throws -> String {
+        try await checkRunning()
         let request = try makeChatRequest(
             model: model,
             messages: messages,
@@ -185,9 +199,15 @@ public nonisolated enum LMStudioClientError: LocalizedError {
     case emptyResponse
     case httpError(statusCode: Int, message: String?)
     case serverError(String)
+    /// Nothing answers at the LM Studio server address.
+    case notRunning
 
     public var errorDescription: String? {
         switch self {
+        case .notRunning:
+            LocalServiceProbe.displayLanguageIsJapanese()
+                ? "LM Studio につながりませんでした。LM Studio のサーバーが起動していません。LM Studio でサーバーを起動してから、もう一度話しかけてください。"
+                : "Could not reach LM Studio: its server is not running. Start the server in LM Studio, then talk again."
         case .invalidResponse:
             "LM Studio returned an invalid response."
         case .emptyResponse:

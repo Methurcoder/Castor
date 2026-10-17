@@ -150,8 +150,7 @@ public nonisolated enum CodexAppServerError: LocalizedError, Equatable {
         case .malformedResponse:
             "Codex App Server returned an unreadable response."
         case .serverNotRunning:
-            (SettingsDisplayLanguage(rawValue: UserDefaults.standard.string(forKey: "Castor.SettingsDisplayLanguage") ?? "")
-                ?? .systemDefault) == .japanese
+            LocalServiceProbe.displayLanguageIsJapanese()
                 ? "Codex につながりませんでした。Codex が起動していません。設定の「Castor から Codex を起動」をオンにするか、Codex を起動してから、もう一度話しかけてください。"
                 : "Could not reach Codex: it is not running. Turn on “Start Codex with Castor” in Settings, or start Codex, then talk again."
         case .server(let message), .turnFailed(let message), .disconnected(let message):
@@ -358,6 +357,15 @@ public final class CodexAppServerSession {
         disconnect()
 
         statusHandler?("Connecting to Codex App Server...")
+        // The server answers plain HTTP at the same address; asking first
+        // reports a stopped Codex in seconds on Windows too.
+        if var probe = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            probe.scheme = url.scheme == "wss" ? "https" : "http"
+            probe.path = "/readyz"
+            if let probeURL = probe.url, !(await LocalServiceProbe.isRunning(probeURL)) {
+                throw CodexAppServerError.serverNotRunning
+            }
+        }
         let task = URLSession.shared.webSocketTask(with: url)
         socket = task
         connectedURL = url

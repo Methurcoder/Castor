@@ -423,6 +423,14 @@ public final class OllamaSession {
         lmStudioFailure: Error?,
         ollamaFailure: Error?
     ) -> String {
+        // Neither is running: one plain sentence instead of two errors.
+        let lmStudioStopped = lmStudioFailure.map { if case LMStudioClientError.notRunning = $0 { true } else { false } } ?? true
+        let ollamaStopped = ollamaFailure.map { if case OllamaClientError.notRunning = $0 { true } else { false } } ?? true
+        if lmStudioStopped, ollamaStopped {
+            return LocalServiceProbe.displayLanguageIsJapanese()
+                ? "LM Studio にも Ollama にもつながりませんでした。どちらかを起動してから（LM Studio はサーバーも起動して）、もう一度話しかけてください。"
+                : "Could not reach LM Studio or Ollama: neither is running. Start one of them (in LM Studio, also start its server), then talk again."
+        }
         let details = [
             lmStudioFailure.map { "LM Studio: \(userFacingMessage(for: $0))" },
             ollamaFailure.map { "Ollama: \(userFacingMessage(for: $0))" }

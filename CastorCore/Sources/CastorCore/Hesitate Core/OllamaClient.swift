@@ -18,14 +18,27 @@ public nonisolated struct OllamaClient: Sendable {
     public func models() async throws -> [OllamaModel] {
         var request = URLRequest(url: endpoint.appending(path: "api/tags"))
         request.timeoutInterval = 8
-        let (data, response) = try await session.data(for: request)
+        let data: Data, response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch where LocalServiceProbe.isNotRunning(error) {
+            throw OllamaClientError.notRunning
+        }
         try validate(response: response, data: data)
         return try JSONDecoder().decode(TagsResponse.self, from: data).models.map {
             OllamaModel(name: $0.name, parameterSize: $0.details?.parameterSize)
         }
     }
 
+    /// Ollama answers at this address, checked in seconds before a long request.
+    public func checkRunning() async throws {
+        guard await LocalServiceProbe.isRunning(endpoint.appending(path: "api/version"), session: session) else {
+            throw OllamaClientError.notRunning
+        }
+    }
+
     public func chat(model: String, messages: [OllamaChatMessage]) async throws -> String {
+        try await checkRunning()
         do {
             return try await nonStreamingChat(
                 model: model,
@@ -107,7 +120,8 @@ public nonisolated struct OllamaClient: Sendable {
         messages: [OllamaChatMessage],
         onDelta: @escaping (String) -> Void
     ) async throws -> String {
-        try await streamingChat(model: model, messages: messages, format: nil, onDelta: onDelta)
+        try await checkRunning()
+        return try await streamingChat(model: model, messages: messages, format: nil, onDelta: onDelta)
     }
 
     private func streamingChat(
@@ -244,9 +258,15 @@ public nonisolated enum OllamaClientError: LocalizedError {
     case noModels
     case noSelectedModel
     case serverError(String)
+    /// Nothing answers at the Ollama address.
+    case notRunning
 
     public var errorDescription: String? {
         switch self {
+        case .notRunning:
+            LocalServiceProbe.displayLanguageIsJapanese()
+                ? "Ollama につながりませんでした。Ollama が起動していません。Ollama を起動してから、もう一度話しかけてください。"
+                : "Could not reach Ollama: it is not running. Start Ollama, then talk again."
         case .invalidResponse:
             "Ollama returned an invalid response."
         case .emptyResponse:

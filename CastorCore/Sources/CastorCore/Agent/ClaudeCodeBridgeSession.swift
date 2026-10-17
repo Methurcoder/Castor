@@ -47,8 +47,7 @@ public nonisolated enum ClaudeCodeBridgeError: LocalizedError, Equatable {
         case .bridge(let message), .disconnected(let message):
             message
         case .bridgeNotRunning:
-            (SettingsDisplayLanguage(rawValue: UserDefaults.standard.string(forKey: "Castor.SettingsDisplayLanguage") ?? "")
-                ?? .systemDefault) == .japanese
+            LocalServiceProbe.displayLanguageIsJapanese()
                 ? "Claude Code につながりませんでした。Claude Code bridge が起動していません。設定の「Castor から Claude Code bridge を起動」をオンにするか、bridge を起動してから、もう一度話しかけてください。"
                 : "Could not reach Claude Code: the Claude Code bridge is not running. Turn on “Start the Claude Code Bridge with Castor” in Settings, or start the bridge, then talk again."
         }
@@ -60,10 +59,6 @@ public nonisolated enum ClaudeCodeBridgeError: LocalizedError, Equatable {
         return code == .cannotConnectToHost || code == .cannotFindHost
     }
 
-    /// How long the health check waits. Foundation on Windows never reports
-    /// a refused connection; it waits for the request's timeout, which for a
-    /// turn is a day. The short check turns that into a few seconds.
-    static let healthCheckTimeout: TimeInterval = 4
 }
 
 @MainActor
@@ -320,20 +315,12 @@ public final class ClaudeCodeBridgeSession {
         }
     }
 
-    /// Asks the bridge's /health with a short timeout before a turn. Any HTTP
-    /// answer means something is listening; no answer in time means the
-    /// bridge is not running.
+    /// Asks the bridge's /health with a short timeout before a turn, so a
+    /// stopped bridge is reported in seconds on Windows too.
     static func checkBridgeIsRunning(_ baseURL: URL, session: URLSession = .shared) async throws {
-        var request = URLRequest(url: baseURL.appending(path: "health"))
-        request.timeoutInterval = ClaudeCodeBridgeError.healthCheckTimeout
-        let failure: Error? = await withCheckedContinuation { continuation in
-            session.dataTask(with: request) { _, _, error in continuation.resume(returning: error) }.resume()
-        }
-        guard let failure else { return }
-        if ClaudeCodeBridgeError.isNotRunning(failure) || (failure as? URLError)?.code == .timedOut {
+        guard await LocalServiceProbe.isRunning(baseURL.appending(path: "health"), session: session) else {
             throw ClaudeCodeBridgeError.bridgeNotRunning
         }
-        throw failure
     }
 
     private static func validateHTTPResponse(_ response: URLResponse, data: Data) throws {

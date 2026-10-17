@@ -895,6 +895,41 @@ struct CastorCoreTests {
         #expect(!CodexAppServerSession.isAllowedServerURL("ws://example.com:4500"))
     }
 
+    @Test func stoppedLocalServicesGetPlainGuidance() async throws {
+        // Loopback ports nothing listens on: the services are not running.
+        let ollama = OllamaClient(endpoint: URL(string: "http://127.0.0.1:9")!)
+        await #expect(throws: OllamaClientError.self) {
+            _ = try await ollama.chat(model: "m", messages: [OllamaChatMessage(role: .user, content: "hi")])
+        }
+        do {
+            _ = try await ollama.chatStream(model: "m", messages: [OllamaChatMessage(role: .user, content: "hi")]) { _ in }
+            Issue.record("expected notRunning")
+        } catch OllamaClientError.notRunning {} catch { Issue.record("unexpected \(error)") }
+        do { _ = try await ollama.models(); Issue.record("expected notRunning") }
+        catch OllamaClientError.notRunning {} catch { Issue.record("unexpected \(error)") }
+
+        let lmStudio = LMStudioClient(endpoint: URL(string: "http://127.0.0.1:9")!)
+        do {
+            _ = try await lmStudio.chat(model: "m", messages: [OllamaChatMessage(role: .user, content: "hi")])
+            Issue.record("expected notRunning")
+        } catch LMStudioClientError.notRunning {} catch { Issue.record("unexpected \(error)") }
+        do { _ = try await lmStudio.models(); Issue.record("expected notRunning") }
+        catch LMStudioClientError.notRunning {} catch { Issue.record("unexpected \(error)") }
+
+        let codex = CodexAppServerSession()
+        do {
+            _ = try await codex.send(prompt: "hi", serverURL: "ws://127.0.0.1:9", workspacePath: "", personalityInstruction: "",
+                                     onDelta: { _ in }, onStatus: { _ in }, onApproval: { _ in })
+            Issue.record("expected serverNotRunning")
+        } catch CodexAppServerError.serverNotRunning {} catch { Issue.record("unexpected \(error)") }
+
+        for message in [OllamaClientError.notRunning.errorDescription, LMStudioClientError.notRunning.errorDescription] {
+            #expect(!(message ?? "").isEmpty)
+        }
+        #expect(LocalServiceProbe.isNotRunning(URLError(.timedOut)))
+        #expect(!LocalServiceProbe.isNotRunning(URLError(.networkConnectionLost)))
+    }
+
     @MainActor
     @Test(.timeLimit(.minutes(1))) func claudeCodeBridgeThatIsNotRunningGetsPlainGuidance() async throws {
         // A loopback port nothing listens on: the bridge is not running.
@@ -909,7 +944,6 @@ struct CastorCoreTests {
         let message = ClaudeCodeBridgeError.bridgeNotRunning.errorDescription ?? ""
         #expect(message.contains("Claude Code"))
         #expect(message.contains("bridge"))
-        #expect(!ClaudeCodeBridgeError.isNotRunning(URLError(.timedOut)))
         #expect(ClaudeCodeBridgeError.isNotRunning(URLError(.cannotConnectToHost)))
     }
 
@@ -2106,6 +2140,15 @@ private nonisolated final class OllamaClientURLProtocol: URLProtocol, @unchecked
 
     override func startLoading() {
         let host = request.url?.host ?? ""
+        // The "is it running" checks before a chat are answered here and not
+        // recorded, so each test sees only its own requests.
+        if request.httpMethod ?? "GET" == "GET", ["/api/version", "/v1/models"].contains(request.url?.path ?? "") {
+            let ok = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            client?.urlProtocol(self, didReceive: ok, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: Data("{}".utf8))
+            client?.urlProtocolDidFinishLoading(self)
+            return
+        }
         guard let response = Self.recordRequestAndPopResponse(request, host: host) else {
             client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
             return
