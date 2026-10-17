@@ -4,21 +4,25 @@
 
 **自分のイラストを、デスクトップで暮らす小さな相棒に。**
 
-**これは正式リリース版です。** — v1.0.0 調整版（管理用バージョン `v1.0.1`）
+**これは正式リリース版です。** 最新版は [Releases の Latest](https://github.com/Methurcoder/Castor/releases/latest) と [castor.arils.jp](https://castor.arils.jp/) から入手できます。
+
+版の呼び方：表示名「Castor v1.0.0 (e)」のように v1.0.0 に (a)・(b)… を付けた修正版を重ねています。タグは `v1.0.0-e` の形、Mac アプリ内部の版は 1.0.2（build 番号で区別）です。(a)・(b) のタグだけは `v1.0.1`・`v1.0.2` です。
 
 呼吸、瞬き、視線、声。少しためらったり目を逸らしたりする、そんな相棒を自分の画像から作れます。
 
-[ダウンロード](https://github.com/Methurcoder/Castor/releases/tag/v1.0.1) · [導入ガイド](docs/GUI_SETUP.md) · [変更点・確認記録](docs/RELEASE_NOTES_v1.0.1.md) · [機能差と今後の計画](docs/CROSS_PLATFORM_PARITY.md)
+[ダウンロード](https://github.com/Methurcoder/Castor/releases/latest) · [導入ガイド](docs/GUI_SETUP.md) · [変更点（Releases）](https://github.com/Methurcoder/Castor/releases) · [機能差と今後の計画](docs/CROSS_PLATFORM_PARITY.md)
 
 Castor は [Pomegranate](https://github.com/atemoyacode-sudo/Pomegranate) の**許諾済みの後継プロジェクト**です。Pomegranate由来の著作権表示とMITライセンスを保持し、Methurcoderが開発を続けています。
 
 ## ダウンロード・導入
 
-| お使いの環境 | ダウンロード | 展開後に開くもの |
+[最新版の Release](https://github.com/Methurcoder/Castor/releases/latest) から、お使いの環境に合うファイルを選んでください（ファイル名の `…` には版のタグが入ります）。
+
+| お使いの環境 | ダウンロードするファイル | 展開後に開くもの |
 | --- | --- | --- |
-| Mac / Apple Silicon（ドラッグ導入） | [Mac用DMG](https://github.com/Methurcoder/Castor/releases/download/v1.0.1/Castor-v1.0.1-macos_arm64.dmg) | 開いてCastorをApplicationsへドラッグ |
-| Mac / Apple Silicon（更新・修復GUI） | [Mac用の導入GUI](https://github.com/Methurcoder/Castor/releases/download/v1.0.1/CastorSetup-v1.0.1-macos_arm64.zip) | `CastorSetup.app` |
-| Windows / x64 | [Windows用の導入GUI](https://github.com/Methurcoder/Castor/releases/download/v1.0.1/CastorSetup-v1.0.1-windows_x86_64.zip) | `CastorSetup.exe` |
+| Mac / Apple Silicon（ドラッグ導入） | `Castor-…-macos_arm64.dmg` | 開いてCastorをApplicationsへドラッグ |
+| Mac / Apple Silicon（更新・修復GUI） | `CastorSetup-…-macos_arm64.zip` | `CastorSetup.app` |
+| Windows / x64 | `CastorSetup-…-windows_x86_64.zip` | `CastorSetup.exe` |
 
 **`Castor-Downloader.zip`は`.command` / `.cmd`を使うスクリプト版です。GUIで導入する場合は、上のOS別`CastorSetup-…zip`を選んでください。**
 
@@ -54,7 +58,7 @@ Macは**macOS 26.5以上・Apple Silicon**、Windowsは**x64**が対象です。
 | GIF作成・保存・Xへの案内 | 実装済み | 実装済み。実機確認待ち |
 | カメラ・追加ML・全Advanced設定 | 任意の権限 / helperを使用 | 未対応部分あり。今後はML移植と品質改善を優先 |
 
-**v1.0.0 調整版（v1.0.1）は、Windowsセットアップの起動失敗とMacのGIF共有ウインドウが小さくなる問題への修正版です。** Windows本体とセットアップを再ビルドし、Qwen補助アプリとMLモデルはv1.0.0のものを引き継ぎます。修正後の全機能の実機GUI確認は未実施です。 Windowsの新しい作成画面・ML・導入ウィザードを含む最新修正の全体テストは、管理者の希望により省いて公開しています。音声/GIF等の追加修正と限定確認は[修正記録](docs/BUGFIX_REVIEW_2026-10-15.md)を参照してください。全機能が両OSで同じ品質で動作すると確認した版ではありません。Macの既存候補では画像作成・保存後の読み込み・GIF・Qwen試聴を確認しましたが、今回の最新修正全体の再検証、新規Qwenモデル取得、開発環境のない端末での初回導入、長時間動作は未確認です。
+**修正版ごとの変更点と確認範囲は、各 [Release](https://github.com/Methurcoder/Castor/releases) の本文に記載しています。** 導入GUIの「更新履歴」からも見られます。全機能が両OSで同じ品質で動作すると確認した版ではありません。Windowsの実機GUI確認、新規Qwenモデル取得、開発環境のない端末での初回導入、長時間動作は未確認の部分があります。初期の修正の記録は[修正記録](docs/BUGFIX_REVIEW_2026-10-15.md)を参照してください。
 
 ### 今後の対応予定
 

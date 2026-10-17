@@ -1,7 +1,7 @@
 # CastorのGUI導入・更新・修復
 
 2026-10-15。GitHub Releasesを入口とするGUI導入方式を実装しています。
-**[正式リリース v1.0.0](https://github.com/Methurcoder/Castor/releases/tag/v1.0.0)からGUI導入パッケージを取得できます。**
+**[最新版の Release](https://github.com/Methurcoder/Castor/releases/latest)からGUI導入パッケージを取得できます。** v1.0.0・v1.0.0 (a) の導入GUIでは新しい版を取得できないため、必ず最新版の `CastorSetup-…zip` を使ってください。
 開発用Mac GUIの起動と「配布Releaseなし」の案内を確認しました。
 Windowsの実機確認は、ダウンローダーから導入できる配布候補ができた段階でまとめます。
 
@@ -9,8 +9,8 @@ Windowsの実機確認は、ダウンローダーから導入できる配布候�
 
 | ZIP | 中に入っている起動ファイル | 用途 |
 | --- | --- | --- |
-| `CastorSetup-v1.0.0-macos_arm64.zip` | `CastorSetup.app` | MacのGUI導入 |
-| `CastorSetup-v1.0.0-windows_x86_64.zip` | `CastorSetup.exe`と必要DLL | WindowsのGUI導入。フォルダごと展開 |
+| `CastorSetup-…-macos_arm64.zip` | `CastorSetup.app` | MacのGUI導入 |
+| `CastorSetup-…-windows_x86_64.zip` | `CastorSetup.exe`と必要DLL | WindowsのGUI導入。フォルダごと展開 |
 | `Castor-Downloader.zip` | `.command` / `.cmd` / `.ps1` | スクリプト版。GUIを使う場合は上のSetupを選ぶ |
 
 `Castor-Downloader.zip`に`.app`や`.exe`が無いのは仕様です。通常はOS別の**CastorSetup**を使ってください。
