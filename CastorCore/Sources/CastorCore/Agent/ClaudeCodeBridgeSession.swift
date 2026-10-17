@@ -33,6 +33,8 @@ public nonisolated enum ClaudeCodeBridgeError: LocalizedError, Equatable {
     case malformedResponse
     case bridge(String)
     case disconnected(String)
+    /// Nothing answers at the bridge address: the bridge is not running.
+    case bridgeNotRunning
 
     public var errorDescription: String? {
         switch self {
@@ -44,7 +46,18 @@ public nonisolated enum ClaudeCodeBridgeError: LocalizedError, Equatable {
             "The Claude Code bridge returned an unreadable response."
         case .bridge(let message), .disconnected(let message):
             message
+        case .bridgeNotRunning:
+            (SettingsDisplayLanguage(rawValue: UserDefaults.standard.string(forKey: "Castor.SettingsDisplayLanguage") ?? "")
+                ?? .systemDefault) == .japanese
+                ? "Claude Code につながりませんでした。Claude Code bridge が起動していません。設定の「Castor から Claude Code bridge を起動」をオンにするか、bridge を起動してから、もう一度話しかけてください。"
+                : "Could not reach Claude Code: the Claude Code bridge is not running. Turn on “Start the Claude Code Bridge with Castor” in Settings, or start the bridge, then talk again."
         }
+    }
+
+    /// The bridge address refused or could not be reached at all.
+    static func isNotRunning(_ error: Error) -> Bool {
+        guard let code = (error as? URLError)?.code else { return false }
+        return code == .cannotConnectToHost || code == .cannotFindHost
     }
 }
 
@@ -204,7 +217,13 @@ public final class ClaudeCodeBridgeSession {
         )
 
         statusHandler?("Connecting to Claude Code bridge...")
-        let (lines, response) = try await HTTPLineStream.lines(for: request)
+        let lines: AsyncThrowingStream<String, Error>
+        let response: URLResponse
+        do {
+            (lines, response) = try await HTTPLineStream.lines(for: request)
+        } catch where ClaudeCodeBridgeError.isNotRunning(error) {
+            throw ClaudeCodeBridgeError.bridgeNotRunning
+        }
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ClaudeCodeBridgeError.malformedResponse
         }

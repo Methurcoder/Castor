@@ -895,6 +895,22 @@ struct CastorCoreTests {
         #expect(!CodexAppServerSession.isAllowedServerURL("ws://example.com:4500"))
     }
 
+    @MainActor
+    @Test func claudeCodeBridgeThatIsNotRunningGetsPlainGuidance() async throws {
+        // A loopback port nothing listens on: the bridge is not running.
+        let session = ClaudeCodeBridgeSession()
+        await #expect(throws: ClaudeCodeBridgeError.bridgeNotRunning) {
+            _ = try await session.send(
+                prompt: "hello", bridgeURL: "http://127.0.0.1:9", workspacePath: "", personalityInstruction: "",
+                onDelta: { _ in }, onStatus: { _ in }, onApproval: { _ in })
+        }
+        let message = ClaudeCodeBridgeError.bridgeNotRunning.errorDescription ?? ""
+        #expect(message.contains("Claude Code"))
+        #expect(message.contains("bridge"))
+        #expect(!ClaudeCodeBridgeError.isNotRunning(URLError(.timedOut)))
+        #expect(ClaudeCodeBridgeError.isNotRunning(URLError(.cannotConnectToHost)))
+    }
+
     @Test func claudeCodeBridgeOnlyAllowsLoopbackConnections() {
         #expect(ClaudeCodeBridgeSession.isAllowedBridgeURL("http://127.0.0.1:4510"))
         #expect(ClaudeCodeBridgeSession.isAllowedBridgeURL("https://localhost:4510"))
