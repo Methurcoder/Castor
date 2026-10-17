@@ -180,9 +180,10 @@ struct PetFloatingView: View {
                 if voice.pendingApproval != nil {
                     approvalPanel(compact: true)
                 } else if voice.hasResponse {
-                    PetResponseReader(
+                    SpokenResponseReader(
                         segments: voice.responseSegments,
-                        currentIndex: voice.currentResponseSegmentIndex,
+                        segmentIndex: voice.currentResponseSegmentIndex,
+                        progress: { voice.currentResponseSegmentProgress },
                         isSpeaking: voice.isSpeaking,
                         isExpanded: false,
                         onToggleExpanded: toggleReaderMode
@@ -277,9 +278,10 @@ struct PetFloatingView: View {
                 .padding(.horizontal, 34)
                 .padding(.top, 24)
 
-                PetResponseReader(
+                SpokenResponseReader(
                     segments: voice.responseSegments,
-                    currentIndex: voice.currentResponseSegmentIndex,
+                    segmentIndex: voice.currentResponseSegmentIndex,
+                    progress: { voice.currentResponseSegmentProgress },
                     isSpeaking: voice.isSpeaking,
                     isExpanded: true,
                     onToggleExpanded: toggleReaderMode

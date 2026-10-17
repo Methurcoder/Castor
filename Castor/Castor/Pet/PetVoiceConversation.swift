@@ -136,6 +136,11 @@ final class PetVoiceConversation {
         speechOutput.playbackEnergy
     }
 
+    /// How far the current response segment has been spoken, 0...1.
+    var currentResponseSegmentProgress: Double {
+        speechOutput.currentSegmentProgress
+    }
+
     var canAcceptTextInput: Bool {
         phase != .listening
     }

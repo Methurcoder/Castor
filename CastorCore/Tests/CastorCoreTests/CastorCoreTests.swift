@@ -1691,6 +1691,28 @@ struct CastorCoreTests {
         #expect(PetSpeechSegmenter.spokenReplySegments(from: text, isFirstSpokenText: true).count > 5)
     }
 
+    @Test func readerFollowsTheSpokenLineOfALongSegment() {
+        let reply = "今日はお鍋にしましょう。具材を食べやすい大きさに切って、だしと合わせて、刻んだネギをかけてください。あたたかいうちにどうぞ。"
+        let layout = PetReaderLines.layout(for: [reply, "ほかに何か作りますか？"])
+        #expect(layout.lines.count > 3)
+        #expect(layout.lines.allSatisfy { $0.count <= PetReaderLines.maximumLength })
+        let ownLines = layout.segmentOfLine.filter { $0 == 0 }.count
+        #expect(PetReaderLines.currentLine(in: layout, segmentIndex: 0, progress: 0) == 0)
+        #expect(PetReaderLines.currentLine(in: layout, segmentIndex: 0, progress: 0.5) > 0)
+        #expect(PetReaderLines.currentLine(in: layout, segmentIndex: 0, progress: 0.5) < ownLines - 1)
+        #expect(PetReaderLines.currentLine(in: layout, segmentIndex: 0, progress: 1) == ownLines - 1)
+        // The next segment starts at its own first line.
+        #expect(PetReaderLines.currentLine(in: layout, segmentIndex: 1, progress: 0) == ownLines)
+        // Lines advance in order as playback moves on.
+        let walk = stride(from: 0.0, through: 1.0, by: 0.05).map { PetReaderLines.currentLine(in: layout, segmentIndex: 0, progress: $0) }
+        #expect(walk == walk.sorted())
+        // Short system-voice segments stay one line each.
+        let short = PetReaderLines.layout(for: ["こんにちは。", "元気です。"])
+        #expect(short.lines == ["こんにちは。", "元気です。"])
+        #expect(PetReaderLines.currentLine(in: short, segmentIndex: 1, progress: 0.3) == 1)
+        #expect(PetReaderLines.currentLine(in: PetReaderLines.layout(for: []), segmentIndex: 0, progress: 0) == 0)
+    }
+
     @Test func neuralSegmentsDivideOnlyBeyondTheLimit() {
         let sentence = String(repeating: "あいうえおかきくけこ、", count: 40) + "おわり。"
         let text = sentence + "次の文です。"

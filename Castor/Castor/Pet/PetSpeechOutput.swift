@@ -73,6 +73,22 @@ final class PetSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
     /// `willSpeakRangeOfSpeechString` word-boundary events (no metering API exists for system
     /// speech). `nil` whenever system voice is not actively speaking a range.
     @ObservationIgnored private var systemVoiceEnergyPulse: (startedAt: Date, duration: TimeInterval)?
+    /// Where the system voice is in the current segment, from its word-boundary events.
+    @ObservationIgnored private var systemVoiceSpokenOffset = 0
+    /// The reply has been spoken to its end; the reader stays on its last line.
+    @ObservationIgnored private var hasSpokenWholeReply = false
+
+    /// How far playback has come through the current segment, 0...1. Read on
+    /// a timer by the answer reader, so it follows a long segment line by line.
+    var currentSegmentProgress: Double {
+        if hasSpokenWholeReply { return 1 }
+        if let audioPlayer, audioPlayer.duration > 0 {
+            return min(max(audioPlayer.currentTime / audioPlayer.duration, 0), 1)
+        }
+        guard activeUtterance != nil, segments.indices.contains(currentSegmentIndex) else { return 0 }
+        let length = segments[currentSegmentIndex].utf16.count
+        return length > 0 ? min(Double(systemVoiceSpokenOffset) / Double(length), 1) : 0
+    }
 
     /// Real playback energy for the mouth-flap (phase E), normalized to 0...1 and smoothed with
     /// asymmetric attack/release via `SpeechEnergyEnvelope`. `nil` when nothing is currently
@@ -293,6 +309,7 @@ final class PetSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     func stop() {
+        hasSpokenWholeReply = false
         pendingNeuralText = ""
         streamWaitTask?.cancel()
         streamWaitTask = nil
@@ -378,10 +395,12 @@ final class PetSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
     ) {
         let utteranceID = ObjectIdentifier(utterance)
         let wordLength = max(1, characterRange.length)
+        let wordStart = characterRange.location
         Task { @MainActor [weak self] in
             guard let self, utteranceID == activeUtteranceID else {
                 return
             }
+            systemVoiceSpokenOffset = wordStart
             // Longer words get a slightly longer pulse so the envelope roughly tracks how long
             // that word takes to speak, without needing real timing information.
             let pulseDuration = min(0.6, 0.16 + Double(wordLength) * 0.02)
@@ -467,6 +486,7 @@ final class PetSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
         utterance.volume = 0.92
 
         activeUtterance = utterance
+        systemVoiceSpokenOffset = 0
         synthesizer.speak(utterance)
     }
 
@@ -541,6 +561,7 @@ final class PetSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     private func finishAllSegments() {
+        hasSpokenWholeReply = true
         synthesisTask = nil
         prefetchedAudio?.task.cancel()
         prefetchedAudio = nil
@@ -559,6 +580,7 @@ final class PetSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     private func resetPlaybackState() {
+        hasSpokenWholeReply = false
         synthesisTask?.cancel()
         synthesisTask = nil
         prefetchedAudio?.task.cancel()

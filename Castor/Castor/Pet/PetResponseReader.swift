@@ -1,6 +1,30 @@
 import CastorCore
 import SwiftUI
 
+/// The answer reader for a reply being spoken: each spoken segment is shown in
+/// short lines, and the reader follows the line being spoken.
+struct SpokenResponseReader: View {
+    let segments: [String]
+    let segmentIndex: Int
+    let progress: () -> Double
+    let isSpeaking: Bool
+    let isExpanded: Bool
+    let onToggleExpanded: () -> Void
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: isSpeaking ? 0.2 : 3600)) { _ in
+            let layout = PetReaderLines.layout(for: segments)
+            PetResponseReader(
+                segments: layout.lines,
+                currentIndex: PetReaderLines.currentLine(in: layout, segmentIndex: segmentIndex, progress: progress()),
+                isSpeaking: isSpeaking,
+                isExpanded: isExpanded,
+                onToggleExpanded: onToggleExpanded
+            )
+        }
+    }
+}
+
 struct PetResponseReader: View {
     @AppStorage("Castor.SettingsDisplayLanguage") private var displayLanguage: SettingsDisplayLanguage = .systemDefault
     private func L(_ source: String) -> String { CastorAppStrings.label(source, language: displayLanguage) }
