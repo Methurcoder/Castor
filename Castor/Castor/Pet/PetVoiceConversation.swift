@@ -50,6 +50,10 @@ final class PetVoiceConversation {
     private var responseSpeech = OllamaSpeechMetadata.fallback
     private var interactionTask: Task<Void, Never>?
     private let latency = VoiceLatencyTracker()
+    /// When the voice was last toggled, to drop a second toggle from the same click.
+    private var lastToggle = Date.distantPast
+    /// True from a listening request until speech input has started (or failed).
+    private var listeningStartPending = false
 
     init() {
         speechOutput = PetSpeechOutput(
@@ -141,6 +145,11 @@ final class PetVoiceConversation {
     }
 
     func toggle() {
+        // One click can reach more than one handler; a toggle this soon after
+        // the last would stop listening before it starts.
+        let now = Date()
+        guard now.timeIntervalSince(lastToggle) > 0.35 else { return }
+        lastToggle = now
         switch phase {
         case .idle, .failed:
             beginListening()
@@ -247,9 +256,11 @@ final class PetVoiceConversation {
         core.request(.listening)
         speechOutput.warmUpNeuralVoice()
 
+        listeningStartPending = true
         interactionTask = Task {
             let speechStart = Date()
             await speechInput.start(locale: preferredRecognitionLocale)
+            listeningStartPending = false
             Self.logger.info(
                 "Speech input start finished in \(Date().timeIntervalSince(speechStart), format: .fixed(precision: 2))s; backend=\(String(describing: self.speechInput.recognitionBackend), privacy: .public)"
             )
@@ -291,7 +302,9 @@ final class PetVoiceConversation {
         guard phase == .listening else {
             return
         }
-        guard speechInput.state != .requestingPermission else {
+        // Until the microphone is running, stopping would only cut the start
+        // short and report that nothing was heard.
+        guard !listeningStartPending, speechInput.state != .requestingPermission else {
             return
         }
 

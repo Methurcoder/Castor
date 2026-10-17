@@ -195,13 +195,15 @@ public nonisolated struct SpeechInputDiagnostics: Sendable, Equatable {
     public var partials = 0
     public var end = "starting"
     public var error = "none"
+    /// How long other microphone users took to step aside, in milliseconds.
+    public var handoffMilliseconds = 0
     public init() {}
     public var code: String {
         func token(_ value: String) -> String {
             String(value.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) || "-_.".unicodeScalars.contains($0) }.prefix(64))
         }
         let level = peak.isFinite ? Int(min(1, max(0, peak)) * 1000) : 0
-        return "SI1 backend=\(token(backend)) locale=\(token(locale)) asset=\(token(asset)) mic=\(token(microphone)) speech=\(token(speechPermission)) buffers=\(buffers) sent=\(delivered) drop=\(dropped) peak=\(level) partial=\(partials) end=\(token(end)) error=\(token(error))"
+        return "SI1 backend=\(token(backend)) locale=\(token(locale)) asset=\(token(asset)) mic=\(token(microphone)) speech=\(token(speechPermission)) buffers=\(buffers) sent=\(delivered) drop=\(dropped) peak=\(level) partial=\(partials) end=\(token(end)) error=\(token(error)) handoff=\(handoffMilliseconds)"
     }
 }
 

@@ -169,6 +169,10 @@ struct PetFloatingView: View {
                     }
                 }
                 .onTapGesture {
+                    // Arils pets report their own taps (and tell them apart
+                    // from drags); handling the click here too toggled the
+                    // voice twice, starting and at once stopping listening.
+                    guard asset.arilsArchiveData == nil, asset.qualityArchiveData == nil else { return }
                     NSApp.activate(ignoringOtherApps: true)
                     voice.toggle()
                 }

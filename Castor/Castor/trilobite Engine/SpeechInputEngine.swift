@@ -794,8 +794,16 @@ final class SpeechInputEngine {
         }
         captureAnnouncementActive = true
         let handoff = SpeechCaptureHandoff()
+        let started = ProcessInfo.processInfo.systemUptime
         NotificationCenter.default.post(name: .castorSpeechCaptureWillStart, object: handoff)
-        await handoff.waitForRelease()
+        // macOS lets several clients capture the microphone, so a slow camera
+        // or level-meter reconfiguration must not hold listening back.
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let resume = ResumeOnce(continuation)
+            Task { await handoff.waitForRelease(); resume() }
+            Task { try? await Task.sleep(for: .milliseconds(1_500)); resume() }
+        }
+        diagnostics.handoffMilliseconds = Int((ProcessInfo.processInfo.systemUptime - started) * 1_000)
     }
 
     private func announceCaptureStopped() {
@@ -911,5 +919,19 @@ final class SpeechInputEngine {
         @unknown default:
             .denied
         }
+    }
+}
+
+/// Resumes a continuation the first time it is called; later calls do nothing.
+private final class ResumeOnce: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Void, Never>?
+    init(_ continuation: CheckedContinuation<Void, Never>) { self.continuation = continuation }
+    func callAsFunction() {
+        let pending = lock.withLock { () -> CheckedContinuation<Void, Never>? in
+            defer { continuation = nil }
+            return continuation
+        }
+        pending?.resume()
     }
 }
