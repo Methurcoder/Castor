@@ -68,7 +68,8 @@ import SwiftUI
                 guard let self, self.process === task else { return }
                 self.process = nil; self.running = false; self.modelReady = false
                 self.status = self.text("停止しました。起動できない場合はポート8000の使用と導入状態を確認してください。", "Stopped. If startup failed, check port 8000 and repair using Setup.")
-                if self.runsInBackground { NSApp.terminate(nil) }
+                // Nothing is left to do without the runtime once the window is closed.
+                if self.runsInBackground || !NSApp.windows.contains(where: \.isVisible) { NSApp.terminate(nil) }
             }
         }
         do {
@@ -143,7 +144,17 @@ import SwiftUI
 
 @MainActor final class SpeechHelperDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) { SpeechHelperModel.shared.stopBeforeQuit() }
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    /// Closing the window keeps a running helper in the background, without
+    /// a Dock icon. Opening the app again shows the window and its Stop button.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        guard SpeechHelperModel.shared.running else { return true }
+        sender.setActivationPolicy(.accessory)
+        return false
+    }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        sender.setActivationPolicy(.regular)
+        return true
+    }
 }
 
 /// Started from Castor's Voice settings: runs without a window or Dock icon.
@@ -189,6 +200,11 @@ struct CastorNeuralTTSApp: App {
                     Button(model.text("音声helperを起動", "Start speech helper")) { Task { await model.start() } }
                         .disabled(model.running)
                     Button(model.text("停止", "Stop")) { model.stop() }.disabled(!model.running)
+                }
+                if model.running {
+                    Text(model.text("この画面を閉じても音声helperは動き続けます。止めるときは、もう一度このアプリを開いて「停止」を押してください。",
+                                    "Closing this window keeps the speech helper running. To stop it, open this app again and press Stop."))
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
                 if model.modelReady {
                     Label(model.text("Qwen 3 TTSで話します（helper接続中）", "Qwen 3 TTS is ready (helper connected)"), systemImage: "checkmark.circle.fill")
