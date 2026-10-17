@@ -228,14 +228,19 @@ private actor InstallerGate {
     defer {try? FileManager.default.removeItem(at:root)}
     let archive=installerZIP(["CastorPet.exe","swiftCore.dll"])
     let(release,manifest)=try installerFixture(archive,version:"v1")
-    // The download grows the file in two halves, slowly enough to be seen.
-    let download: @Sendable(URL,URL) async throws -> Void = {_,to in
-        try archive.prefix(archive.count/2).write(to:to)
-        try await Task.sleep(nanoseconds:500_000_000)
-        try archive.write(to:to)
-    }
     final class Recorder: @unchecked Sendable { let lock=NSLock(); var values:[DesktopInstallProgress]=[] }
     let recorder=Recorder()
+    // The download grows the file in two halves and holds the first half until
+    // it has been reported (a busy CI machine can be slow to poll).
+    let download: @Sendable(URL,URL) async throws -> Void = {_,to in
+        try archive.prefix(archive.count/2).write(to:to)
+        for _ in 0..<200 {
+            let seen=recorder.lock.withLock { recorder.values.contains { if case let .downloading(received,_) = $0 { received>0 } else { false } } }
+            if seen { break }
+            try await Task.sleep(nanoseconds:50_000_000)
+        }
+        try archive.write(to:to)
+    }
     _=try await DesktopInstaller.install(root:root,release:release,manifest:manifest,platform:"windows_x86_64",extract:installerExtract,stamp:{_ in},
         download:download,progress:{ value in recorder.lock.withLock { recorder.values.append(value) } })
     let values=recorder.lock.withLock { recorder.values }
