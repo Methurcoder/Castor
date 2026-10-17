@@ -2,7 +2,7 @@
 
 OS と CPU を判別し、対応する Castor の配布 ZIP を取得するローカルランチャーです。
 **[正式リリース v0.3.0](https://github.com/Methurcoder/Castor/releases/tag/v0.3.0)のGUI導入パッケージを使ってください。**
-リポジトリのソースからビルドする手順は [README](../README.md)を参照してください。
+リポジトリのソースからビルドする手順は [README](../README.ja.md)を参照してください。
 
 ## GUI版とスクリプト版の違い
 

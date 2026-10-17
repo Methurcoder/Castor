@@ -12,7 +12,7 @@ Mac arm64とWindows x64のQwen対応配布物を用意し、Windowsは公開プ�
 
 ## ローカルで用意するもの
 
-1. [README](../README.md) と実装を一致させる。アプリ / Xcode scheme は `Castor`、共有 Package は `CastorCore`、Windows preview は `CastorDesktop` / `CastorPet`。
+1. [README](../README.ja.md) と実装を一致させる。アプリ / Xcode scheme は `Castor`、共有 Package は `CastorCore`、Windows preview は `CastorDesktop` / `CastorPet`。
 2. [変更点の下書き](RELEASE_NOTES_DRAFT.md) をまとめる。
 3. [移行メモ](CASTOR_MIGRATION.md) に従い、公開候補 worktree のソースをコピーする。
 4. 改名後のビルド・テストと旧保存データの読込を確認し、対象 OS の実機確認結果と未確認事項を残す。改名前の成功記録とは区別する。
