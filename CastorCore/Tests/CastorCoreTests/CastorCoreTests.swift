@@ -896,7 +896,7 @@ struct CastorCoreTests {
     }
 
     @MainActor
-    @Test func claudeCodeBridgeThatIsNotRunningGetsPlainGuidance() async throws {
+    @Test(.timeLimit(.minutes(1))) func claudeCodeBridgeThatIsNotRunningGetsPlainGuidance() async throws {
         // A loopback port nothing listens on: the bridge is not running.
         let session = ClaudeCodeBridgeSession()
         await #expect(throws: ClaudeCodeBridgeError.bridgeNotRunning) {
