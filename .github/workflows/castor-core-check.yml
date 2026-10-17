@@ -28,5 +28,9 @@ jobs:
           branch: swift-6.2-release
           tag: 6.2-RELEASE
 
+      - name: Keep only the diagnostics
+        shell: pwsh
+        run: Remove-Item CastorCore/Tests/CastorCoreTests/CastorCoreTests.swift
+
       - name: Run CastorCore tests
         run: swift test --package-path CastorCore --filter WindowsConnectDiagnostics
