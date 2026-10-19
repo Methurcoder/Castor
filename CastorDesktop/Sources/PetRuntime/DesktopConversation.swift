@@ -31,7 +31,7 @@ public enum DesktopConversation {
         guard !preferences.model.isEmpty else { throw ConversationError.noModel }
         let url = try endpoint(preferences.endpoint)
         var messages = [OllamaChatMessage(role: .system, content:
-            "あなたはCastorのローカル会話用ペットです。性格: \(preferences.personality)\n" +
+            "あなたはCastorのローカル会話用キャラクターです。性格: \(preferences.personality)\n" +
             "通常会話だけを行ってください。ファイルやコマンド、アプリ操作を実行したと主張しないでください。" +
             "応答はresponseとmotion_state(idle/thinking/listening/surprised)を持つJSONを優先し、本文は短く自然にしてください。")]
         messages += Array(history.suffix(20)); messages.append(OllamaChatMessage(role: .user, content: prompt))

@@ -213,7 +213,7 @@ final class CreationWindow {
 
     private func analyse(_ data: Data, selecting candidate: Int? = nil) {
         let source: PortableRigImage
-        do { source = try PortableRigImage(png: data) } catch { fail(error); return }
+        do { source = try PortableRigImage(data: data) } catch { fail(error); return }
         run(say("キャラクターを切り抜いて、顔の位置を推定しています…", "Cutting out the character and finding the face…"), {
             let prepared = try await LayeredRigging.prepare(source, selecting: candidate)
             return (prepared, prepared.preview.pngData().base64EncodedString())
@@ -281,7 +281,7 @@ final class CreationWindow {
             switch result {
             case .success(let asset):
                 onCreated(asset)
-                post(["type": "saved", "message": say("ペットを保存して、デスクトップに表示しました。", "The pet was saved and shown on the desktop.")])
+                post(["type": "saved", "message": say("キャラクターを保存して、デスクトップに表示しました。", "The character was saved and shown on the desktop.")])
                 sendLibrary()
             case .failure(let error):
                 fail(error)
@@ -402,13 +402,13 @@ final class CreationWindow {
 
     private func selectPet(_ id: Any?) {
         guard task == nil, let library, let file = libraryFile(id) else { return }
-        run(say("ペットを読み込んでいます…", "Loading the pet…"), { try PetSource.loadAsset(contentsOf: file) }) { [self] result in
+        run(say("キャラクターを読み込んでいます…", "Loading the character…"), { try PetSource.loadAsset(contentsOf: file) }) { [self] result in
             switch result {
             case .success(let asset):
                 do { try library.remember(file) } catch { fail(error); return }
                 onCreated(asset)
                 post(["type": "idle"])
-                post(["type": "toast", "message": say("デスクトップのペットを入れ替えました。", "Swapped the pet on your desktop.")])
+                post(["type": "toast", "message": say("デスクトップのキャラクターを入れ替えました。", "Swapped the character on your desktop.")])
                 sendLibrary()
             case .failure(let error):
                 fail(error)

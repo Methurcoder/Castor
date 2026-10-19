@@ -10,7 +10,7 @@ struct SetupLocalization: Sendable {
     var isJapanese: Bool { language == .japanese }
     func text(_ japanese: String, _ english: String) -> String { isJapanese ? japanese : english }
     var title: String { text("Castor - 導入・更新・修復", "Castor - Install, Update and Repair") }
-    var intro: String { text("OS/CPUに合うアプリを取得します。既存のペット・設定は保持します。", "Download the app for your OS and CPU. Existing pets and settings are kept.") }
+    var intro: String { text("OS/CPUに合うアプリを取得します。既存のキャラクター・設定は保持します。", "Download the app for your OS and CPU. Existing characters and settings are kept.") }
     var cancel: String { text("キャンセル", "Cancel") }
     var close: String { text("閉じる", "Close") }
     var cleanupButton: String { text("古い版を整理", "Clean up older versions") }
@@ -33,8 +33,8 @@ struct SetupLocalization: Sendable {
     var historyTitle: String { text("更新履歴", "Release History") }
     var historyFailed: String { text("更新履歴を読み込めませんでした。インターネット接続を確認してください。", "Could not load the release history. Check your internet connection.") }
     var cleanupPolicy: String {
-        text("旧版整理では、現在版と1つ前、使用中・変更された版、指紋のない版・不明フォルダを保持します。確認できたそれ以前の版だけをOSのごみ箱へ送ります。モデルキャッシュ・ペット・設定は保持します。",
-             "Cleanup keeps the current and previous versions, in-use or modified versions, versions without fingerprints, and unknown folders. Only verified older versions are sent to the OS Trash or Recycle Bin. Model cache, pets, and settings are kept.")
+        text("旧版整理では、現在版と1つ前、使用中・変更された版、指紋のない版・不明フォルダを保持します。確認できたそれ以前の版だけをOSのごみ箱へ送ります。モデルキャッシュ・キャラクター・設定は保持します。",
+             "Cleanup keeps the current and previous versions, in-use or modified versions, versions without fingerprints, and unknown folders. Only verified older versions are sent to the OS Trash or Recycle Bin. Model cache, characters, and settings are kept.")
     }
     var cleanupFinished: String {
         text("古い版の整理が完了しました。", "Cleanup of older versions finished.") + "\n\n" + cleanupPolicy
@@ -56,16 +56,16 @@ struct SetupLocalization: Sendable {
             : text("Castor本体を削除しますか？", "Remove the Castor app?")
     }
     func removalDetail(helper: Bool) -> String {
-        helper ? text("削除するのは導入済みのNeural TTS helperです。Castor本体、モデルキャッシュ、ペット・会話設定は保持します。",
-                      "Remove the installed Neural TTS helper. The Castor app, model cache, pets, and conversation settings are kept.")
-            : text("Castor本体を削除します。ペット・会話設定、モデルキャッシュと別途導入したNeural TTS helperは保持します。",
-                   "Remove the Castor app. Pets, conversation settings, model cache, and the separately installed Neural TTS helper are kept.")
+        helper ? text("削除するのは導入済みのNeural TTS helperです。Castor本体、モデルキャッシュ、キャラクター・会話設定は保持します。",
+                      "Remove the installed Neural TTS helper. The Castor app, model cache, characters, and conversation settings are kept.")
+            : text("Castor本体を削除します。キャラクター・会話設定、モデルキャッシュと別途導入したNeural TTS helperは保持します。",
+                   "Remove the Castor app. Characters, conversation settings, model cache, and the separately installed Neural TTS helper are kept.")
     }
     func removed(helper: Bool) -> String {
-        helper ? text("Neural TTS helperを削除しました。Castor本体、モデルキャッシュ、ペット・設定は保持しています。",
-                      "The Neural TTS helper was removed. The Castor app, model cache, pets, and settings were kept.")
-            : text("Castor本体を削除しました。ペット・設定、モデルキャッシュとNeural TTS helperは保持しています。",
-                   "The Castor app was removed. Pets, settings, model cache, and the Neural TTS helper were kept.")
+        helper ? text("Neural TTS helperを削除しました。Castor本体、モデルキャッシュ、キャラクター・設定は保持しています。",
+                      "The Neural TTS helper was removed. The Castor app, model cache, characters, and settings were kept.")
+            : text("Castor本体を削除しました。キャラクター・設定、モデルキャッシュとNeural TTS helperは保持しています。",
+                   "The Castor app was removed. Characters, settings, model cache, and the Neural TTS helper were kept.")
     }
     func notInstalled(helper: Bool) -> String {
         helper ? text("Neural TTS helperはまだ導入されていません。「取得・更新」で導入してください。", "The Neural TTS helper is not installed. Choose Download / Update to install it.")
@@ -98,7 +98,7 @@ struct SetupLocalization: Sendable {
             case .unsupported:
                 return text("このOS/CPUにはまだ対応する配布アプリがありません。", "No distribution app is available for this OS and CPU yet.")
             case .unpack:
-                return text("ZIPの展開またはアプリの導入・起動操作に失敗しました。ペット・設定は保持しています。", "The ZIP could not be extracted, or a native install or launch step failed. Pets and settings were kept.")
+                return text("ZIPの展開またはアプリの導入・起動操作に失敗しました。キャラクター・設定は保持しています。", "The ZIP could not be extracted, or a native install or launch step failed. Characters and settings were kept.")
             case .stamp:
                 return text("OSのネット由来の印を設定できませんでした。導入を中止しました。", "The OS marker for a downloaded file could not be set. Installation was stopped.")
             }
@@ -110,7 +110,7 @@ struct SetupLocalization: Sendable {
         // Unknown OS errors can use the OS's Japanese locale. Keep diagnostic identity without
         // inserting that localized message into the English installer.
         let diagnostic = error as NSError
-        return "The operation could not be completed. Pets, settings, and model cache are kept. Diagnostic: \(diagnostic.domain) (\(diagnostic.code))."
+        return "The operation could not be completed. Characters, settings, and model cache are kept. Diagnostic: \(diagnostic.domain) (\(diagnostic.code))."
     }
 }
 
@@ -131,8 +131,8 @@ private func setupUI() {
     do {
         let platform=try NativeInstall.platform
         while true {
-            let options=strings.text("取得・更新\n導入済みアプリを起動\n修復（旧版を保持）\nCastor本体を削除（ペット・設定は保持）\nNeural TTS helperを取得・更新（任意）\nNeural TTS helperを起動\nNeural TTS helperを修復\nNeural TTS helperを削除（モデルキャッシュ保持）\nCastorの古い版を整理\nNeural TTS helperの古い版を整理\n終了",
-                "Download / Update\nLaunch installed app\nRepair (keep previous version)\nRemove Castor (keep pets/settings)\nDownload / Update Neural TTS helper (optional)\nLaunch Neural TTS helper\nRepair Neural TTS helper\nRemove Neural TTS helper (keep model cache)\nClean up older Castor versions\nClean up older Neural TTS helper versions\nExit")
+            let options=strings.text("取得・更新\n導入済みアプリを起動\n修復（旧版を保持）\nCastor本体を削除（キャラクター・設定は保持）\nNeural TTS helperを取得・更新（任意）\nNeural TTS helperを起動\nNeural TTS helperを修復\nNeural TTS helperを削除（モデルキャッシュ保持）\nCastorの古い版を整理\nNeural TTS helperの古い版を整理\n終了",
+                "Download / Update\nLaunch installed app\nRepair (keep previous version)\nRemove Castor (keep characters/settings)\nDownload / Update Neural TTS helper (optional)\nLaunch Neural TTS helper\nRepair Neural TTS helper\nRemove Neural TTS helper (keep model cache)\nClean up older Castor versions\nClean up older Neural TTS helper versions\nExit")
             let choice=strings.title.withCString { title in options.withCString {castor_choose_option(title,$0)} }
             if choice<0 {
                 // Never vanish silently: say what happened and where the log is.
@@ -200,7 +200,7 @@ private func setupUI() {
                     "Launch \(component == nil ? "Castor" : "Neural TTS helper")\nLaunch Later"))
                 if launch==1 {try NativeInstall.launch(app)}
             } catch {
-                _ = show(strings.errorMessage(error), buttons:strings.text("閉じる（ペット・設定・モデルキャッシュは保持）", "Close (pets, settings, and model cache are kept)"))
+                _ = show(strings.errorMessage(error), buttons:strings.text("閉じる（キャラクター・設定・モデルキャッシュは保持）", "Close (characters, settings, and model cache are kept)"))
             }
         }
     } catch {_ = show(strings.errorMessage(error))}

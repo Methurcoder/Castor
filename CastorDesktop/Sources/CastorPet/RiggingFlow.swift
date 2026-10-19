@@ -135,7 +135,7 @@ enum WindowsRiggingFlow {
     }
 
     static func prepareImage(_ url: URL) throws -> PreparedPortableRig? {
-        let source = try PortableRigImage(png: Data(contentsOf: url))
+        let source = try PortableRigImage(data: Data(contentsOf: url))
         do {
             return try work(text: "画像を解析しています。顔の推定結果は後で確認できます。") {
                 try await LayeredRigging.prepare(source)
@@ -226,7 +226,7 @@ enum WindowsRiggingFlow {
         options.motion = motion == 0 ? .idle : .lookAround; options.duration = duration + 3
         options.background = [[255,255,255], [128,128,128], [220,235,255]][background]
         let configuration = options
-        guard let result = try work(text: "ペットだけからGIFを生成しています。画面・カメラ・会話は取得しません。", operation: {
+        guard let result = try work(text: "キャラクターだけからGIFを生成しています。画面・カメラ・会話は取得しません。", operation: {
             try await PetGIFClip.make(asset: asset, options: configuration)
         }) else { return }
         let frames = result.frames.flatMap { $0.bgra }
@@ -247,7 +247,7 @@ enum WindowsRiggingFlow {
 
     static func startup() throws -> (PetAsset, URL?)? {
         let title = Array("Castor".utf16) + [WCHAR(0)]
-        let text = Array("新しく画像からペットを作りますか？\n\n「はい」: PNG画像から作成\n「いいえ」: 保存したペットを開く\n「キャンセル」: 終了\n\n作成機能はMacと共通のレイヤー処理を使用します。全機能共通化は開発中です。".utf16) + [WCHAR(0)]
+        let text = Array("新しく画像からキャラクターを作りますか？\n\n「はい」: PNG・JPEG・BMP・GIFなどの画像から作成\n「いいえ」: 保存したキャラクターを開く\n「キャンセル」: 終了\n\n作成機能はMacと共通のレイヤー処理を使用します。全機能共通化は開発中です。".utf16) + [WCHAR(0)]
         let choice = text.withUnsafeBufferPointer { body in title.withUnsafeBufferPointer {
             MessageBoxW(nil, body.baseAddress, $0.baseAddress, 0x03)
         }}

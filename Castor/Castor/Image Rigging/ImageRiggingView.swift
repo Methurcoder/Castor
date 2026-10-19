@@ -354,7 +354,7 @@ struct ImageRiggingView: View {
                 .disabled(image == nil || isArilsRigging || (isArilsPreviewOn && !isManualRiggingEnabled))
                 .help(isArilsPreviewOn
                     ? L("Back to the classic rig preview")
-                    : L("Auto-rig with the Arils engine and preview (hover: gaze, drag the head: pet)"))
+                    : L("Auto-rig with the Arils engine and preview (hover: gaze, drag the head: gently touch)"))
 
                 Button {
                     pendingArilsCandidate = arilsSelectedCandidate
@@ -412,14 +412,14 @@ struct ImageRiggingView: View {
                 Button {
                     importSavedPet()
                 } label: {
-                    Label(L("保存ペットを読み込む"), systemImage: "square.and.arrow.down")
+                    Label(L("保存キャラクターを読み込む"), systemImage: "square.and.arrow.down")
                 }
-                .help(L("MacまたはWindowsで保存したCastorペットのJSONを読み込みます。"))
+                .help(L("MacまたはWindowsで保存したCastorキャラクターのJSONを読み込みます。"))
 
                 Button {
                     savePet()
                 } label: {
-                    Label(L("Save Pet"), systemImage: "sparkles")
+                    Label(L("Save Character"), systemImage: "sparkles")
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(palette.meterFill)
@@ -589,9 +589,9 @@ struct ImageRiggingView: View {
         do {
             try PetCharacterStore.importSavedPet(from: url)
             CastorPetController.shared.showPet()
-            statusText = "保存ペットを読み込み、デスクトップへ表示しました。"
+            statusText = "保存キャラクターを読み込み、デスクトップへ表示しました。"
         } catch {
-            statusText = "読み込みを完了できませんでした。現在のペットは保持しています: \(error.localizedDescription)"
+            statusText = "読み込みを完了できませんでした。現在のキャラクターは保持しています: \(error.localizedDescription)"
         }
     }
 
@@ -716,7 +716,7 @@ struct ImageRiggingView: View {
         }
         if arilsEngine != nil {
             isArilsPreviewOn = true
-            statusText = "Arils preview. Save Pet keeps this engine."
+            statusText = "Arils preview. Save Character keeps this engine."
             return
         }
         guard let image,
@@ -863,7 +863,7 @@ struct ImageRiggingView: View {
                 // full-resolution masks rather than pinning them in the view.
                 arilsPreparedInput = nil
                 statusText = completedRiggingStatus(
-                    base: "Arils preview. Save Pet keeps the corrected face alignment.",
+                    base: "Arils preview. Save Character keeps the corrected face alignment.",
                     laMaClient: laMaClient
                 )
             } catch {
@@ -1453,7 +1453,7 @@ struct ImageRiggingView: View {
                 qualityArchiveData: try qualityEngine?.archive.data())
             PetGIFShareWindow.shared.show(asset: asset)
         } catch {
-            statusText = "GIF用のペットを読み込めませんでした: \(error.localizedDescription)"
+            statusText = "GIF用のキャラクターを読み込めませんでした: \(error.localizedDescription)"
         }
     }
 
@@ -1477,15 +1477,15 @@ struct ImageRiggingView: View {
             )
             isRigApplied = true
             if qualityArchiveData != nil {
-                statusText = "Pet saved with the Arils Quality engine (front + side). Double-click a screen edge to call it."
+                statusText = "Character saved with the Arils Quality engine (front + side). Double-click a screen edge to call it."
             } else if arilsArchiveData != nil {
-                statusText = "Pet saved with the Arils engine. Double-click a screen edge to call it."
+                statusText = "Character saved with the Arils engine. Double-click a screen edge to call it."
             } else {
-                statusText = "Pet saved. Double-click a screen edge to call it."
+                statusText = "Character saved. Double-click a screen edge to call it."
             }
             CastorPetController.shared.showPet()
         } catch {
-            statusText = "Pet save failed: \(error.localizedDescription)"
+            statusText = "Character save failed: \(error.localizedDescription)"
         }
     }
 }
@@ -1665,7 +1665,11 @@ private struct ArilsFaceAlignmentSheet: View {
 
             HStack {
                 if !layoutIsValid {
-                    Label(L("Put both eyes and the mouth inside the head, with the mouth below the eyes."), systemImage: "exclamationmark.triangle.fill")
+                    Label(L("Keep every marker inside the image, with width and height of at least one pixel."), systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                } else if !layout.hasConventionalFeaturePlacement {
+                    Label(L("Unusual face alignment. If these positions match your drawing, you can build with them."), systemImage: "info.circle")
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }
@@ -1913,18 +1917,7 @@ private struct ArilsFaceAlignmentSheet: View {
     }
 
     private var layoutIsValid: Bool {
-        let bounds = CGRect(origin: .zero, size: pixelSize)
-        let rects = [layout.headRect, layout.eyeLeftRect, layout.eyeRightRect, layout.mouthRect]
-        guard rects.allSatisfy({ $0.isFinitePositive && bounds.contains($0) }) else { return false }
-        let head = layout.headRect
-        let leftCenter = CGPoint(x: layout.eyeLeftRect.midX, y: layout.eyeLeftRect.midY)
-        let rightCenter = CGPoint(x: layout.eyeRightRect.midX, y: layout.eyeRightRect.midY)
-        let mouthCenter = CGPoint(x: layout.mouthRect.midX, y: layout.mouthRect.midY)
-        return head.contains(leftCenter)
-            && head.contains(rightCenter)
-            && head.contains(mouthCenter)
-            && leftCenter.x < rightCenter.x
-            && mouthCenter.y > (leftCenter.y + rightCenter.y) / 2
+        layout.hasUsableMarkerBounds(imageWidth: Int(pixelSize.width), imageHeight: Int(pixelSize.height))
     }
 
     private func message(for issue: FaceLayoutReviewIssue) -> String {

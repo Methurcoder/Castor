@@ -19,7 +19,7 @@ int castor_open_microphone_settings(void) {return (INT_PTR)ShellExecuteW(NULL,L"
 
 int castor_choose_file(int save, const char *kind, char *output, size_t capacity) {
     WCHAR file[32768] = {0};
-    const WCHAR *filter = save ? (strcmp(kind,"gif")==0 ? L"GIF image (*.gif)\0*.gif\0\0" : strcmp(kind,"json")==0 ? L"Castor pet (*.json)\0*.json\0\0" : L"Arils avatar (*.arils)\0*.arils\0\0") :
+    const WCHAR *filter = save ? (strcmp(kind,"gif")==0 ? L"GIF image (*.gif)\0*.gif\0\0" : strcmp(kind,"json")==0 ? L"Castor character (*.json)\0*.json\0\0" : L"Arils avatar (*.arils)\0*.arils\0\0") :
         strcmp(kind, "pet") == 0 ? L"Castor / Arils (*.json;*.arils)\0*.json;*.arils\0\0" : L"Images (*.png;*.jpg;*.jpeg;*.tif;*.tiff;*.bmp;*.gif)\0*.png;*.jpg;*.jpeg;*.tif;*.tiff;*.bmp;*.gif\0\0";
     OPENFILENAMEW dialog = {0}; dialog.lStructSize = sizeof(dialog);
     dialog.lpstrFile = file; dialog.nMaxFile = 32768; dialog.lpstrFilter = filter;

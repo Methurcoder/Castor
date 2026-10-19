@@ -12,7 +12,7 @@ enum NativeInstall {
         var errorDescription: String? {
             switch self {
             case .unsupported: "このOS/CPUにはまだ対応する配布アプリがありません。"
-            case .unpack: "ZIPの展開に失敗しました。旧版とペット・設定は保持しています。"
+            case .unpack: "ZIPの展開に失敗しました。旧版とキャラクター・設定は保持しています。"
             case .stamp: "OSのネット由来の印を設定できませんでした。導入を中止しました。"
             }
         }

@@ -114,6 +114,7 @@ body {
 .chip { align-self: flex-start; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--track); color: var(--sub); }
 .chip.model { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--text); }
 .side-title { font-size: 14px; font-weight: 700; line-height: 1.5; }
+.marker-note { font-size: 12.5px; line-height: 1.5; color: var(--sub); }
 .legend { list-style: none; display: grid; gap: 7px; }
 .legend li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--sub); }
 .legend li i { width: 12px; height: 12px; border-radius: 4px; background: var(--c); }

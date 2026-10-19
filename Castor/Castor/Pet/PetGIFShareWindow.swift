@@ -66,7 +66,7 @@ private struct PetGIFShareView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text(L("うちの子をGIFに")).font(.title2.bold())
-                Text(L("ペットだけを、選んだ動きで書き出します。"))
+                Text(L("キャラクターだけを、選んだ動きで書き出します。"))
                     .font(.callout).foregroundStyle(.secondary)
                 HStack {
                     Picker(L("動き"), selection: $motion) {

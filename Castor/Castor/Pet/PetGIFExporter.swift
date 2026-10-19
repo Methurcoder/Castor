@@ -29,8 +29,8 @@ enum PetGIFExporter {
         case missingPet, couldNotRender, couldNotEncode, tooLarge
         var errorDescription: String? {
             switch self {
-            case .missingPet: "ペットを作成してからGIFを書き出してください。"
-            case .couldNotRender: "ペットを描画できませんでした。リグを作り直してお試しください。"
+            case .missingPet: "キャラクターを作成してからGIFを書き出してください。"
+            case .couldNotRender: "キャラクターを描画できませんでした。リグを作り直してお試しください。"
             case .couldNotEncode: "GIFを作成できませんでした。"
             case .tooLarge: "GIFの容量を抑えられませんでした。短い長さでお試しください。"
             }
@@ -136,7 +136,7 @@ enum PetGIFSharing {
     static var postURL: URL? {
         var components = URLComponents(string: "https://x.com/intent/tweet")
         components?.queryItems = [
-            URLQueryItem(name: "text", value: "Castorで作ったペットです。"),
+            URLQueryItem(name: "text", value: "Castorで作ったキャラクターです。"),
             URLQueryItem(name: "hashtags", value: "Castor")
         ]
         // Add this compilation condition only after the repository is public.

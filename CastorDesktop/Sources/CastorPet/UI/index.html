@@ -13,7 +13,7 @@
 <header class="top">
   <nav class="segmented tabs" id="tabs" role="tablist">
     <button role="tab" data-view="create" class="on" data-t="tab.create">作成</button>
-    <button role="tab" data-view="library" data-t="My Pets">ペット一覧</button>
+    <button role="tab" data-view="library" data-t="My Characters">キャラクター一覧</button>
     <button role="tab" data-view="settings" data-t="Settings">設定</button>
   </nav>
 </header>
@@ -22,9 +22,10 @@
   <section class="canvas glass" id="canvas">
     <div class="empty" id="emptyState">
       <svg class="empty-icon" viewBox="0 0 48 40"><rect x="3" y="5" width="34" height="27" rx="5"/><circle cx="13" cy="14" r="3.5"/><path d="M5 30l10-10 7 7 5-4 8 7"/><circle cx="38" cy="30" r="8" class="plus-bg"/><path d="M38 26v8M34 30h8" class="plus"/></svg>
-      <h1 data-t="Image Rigging">画像からペットを作成</h1>
+      <h1 data-t="Image Rigging">画像からキャラクターを作成</h1>
       <p data-t="Import an illustration to create a starter rig.">イラストを読み込んで基本リグを作成してください。</p>
       <p class="hint" data-t="drop.hint">ここに画像をドラッグしても読み込めます</p>
+      <p class="hint" data-t="import.formats">PNG・JPEG・BMP・GIFなどに対応。アニメーション画像は最初のフレームを使います。</p>
     </div>
 
     <div class="review hidden" id="reviewState">
@@ -35,6 +36,7 @@
       <aside class="side">
         <div class="chip" id="estimatorChip"></div>
         <p class="side-title" data-t="Check the face markers before rigging.">リギングの前に顔マーカーを確認してください。</p>
+        <p class="marker-note" data-t="markers.manual">自動推定の警告は参考情報です。枠を画像内に置き、元絵に合わせて確認すれば作成できます。</p>
         <ul class="legend" id="legend"></ul>
         <ul class="warnings" id="warnings"></ul>
       </aside>
@@ -42,12 +44,12 @@
 
     <div class="library hidden" id="libraryState">
       <div class="library-head">
-        <h2 data-t="My Pets">ペット一覧</h2>
+        <h2 data-t="My Characters">キャラクター一覧</h2>
         <button class="tool accent" id="newPetButton"><span data-t="library.new">＋ 新しく作る</span></button>
       </div>
       <div class="pet-grid" id="petGrid"></div>
-      <p class="library-empty hidden" id="libraryEmpty" data-t="library.empty">まだペットがありません。画像を読み込んで作ってみましょう。</p>
-      <p class="hint" data-t="library.hint">選ぶとデスクトップのペットが入れ替わります。削除したペットはごみ箱に移ります。</p>
+      <p class="library-empty hidden" id="libraryEmpty" data-t="library.empty">まだキャラクターがありません。画像を読み込んで作ってみましょう。</p>
+      <p class="hint" data-t="library.hint">選ぶとデスクトップのキャラクターが入れ替わります。削除したキャラクターはごみ箱に移ります。</p>
     </div>
 
     <div class="settings hidden" id="settingsState">
@@ -92,24 +94,24 @@
       </button>
       <button class="tool" id="saveButton" disabled>
         <svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M5 19h14"/></svg>
-        <span data-t="Save Pet">ペットを保存</span>
+        <span data-t="Save Character">キャラクターを保存</span>
       </button>
     </div>
     <div class="segmented small" id="kindSwitch">
       <button class="on" data-kind="standard">Standard</button>
     </div>
   </nav>
-  <p class="quality-hint" data-t="quality.hint">ペットを保存したあと、デスクトップのペットを右クリックして「2枚からQualityを作る」を選ぶと、2枚の画像から作成できます。</p>
+  <p class="quality-hint" data-t="quality.hint">キャラクターを保存したあと、デスクトップのキャラクターを右クリックして「2枚からQualityを作る」を選ぶと、2枚の画像から作成できます。</p>
 </main>
 
 <dialog class="modal" id="confirmDelete" aria-labelledby="deleteTitle" aria-describedby="deleteDate deleteText">
   <div class="modal-box glass">
-    <h3 id="deleteTitle" data-t="library.deleteTitle">このペットを削除しますか？</h3>
+    <h3 id="deleteTitle" data-t="library.deleteTitle">このキャラクターを削除しますか？</h3>
     <div class="delete-summary">
       <img id="deletePreview" class="hidden" alt="">
       <time id="deleteDate"></time>
     </div>
-    <p id="deleteText" data-t="library.deleteText">ペットのファイルをごみ箱に移します。ごみ箱から元に戻せます。</p>
+    <p id="deleteText" data-t="library.deleteText">キャラクターのファイルをごみ箱に移します。ごみ箱から元に戻せます。</p>
     <div class="modal-row">
       <button class="ghost" id="deleteNo" data-t="Cancel">キャンセル</button>
       <button class="ghost danger" id="deleteYes" data-t="library.delete">削除する</button>
@@ -118,7 +120,7 @@
 </dialog>
 <dialog class="modal" id="renameDialog" aria-labelledby="renameTitle">
   <div class="modal-box glass">
-    <h3 id="renameTitle" data-t="library.renameTitle">ペットの名前</h3>
+    <h3 id="renameTitle" data-t="library.renameTitle">キャラクターの名前</h3>
     <input class="text-input" id="renameInput" maxlength="40" autocomplete="off">
     <div class="modal-row">
       <button class="ghost" id="renameNo" data-t="Cancel">キャンセル</button>

@@ -1,5 +1,6 @@
 import ArilsCore
 import ArilsPlayer
+import ArilsRigPortable
 import CStbImage
 import CPlatformImage
 import Foundation
@@ -15,9 +16,9 @@ public struct PortableRigImage: Sendable {
         case invalidImage, imageTooLarge, invalidMarkers
         public var errorDescription: String? {
             switch self {
-            case .invalidImage: return "画像を読み込めませんでした。見えるキャラクターが含まれる画像を選んでください。"
+            case .invalidImage: return "画像を読み込めませんでした。PNG・JPEG・BMP・GIF、またはOSが対応する画像を選んでください。"
             case .imageTooLarge: return "4096×4096ピクセル以下、64MiB以下の画像を選んでください。"
-            case .invalidMarkers: return "頭・目・口の範囲を確認してください。目と口は頭の内側、左右は見る側基準です。"
+            case .invalidMarkers: return "頭・目・口の枠を画像内に置き、幅と高さを1ピクセル以上にしてください。顔の向きや推定の信頼度は作成を妨げません。"
             }
         }
     }
@@ -28,18 +29,21 @@ public struct PortableRigImage: Sendable {
         self.width = width; self.height = height; self.rgba = rgba
     }
 
-    public init(png: Data) throws {
-        guard !png.isEmpty, png.count <= 64 * 1024 * 1024 else { throw ImageError.imageTooLarge }
+    /// Compatibility entry point; imported data need not be PNG.
+    public init(png: Data) throws { try self.init(data: png) }
+
+    public init(data: Data) throws {
+        guard !data.isEmpty, data.count <= 64 * 1024 * 1024 else { throw ImageError.imageTooLarge }
         var width: Int32 = 0, height: Int32 = 0, channels: Int32 = 0
-        let valid = png.withUnsafeBytes { raw in
+        let valid = data.withUnsafeBytes { raw in
             stbi_info_from_memory(raw.bindMemory(to: UInt8.self).baseAddress, Int32(raw.count), &width, &height, &channels)
         }
         if valid == 0 {
-            let info=png.withUnsafeBytes {raw in castor_image_info(raw.bindMemory(to:UInt8.self).baseAddress,raw.count,&width,&height)}
+            let info=data.withUnsafeBytes {raw in castor_image_info(raw.bindMemory(to:UInt8.self).baseAddress,raw.count,&width,&height)}
             guard info>0,width>0,height>0 else {throw ImageError.invalidImage}
             guard width<=4096,height<=4096 else {throw ImageError.imageTooLarge}
             var pixels=[UInt8](repeating:0,count:Int(width)*Int(height)*4)
-            let decoded=png.withUnsafeBytes {raw in pixels.withUnsafeMutableBufferPointer {
+            let decoded=data.withUnsafeBytes {raw in pixels.withUnsafeMutableBufferPointer {
                 castor_image_decode(raw.bindMemory(to:UInt8.self).baseAddress,raw.count,$0.baseAddress,width,height)
             }}
             guard decoded>0 else {throw ImageError.invalidImage}
@@ -47,7 +51,7 @@ public struct PortableRigImage: Sendable {
         }
         guard width > 0, height > 0 else { throw ImageError.invalidImage }
         guard width <= 4096, height <= 4096 else { throw ImageError.imageTooLarge }
-        let decoded = png.withUnsafeBytes { raw in
+        let decoded = data.withUnsafeBytes { raw in
             stbi_load_from_memory(raw.bindMemory(to: UInt8.self).baseAddress, Int32(raw.count), &width, &height, &channels, 4)
         }
         guard let decoded else { throw ImageError.invalidImage }
@@ -71,11 +75,9 @@ public struct PortableFaceLayout: Codable, Equatable, Sendable {
     }
 
     public func validate(width: Int, height: Int) throws {
-        let bounds = CGRect(x: 0, y: 0, width: width, height: height)
-        guard rectangles.allSatisfy({ rect in
-            [rect.minX, rect.minY, rect.width, rect.height].allSatisfy(\.isFinite) &&
-                rect.width >= 1 && rect.height >= 1 && bounds.contains(rect)
-        }), [eyeLeft, eyeRight, mouth].allSatisfy(head.contains), eyeLeft.midX < eyeRight.midX else {
+        let layout = FaceLayout(headRect: head, eyeLeftRect: eyeLeft, eyeRightRect: eyeRight,
+                                mouthRect: mouth, confidence: 0)
+        guard layout.hasUsableMarkerBounds(imageWidth: width, imageHeight: height) else {
             throw PortableRigImage.ImageError.invalidMarkers
         }
     }

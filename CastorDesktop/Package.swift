@@ -19,7 +19,7 @@ let package = Package(
         .package(path: "../CastorCore"),
     ],
     targets: [
-        // stb_image (public domain / MIT), PNG decoding only.
+        // stb_image (public domain / MIT), PNG/JPEG/BMP/GIF decoding.
         .target(name: "CStbImage"),
         .target(name: "CPlatformImage", linkerSettings: [
             .linkedLibrary("Ole32",.when(platforms:[.windows])),

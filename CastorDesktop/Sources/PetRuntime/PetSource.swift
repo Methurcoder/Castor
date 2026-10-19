@@ -40,8 +40,8 @@ public enum PetSource {
         case unreadable(String)
         public var description: String {
             switch self {
-            case .noArilsAvatar: "Arilsの保存データがありません。画像からペットを作成するか、Arils形式のペットを選んでください。"
-            case let .unreadable(reason): "ペットを読み込めませんでした: \(reason)"
+            case .noArilsAvatar: "Arilsの保存データがありません。画像からキャラクターを作成するか、Arils形式のキャラクターを選んでください。"
+            case let .unreadable(reason): "キャラクターを読み込めませんでした: \(reason)"
             }
         }
         public var errorDescription: String? { description }

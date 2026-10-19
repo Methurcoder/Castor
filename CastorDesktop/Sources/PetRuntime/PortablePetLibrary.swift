@@ -6,8 +6,8 @@ public struct PortablePetLibrary {
         case notInLibrary, shownOnDesktop
         public var errorDescription: String? {
             switch self {
-            case .notInLibrary: "このペットはペット一覧の保存先にないため削除できません。"
-            case .shownOnDesktop: "デスクトップに表示中のペットは削除できません。別のペットを表示してから削除してください。"
+            case .notInLibrary: "このキャラクターはキャラクター一覧の保存先にないため削除できません。"
+            case .shownOnDesktop: "デスクトップに表示中のキャラクターは削除できません。別のキャラクターを表示してから削除してください。"
             }
         }
     }

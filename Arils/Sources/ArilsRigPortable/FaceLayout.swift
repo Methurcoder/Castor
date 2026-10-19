@@ -41,6 +41,27 @@ public struct FaceLayout: Sendable, Equatable {
         self.eyeRightLandmarks = eyeRightLandmarks
     }
 
+    /// Hard bounds for a layout explicitly confirmed by a person. Anatomical
+    /// assumptions and estimator confidence must remain advisory: tilted and
+    /// stylized faces need not have a horizontal eye line or a mouth below it.
+    public func hasUsableMarkerBounds(imageWidth: Int, imageHeight: Int) -> Bool {
+        guard imageWidth > 0, imageHeight > 0 else { return false }
+        let bounds = CGRect(x: 0, y: 0, width: imageWidth, height: imageHeight)
+        return [headRect, eyeLeftRect, eyeRightRect, mouthRect].allSatisfy { rect in
+            [rect.origin.x, rect.origin.y, rect.width, rect.height].allSatisfy(\.isFinite)
+                && rect.width >= 1 && rect.height >= 1 && bounds.contains(rect)
+        }
+    }
+
+    /// Guidance only; never a veto of a person's confirmed alignment.
+    public var hasConventionalFeaturePlacement: Bool {
+        let left = CGPoint(x: eyeLeftRect.midX, y: eyeLeftRect.midY)
+        let right = CGPoint(x: eyeRightRect.midX, y: eyeRightRect.midY)
+        let mouth = CGPoint(x: mouthRect.midX, y: mouthRect.midY)
+        return headRect.contains(left) && headRect.contains(right) && headRect.contains(mouth)
+            && left.x < right.x && mouth.y > (left.y + right.y) / 2
+    }
+
     public func scaled(by factor: CGFloat) -> FaceLayout {
         func scale(_ rect: CGRect) -> CGRect {
             CGRect(

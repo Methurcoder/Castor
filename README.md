@@ -42,11 +42,11 @@ In the setup app, choose **Download / Update**, then **Launch**. The app and the
 
 ## Three steps to start
 
-![Get Castor with the setup app → make a pet from your picture and face markers → enjoy its motion, conversation and GIFs](docs/images/castor-quick-start.svg)
+![Get Castor with the setup app → make a character from your picture and face markers → enjoy its motion, conversation and GIFs](docs/images/castor-quick-start.svg)
 
 1. **Load your illustration**: in Rigging, choose one front-facing picture, or a front and a side view.
-2. **Check the face**: adjust the markers for the head, both eyes and the mouth, then make and save the pet. How well the face is estimated depends on the picture.
-3. **Put it on your desktop**: choose its voice and personality, and enjoy its breathing, blinking, gaze and reactions when you pet it.
+2. **Check the face**: adjust the markers for the head, both eyes and the mouth, then make and save the character. How well the face is estimated depends on the picture.
+3. **Put it on your desktop**: choose its voice and personality, and enjoy its breathing, blinking, gaze and reactions when you gently touch it.
 
 The image above shows the flow only. See below for what each platform supports and what has been checked.
 
@@ -54,7 +54,7 @@ The image above shows the flow only. See below for what each platform supports a
 
 | Feature | Mac | Windows |
 | --- | --- | --- |
-| Make a pet from a picture, adjust face markers, save and load | One picture with Arils, or two pictures with Quality | Standard pets in a Mac-like creation window (Japanese and English), with the same face estimation and cut-out models as the Mac (ONNX). Quality uses the older window. Awaiting checks on real devices |
+| Make a character from a picture, adjust face markers, save and load | One picture with Arils, or two pictures with Quality | Standard characters in a Mac-like creation window (Japanese and English), with the same face estimation and cut-out models as the Mac (ONNX). Quality uses the older window. Awaiting checks on real devices |
 | Breathing, blinking, gaze, lip sync, reactions to petting | Done | Shared motion and CPU drawing done. Awaiting GUI checks on real devices |
 | Conversation and personality with LM Studio / Ollama | Done | Done. Awaiting conversation checks on real devices |
 | System voice, optional Qwen 3 TTS | Starting the Qwen helper, preparing the model, previewing and stopping checked on a real Mac | CPU helper included. Awaiting checks of real speech on real devices |
@@ -80,13 +80,13 @@ Starting the helper doesn't download the model, and the system voice works until
 
 On the Mac, a helper started by Castor runs in the background without a window. It stops with **Stop Qwen speech** in Settings or when you quit Castor. If you open the helper yourself, it shows a window; closing the window keeps it running, so open it again and press Stop to end it. Qwen reads each reply in one go.
 
-## Sharing a GIF of your pet on X
+## Sharing a GIF of your character on X
 
 Go to **"Make a GIF and share on X" → preview → save → the X post window**.
 
 **The GIF is not attached for you. Attach the saved GIF to your post on X yourself.**
 
-Only the pet and the background you choose are drawn, on your device. Your screen, camera and conversation are never put in the GIF, and nothing is uploaded or posted to X automatically, nor are any credentials stored.
+Only the character and the background you choose are drawn, on your device. Your screen, camera and conversation are never put in the GIF, and nothing is uploaded or posted to X automatically, nor are any credentials stored.
 
 ## Local AI and requests to act
 
@@ -104,7 +104,7 @@ You can update and repair from the setup app. It never overwrites the installed 
 
 The current version and the one before it are kept. Older versions are moved to the Trash only when their fingerprints match. Folders that were changed, that you added files to, or that have no fingerprint are never cleaned up automatically.
 
-So that pets saved by Pomegranate still load, Castor keeps reading the old bundle ID, settings keys and save locations. Pomegranate's official characters are not included.
+So that characters saved by Pomegranate still load, Castor keeps reading the old bundle ID, settings keys and save locations. Pomegranate's official characters are not included.
 
 ## For developers
 
@@ -131,7 +131,7 @@ xcodebuild -project Castor/Castor.xcodeproj \
 
 1. Load your picture in the app's `Rigging`.
 2. Check the head, both eyes and the mouth, correct them if needed, and build the rig.
-3. Save it with `Save Pet` and show it on the desktop. Existing Pomegranate pets are read through a fallback.
+3. Save it with `Save Character` and show it on the desktop. Existing Pomegranate characters are read through a fallback.
 4. For conversation, start LM Studio or Ollama yourself and choose the address and model in `Settings`.
 5. For the camera, microphone and speech recognition, allow them when macOS asks.
 
@@ -155,7 +155,7 @@ swift test --package-path Arils
 swift test --package-path CastorDesktop
 ```
 
-To draw a saved pet without a window:
+To draw a saved character without a window:
 
 ```sh
 swift run --package-path CastorDesktop -c release \
@@ -181,3 +181,9 @@ The Mac build includes four Core ML models for the face, facial landmarks and cu
 The source code is under the [MIT License](LICENSE), keeping the copyright notice and license carried over from Pomegranate. Images and extra models follow the terms of their owners and distributors.
 
 For the sources and notices of each library and model, see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the license list inside each download.
+
+### Image import and manual face alignment
+
+Use PNG, JPEG/JPG, BMP or GIF; TIFF and other formats depend on the OS decoder. Animated images use the first frame. Windows imports are limited to 4096 pixels on each side and 64 MiB. Transparent PNG remains useful when you want to keep an existing cut-out.
+
+Automatic face warnings are guidance. After adjusting the markers yourself, you can create the character even when the face is tilted or the estimator has low confidence. Every marker must have finite coordinates, stay inside the image, and be at least one pixel wide and high.

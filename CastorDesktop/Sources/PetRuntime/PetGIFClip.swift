@@ -70,7 +70,7 @@ public enum PetGIFClip {
     }
     public static func sharingURL() -> URL {
         var components = URLComponents(string: "https://x.com/intent/tweet")!
-        components.queryItems = [URLQueryItem(name: "text", value: "Castorで作ったペットです。 #Castor"),
+        components.queryItems = [URLQueryItem(name: "text", value: "Castorで作ったキャラクターです。 #Castor"),
                                 URLQueryItem(name: "url", value: "https://github.com/Methurcoder/Castor")]
         return components.url!
     }

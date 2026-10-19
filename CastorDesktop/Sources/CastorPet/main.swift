@@ -321,8 +321,8 @@ private final class PetWindow {
     func showMenu() {
         guard let hwnd, let menu = CreatePopupMenu() else { return }
         let japanese=preferences.displayLanguage == .japanese
-        for (id, title) in [(menuNew, japanese ? "1枚から新しいペットを作る":"Create a pet from one image"), (menuLibrary, japanese ? "ペット一覧（作ったペットを選ぶ）":"My Pets (choose a saved pet)"), (menuNewQuality, japanese ? "2枚からQualityを作る":"Create Quality from two images"),
-                            (menuManual, japanese ? "手動リグを作る":"Create a manual rig"), (menuOpen, japanese ? "ファイルからペットを開く":"Open a pet file"), (menuExport, japanese ? "ペットを書き出す":"Export pet"), (menuGIF, japanese ? "GIFを作ってXで共有":"Create GIF and share on X"), (menuChat, japanese ? "ローカル会話":"Chat / Request an action"), (menuSettings, japanese ? "設定・モデル・性格":"Settings / Models / Personality"), (menuClearChat, japanese ? "会話履歴を消す":"Clear conversation"), (menuListen, japanese ? "マイクから会話する（確認して送信）":"Speak (review before sending)")] {
+        for (id, title) in [(menuNew, japanese ? "1枚から新しいキャラクターを作る":"Create a character from one image"), (menuLibrary, japanese ? "キャラクター一覧（作ったキャラクターを選ぶ）":"My Characters (choose a saved character)"), (menuNewQuality, japanese ? "2枚からQualityを作る":"Create Quality from two images"),
+                            (menuManual, japanese ? "手動リグを作る":"Create a manual rig"), (menuOpen, japanese ? "ファイルからキャラクターを開く":"Open a character file"), (menuExport, japanese ? "キャラクターを書き出す":"Export character"), (menuGIF, japanese ? "GIFを作ってXで共有":"Create GIF and share on X"), (menuChat, japanese ? "ローカル会話":"Chat / Request an action"), (menuSettings, japanese ? "設定・モデル・性格":"Settings / Models / Personality"), (menuClearChat, japanese ? "会話履歴を消す":"Clear conversation"), (menuListen, japanese ? "マイクから会話する（確認して送信）":"Speak (review before sending)")] {
             let title = wide(title)
             _ = title.withUnsafeBufferPointer { AppendMenuW(menu, mfString, id, $0.baseAddress) }
         }
@@ -422,7 +422,7 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
                     try exported.data().write(to: url, options: .atomic)
                 }
                 if let asset { window.show(asset) }
-            } catch { showError("処理を完了できませんでした。既存のペットと保存データは保持しています。\n\n\(error.localizedDescription)") }
+            } catch { showError("処理を完了できませんでした。既存のキャラクターと保存データは保持しています。\n\n\(error.localizedDescription)") }
         }
         return 0
     case wmShowCastor:
@@ -462,7 +462,7 @@ private func openCreationWindow(language: SettingsDisplayLanguage, view: String?
 /// The native dialogs, for systems without the WebView2 Runtime.
 private func legacyNewPet() {
     do { if let asset = try WindowsRiggingFlow.startNewPet(quality: false) { PetWindow.shared?.show(asset) } }
-    catch { showError("処理を完了できませんでした。既存のペットと保存データは保持しています。\n\n\(error.localizedDescription)") }
+    catch { showError("処理を完了できませんでした。既存のキャラクターと保存データは保持しています。\n\n\(error.localizedDescription)") }
 }
 
 private func creationSettings() -> SettingsDisplayLanguage? {
@@ -575,7 +575,7 @@ do {
         }
     }
 } catch {
-    showError("ペットを開けませんでした。既存データは変更していません。\n\n\(error.localizedDescription)")
+    showError("キャラクターを開けませんでした。既存データは変更していません。\n\n\(error.localizedDescription)")
     exit(1)
 }
 let player = PetPlayback(asset: asset, wideHeadMovement: preferences.widerHeadMovement, naturalFaceMotion: preferences.naturalFaceMotion)
@@ -597,7 +597,7 @@ if !preferences.microphoneSetupCompleted && preferenceSaveAllowed {
 castor_microphone_enable(window.preferences.microphoneEnabled ? 1:0)
 PetWindow.shared = window
 guard window.create() else {
-    showError("Could not create the pet window.")
+    showError("Could not create the character window.")
     exit(1)
 }
 if showWindowAtStart {
@@ -630,5 +630,5 @@ if castor_start_ui_thread({ _ in runNativeApplication(); exit(0) }, nil) != 1 {
 dispatchMain()
 
 #else
-print("CastorPet is the Windows desktop pet. On macOS use the Castor app; to check the runtime here, run pet-snapshot.")
+print("CastorPet is the Windows desktop character. On macOS use the Castor app; to check the runtime here, run pet-snapshot.")
 #endif

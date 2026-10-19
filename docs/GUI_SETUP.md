@@ -27,11 +27,11 @@ Windowsのコード署名、MacのDeveloper ID署名・公証は未整備です�
 - **取得・更新**: 対応OS/CPUの完成したアプリだけを取得、検証して配置します。
 - **起動**: 選択中のアプリをOSの通常の起動経路で開きます。
 - **修復**: 同じ版を別フォルダへ取得し直します。旧版を残して切り替えます。
-- **アプリを削除**: 選択中の管理対象アプリだけを削除します。旧版、ペット、設定は残ります。
+- **アプリを削除**: 選択中の管理対象アプリだけを削除します。旧版、キャラクター、設定は残ります。
 
 Macの配置先は`~/Applications/Castor-<version>-<platform>/Castor.app`、Windowsは
 `%LOCALAPPDATA%\Programs\Castor\Castor-<version>-windows_x86_64\CastorPet.exe`です。
-Windowsペット・設定は`%LOCALAPPDATA%\Castor`にあり、アプリのversionフォルダとは分けます。
+Windowsキャラクター・設定は`%LOCALAPPDATA%\Castor`にあり、アプリのversionフォルダとは分けます。
 Macの既存保存先と旧Pomegranate設定キーを変更しません。
 
 ## 失敗時と安全確認
@@ -78,7 +78,7 @@ Windowsの初回GUI、実機のOS警告・マイク、開発環境のないPCで
 ## 任意のNeural TTS helper
 
 導入GUIでNeural TTS helperの取得/更新・起動・修復・削除を選べます。本体とは別の
-`CastorHelpers/NeuralTTS`領域へ導入し、失敗・取消でも旧本体/旧helper/ペット/設定を保持します。
+`CastorHelpers/NeuralTTS`領域へ導入し、失敗・取消でも旧本体/旧helper/キャラクター/設定を保持します。
 配布manifestの`components.NeuralTTS`にそのOS/CPU用のassetがある場合だけ取得します。
 helperを消してもモデルcacheは削除しません。v1.0.0にOS別のhelper assetを用意しています。
 
@@ -126,7 +126,7 @@ AnimeSegmentationの4つのcompiled modelを必須にします。無い、空、
 Windows向けCore ML代替の品質検証は別途未完了です。
 
 導入GUIはOSの優先言語から日本語/Englishを選び、確認・状態・完了・失敗を両言語で表示します。
-helper削除は補助アプリだけを対象とし、モデルcache・ペット・会話設定を保持します。
+helper削除は補助アプリだけを対象とし、モデルcache・キャラクター・会話設定を保持します。
 未署名/開発署名のMac候補はquarantineが付くため初回にブロックされます。
 導入GUI自身、本体、helperそれぞれを開いた後、システム設定 → プライバシーとセキュリティ →
 このまま開く（System Settings → Privacy & Security → Open Anyway）で本人が許可します。
@@ -136,7 +136,7 @@ helper削除は補助アプリだけを対象とし、モデルcache・ペット
 更新成功時だけ隠しfolderへ移します。旧lockは同時操作防止を保ったままFinderで非表示にします。
 旧版整理は現在版と1つ前を保持し、receiptとファイル指紋が一致するそれ以前だけをOSごみ箱へ送ります。
 指紋のない旧版、変更されたfolder、未知のfolder、Macで起動中の版は保持します。
-整理に失敗しても新しい導入とペット・設定は保持します。OSのごみ箱動作の実機確認は継続中です。
+整理に失敗しても新しい導入とキャラクター・設定は保持します。OSのごみ箱動作の実機確認は継続中です。
 
 Mac Apple Siliconで梱包後の音声helperのGUI起動・停止画面、モデル準備と実モデルの日本語音声を確認しました。
 Ono_Anna / Japaneseで24kHz・3.12秒・無音でないPCM WAVを生成し、OS音声出力で再生しました。

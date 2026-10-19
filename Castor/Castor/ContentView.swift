@@ -100,8 +100,8 @@ struct ContentView: View {
             Button(displayLanguage == .japanese ? "後で" : "Later",role:.cancel) {}
         } message: {
             Text(displayLanguage == .japanese
-                ? "拒否してもペットの作成や文字での会話は使えます。システム設定 → プライバシーとセキュリティ → マイクでCastorを許可した後、Castorの設定 → 入力でマイクをオンにできます。音量への反応は端末内で処理し、音声チャットはマイクボタンを押したときだけ認識します。"
-                : "You can still create pets and use text chat. Allow Castor in System Settings → Privacy & Security → Microphone, then turn on Microphone in Castor Settings → Input. Audio-level reactions stay on this device; voice chat listens only when you press its microphone button.")
+                ? "拒否してもキャラクターの作成や文字での会話は使えます。システム設定 → プライバシーとセキュリティ → マイクでCastorを許可した後、Castorの設定 → 入力でマイクをオンにできます。音量への反応は端末内で処理し、音声チャットはマイクボタンを押したときだけ認識します。"
+                : "You can still create characters and use text chat. Allow Castor in System Settings → Privacy & Security → Microphone, then turn on Microphone in Castor Settings → Input. Audio-level reactions stay on this device; voice chat listens only when you press its microphone button.")
         }
     }
 

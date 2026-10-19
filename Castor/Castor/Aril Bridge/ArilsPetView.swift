@@ -38,7 +38,7 @@ struct ArilsPetView: View {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.system(size: 24))
                     .foregroundStyle(.white.opacity(0.6))
-                    .help("Arils avatar could not be loaded; re-save the pet from Image Rigging.")
+                    .help("Arils avatar could not be loaded; re-save the character from Image Rigging.")
             } else {
                 Color.clear
             }

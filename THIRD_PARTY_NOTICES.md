@@ -126,11 +126,11 @@ package Microsoft.Web.WebView2 1.0.4191.47, unmodified.
 - License: BSD 3-Clause License, Copyright (C) Microsoft Corporation
   (`CastorDesktop/Redist/WebView2/LICENSE`)
 
-## stb_image (PNG decoding in the Windows preview)
+## stb_image (image decoding in the Windows preview)
 
 `CastorDesktop/Sources/CStbImage/include/stb_image.h` is stb_image v2.30
 from nothings/stb (commit 2c980bb59875b0d32144a71867fbdebb2f77cd20), vendored
-unmodified. Only its PNG decoder is compiled.
+unmodified. Its PNG, JPEG, BMP and GIF decoders are compiled.
 
 - Project: <https://github.com/nothings/stb>
 - License: public domain (Unlicense) or MIT, at your choice; the full text is

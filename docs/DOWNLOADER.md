@@ -90,7 +90,7 @@ Windows 配布用 EXE のコード署名も未整備です。
 Windows版は全機能共通化の途中です。現在のソースには、PNG選択・顔マーカー補正・
 2D変形の試作作成があり、`CastorPet.exe` / `Start-Castor.cmd` の初回案内で作成できます。
 Macの自動リギング/Qualityと同等の品質、会話・音声・カメラはまだ未実装です。
-Macから保存ペットを読み込むこともできます。GUI導入・全機能共通化の目標と残課題は
+Macから保存キャラクターを読み込むこともできます。GUI導入・全機能共通化の目標と残課題は
 [実装計画](CROSS_PLATFORM_PARITY.md)を参照してください。対応範囲と未確認事項は正式Releaseにも記載します。
 
 ## 非公開 Release の認証
@@ -129,7 +129,7 @@ python3 scripts/prepare-castor-release.py --help
 
 - macOS の署名・notarization と、配布先 Mac での起動。
 - Windows の DLL が揃っていることと、Swift 開発環境に依存しない起動。
-- 実ペットの読み込み、描画、GUI 操作。合成図形の表示やビルド成功だけで完了としない。
+- 実キャラクターの読み込み、描画、GUI 操作。合成図形の表示やビルド成功だけで完了としない。
 - 配布 ZIP にライセンスと必要な第三者表記が含まれること。
 
 SHA-256 の照合は取得ファイルと manifest の一致確認です。署名・notarization、
@@ -150,7 +150,7 @@ python3 scripts/prepare-castor-release.py --version v0.1.0 \
 
 macOS Intel用は `--macos-x86-64` です。実際にビルドしたCPUの配布物だけを登録します。
 Windows入力は `CastorPet.exe` と必要DLLだけを置いた専用ディレクトリです。
-`swiftCore.dll` が必要で、保存済みペット、設定、ログ、開発用ファイルは拒否します。
+`swiftCore.dll` が必要で、保存済みキャラクター、設定、ログ、開発用ファイルは拒否します。
 DLLの依存が全て揃うことをこのツールだけでは証明できないため、Swiftを入れていない
 Windowsで起動し、Swift/ICU/Visual C++等の再配布条件・必要なライセンスを確認してください。
 生成物はOS別ZIP、`castor-downloads.json`、小さな `Castor-Downloader.zip` です。

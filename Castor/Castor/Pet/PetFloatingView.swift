@@ -57,7 +57,7 @@ struct PetFloatingView: View {
                 Label(L("GIFを作ってXで共有"), systemImage: "square.and.arrow.up")
             }
             Divider()
-            Button(L("ペットを閉じる"), action: onClose)
+            Button(L("キャラクターを閉じる"), action: onClose)
         }
 
         .background(
