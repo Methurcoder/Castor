@@ -13,6 +13,7 @@
     "drop.hint": "ここに画像をドラッグしても読み込めます",
     "import.formats": "PNG・JPEG・BMP・GIFなどに対応。アニメーション画像は最初のフレームを使います。",
     "markers.manual": "自動推定の警告は参考情報です。枠を画像内に置き、元絵に合わせて確認すれば作成できます。",
+    "markers.invalid": "AIから有効な顔マーカーを取得できませんでした。現在のマーカーを保持しています。",
     "drop.release": "ここで離すと読み込みます",
     "estimator.model": "アニメ顔モデルで推定",
     "estimator.heuristic": "イラスト推定（モデル未導入）",
@@ -47,6 +48,7 @@
     "drop.hint": "You can also drop an image here",
     "import.formats": "PNG, JPEG, BMP, GIF and OS-supported formats. Animated images use the first frame.",
     "markers.manual": "Automatic warnings are guidance. Keep markers inside the image and confirm their positions against your drawing to create the character.",
+    "markers.invalid": "The AI did not return valid face markers. Your current markers have been kept.",
     "drop.release": "Release to import",
     "estimator.model": "Anime face model",
     "estimator.heuristic": "Illustration heuristic (model not installed)",
@@ -335,11 +337,18 @@
       const move = (moveEvent) => {
         const dx = (moveEvent.clientX - origin[0]) / scale, dy = (moveEvent.clientY - origin[1]) / scale;
         let [x, y, w, h] = start;
-        if (resizing) { w = Math.max(4, w + dx); h = Math.max(2, h + dy); }
-        else { x += dx; y += dy; }
-        x = Math.min(Math.max(0, x), prepared.width - w);
-        y = Math.min(Math.max(0, y), prepared.height - h);
-        w = Math.min(w, prepared.width - x); h = Math.min(h, prepared.height - y);
+        if (resizing) {
+          // Keep the top-left corner fixed; grow only into the remaining image.
+          x = Math.min(Math.max(0, x), prepared.width - 1);
+          y = Math.min(Math.max(0, y), prepared.height - 1);
+          w = Math.min(Math.max(4, w + dx), prepared.width - x);
+          h = Math.min(Math.max(2, h + dy), prepared.height - y);
+        } else {
+          w = Math.min(Math.max(1, w), prepared.width);
+          h = Math.min(Math.max(1, h), prepared.height);
+          x = Math.min(Math.max(0, x + dx), prepared.width - w);
+          y = Math.min(Math.max(0, y + dy), prepared.height - h);
+        }
         prepared.markers[key] = [x, y, w, h];
         Object.assign(marker.style, { left: x * scale + "px", top: y * scale + "px", width: w * scale + "px", height: h * scale + "px" });
       };
@@ -383,13 +392,24 @@
       case "saved": hideBusy(); toast(message.message || t("saved")); break;
       case "error": hideBusy(); toast(message.message, true); break;
       case "toast": toast(message.message); break;
-      default: if (window.castorSettings) window.castorSettings.receive(message);
       case "markers":
         // An AI proposal: shown for review, never saved without the user.
         if (!prepared) break;
+        if (!message.markers || !PARTS.every(({ key }) => {
+          const rect = message.markers[key];
+          return Array.isArray(rect) && rect.length === 4 && rect.every(Number.isFinite)
+            && rect[0] >= 0 && rect[1] >= 0 && rect[2] >= 1 && rect[3] >= 1
+            && rect[0] + rect[2] <= prepared.width && rect[1] + rect[3] <= prepared.height;
+        })) {
+          toast(t("markers.invalid"), true);
+          break;
+        }
         prepared.markers = message.markers;
         layoutMarkers();
         if (message.note) toast(message.note);
+        break;
+      default:
+        if (window.castorSettings) window.castorSettings.receive(message);
         break;
     }
   });
@@ -578,7 +598,7 @@
       { key: "automaticTurn", type: "toggle" },
       { key: "widerHeadMovement", type: "toggle" },
       { key: "naturalFaceMotion", type: "toggle" },
-      { note: "naturalFace.note", when: () => draft.naturalFaceMotion },
+      { note: "naturalFace.note", when: () => read("naturalFaceMotion") },
       { key: "evasionEnabled", type: "toggle" },
       { key: "evasionStyle", type: "select", options: () => ["cute", "calm", "cool", "proud", "robot"].map((v) => ({ value: v, label: t("evasion." + v) })), when: () => draft.evasionEnabled },
       { key: "buttonDodgeEnabled", type: "toggle" },
@@ -625,11 +645,14 @@
   function read(key) {
     if (key === "endpoint") return draft.provider === "ollama" ? draft.ollamaEndpoint : draft.lmStudioEndpoint;
     if (key === "model") return draft.provider === "ollama" ? draft.ollamaModel : draft.lmStudioModel;
+    // Keep the control's label/ID stable, but use DesktopPreferences' versioned JSON key.
+    if (key === "naturalFaceMotion") return draft.naturalFaceMotion2;
     return draft[key];
   }
   function write(key, value) {
     if (key === "endpoint") draft[draft.provider === "ollama" ? "ollamaEndpoint" : "lmStudioEndpoint"] = value;
     else if (key === "model") draft[draft.provider === "ollama" ? "ollamaModel" : "lmStudioModel"] = value;
+    else if (key === "naturalFaceMotion") { draft.naturalFaceMotion2 = value; delete draft.naturalFaceMotion; }
     else draft[key] = value;
     if (key === "provider") models = [];
     if (key === "neuralTTSEnabled" && value) draft.systemTTSEnabled = true;
@@ -798,7 +821,7 @@
 
   // ---- Preview mock ----------------------------------------------------------
   let mockStore = {
-    displayLanguage: "ja", scale: 1, petOpacity: 1, automaticTurn: true, widerHeadMovement: false, naturalFaceMotion: true,
+    displayLanguage: "ja", scale: 1, petOpacity: 1, automaticTurn: true, widerHeadMovement: false, naturalFaceMotion2: true,
     evasionEnabled: false, evasionStyle: "calm", buttonDodgeEnabled: false, microphoneEnabled: false, microphoneSetupCompleted: true,
     systemTTSEnabled: false, systemVoice: "", neuralTTSEnabled: false, neuralEndpoint: "http://127.0.0.1:8000/v1/audio/speech",
     neuralModel: "mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit", neuralVoice: "Ryan", neuralInstruction: "Speak gently.",

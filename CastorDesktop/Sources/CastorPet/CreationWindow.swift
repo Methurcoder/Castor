@@ -268,7 +268,11 @@ final class CreationWindow {
     }
 
     private func save(_ value: Any?) {
-        guard task == nil, let prepared, let markers = layout(from: value) else { return }
+        guard task == nil, let prepared else { return }
+        guard let markers = layout(from: value) else {
+            fail(PortableRigImage.ImageError.invalidMarkers)
+            return
+        }
         do { try markers.validate(width: prepared.source.width, height: prepared.source.height) }
         catch { fail(error); return }
         let name = sourceName
