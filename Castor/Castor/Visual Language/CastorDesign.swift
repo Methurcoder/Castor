@@ -1,4 +1,6 @@
 import SwiftUI
+import CoreImage
+import Observation
 
 /// アプリ全体の tint に使う、少し紫がかった淡い水色(ペリウィンクル)。
 /// 白文字を載せても読める濃さにしてあり、ライト・ダーク共通で使う。
@@ -47,6 +49,22 @@ struct CastorPalette {
     }
 }
 
+/// Mouse input changes only the backdrop's observation scope, not the editor.
+@Observable
+final class CastorAmbientLightTracking {
+    var position: CGPoint?
+}
+
+struct CastorTrackedAmbientBackground: View {
+    let accent: Color
+    let isDark: Bool
+    let tracking: CastorAmbientLightTracking
+
+    var body: some View {
+        CastorAmbientBackground(accent: accent, isDark: isDark, lightPosition: tracking.position)
+    }
+}
+
 /// カーソルの光に淡い波を重ねる。動いたときだけ揺れ、停止後は静かに収まる。
 struct CastorAmbientBackground: View {
     let accent: Color
@@ -77,10 +95,8 @@ struct CastorAmbientBackground: View {
                     ? Color(red: 0.045, green: 0.05, blue: 0.075)
                     : Color(red: 0.95, green: 0.955, blue: 0.975))
 
-                Ellipse()
-                    .fill(accent.opacity(isDark ? 0.19 : 0.11))
-                    .frame(width: 620, height: 440)
-                    .blur(radius: 130)
+                halo(opacity: isDark ? 0.16 : 0.095, radius: 440)
+                    .scaleEffect(x: 1, y: 0.74)
                     .position(targetPosition)
                     .animation(
                         .spring(response: 0.65, dampingFraction: 0.74),
@@ -93,26 +109,31 @@ struct CastorAmbientBackground: View {
                     let strength = waveStrength * envelope
                     let phase = context.date.timeIntervalSince(waveClockOrigin) * 1.4
 
-                    ZStack {
-                        AmbientLightWave(phase: phase, amplitude: 16 + 26 * strength, thickness: 64)
-                            .fill(accent.opacity(isDark ? 0.14 : 0.085))
-                            .blur(radius: 40)
-                        AmbientLightWave(phase: phase - 1.1, amplitude: 13 + 20 * strength, thickness: 90)
-                            .fill(accent.opacity(isDark ? 0.085 : 0.05))
-                            .offset(x: -55, y: 55)
-                            .blur(radius: 60)
+                    if let image = AmbientWaveTexture.image {
+                        ZStack {
+                            Image(decorative: image, scale: 1)
+                                .renderingMode(.template)
+                                .resizable()
+                                .foregroundStyle(accent.opacity(isDark ? 0.14 : 0.085))
+                                .scaleEffect(x: 1 + sin(phase) * 0.025, y: 1 + cos(phase) * 0.12)
+                                .offset(y: sin(phase) * 12 * strength)
+                            Image(decorative: image, scale: 1)
+                                .renderingMode(.template)
+                                .resizable()
+                                .foregroundStyle(accent.opacity(isDark ? 0.085 : 0.05))
+                                .scaleEffect(x: 1.08, y: 1.35)
+                                .offset(x: -55 + cos(phase) * 10, y: 55 + sin(phase - 1.1) * 10)
+                        }
+                        .frame(width: 720, height: 220)
+                        .rotationEffect(.degrees(-12))
+                        .opacity(strength)
                     }
-                    .frame(width: 720, height: 220)
-                    .rotationEffect(.degrees(-12))
-                    .opacity(strength)
                 }
                 .position(targetPosition)
                 .animation(.spring(response: 0.9, dampingFraction: 0.7), value: targetPosition)
 
-                Ellipse()
-                    .fill(accent.opacity(isDark ? 0.10 : 0.06))
-                    .frame(width: 940, height: 680)
-                    .blur(radius: 180)
+                halo(opacity: isDark ? 0.085 : 0.05, radius: 650)
+                    .scaleEffect(x: 1, y: 0.74)
                     .position(trailingPosition)
                     .animation(
                         .spring(response: 1.05, dampingFraction: 0.78),
@@ -143,16 +164,53 @@ struct CastorAmbientBackground: View {
         .onChange(of: reduceMotion) { _, reduced in
             if reduced { waveActive = false }
         }
-        .task(id: lastMovement) {
+        .task(id: waveActive) {
             guard waveActive, !reduceMotion else { return }
+            // One settling task per interaction, rather than cancelling and
+            // creating a new task for every mouse event.
             do {
-                try await Task.sleep(for: .seconds(3))
-                waveActive = false
-            } catch {
-                // New movement replaces the settling timer; removal cancels it too.
-            }
+                while !Task.isCancelled {
+                    try await Task.sleep(for: .milliseconds(250))
+                    if Date().timeIntervalSince(lastMovement) >= 3 {
+                        waveActive = false
+                        return
+                    }
+                }
+            } catch { /* View removal or reduced motion cancels the task. */ }
         }
     }
+
+    private func halo(opacity: Double, radius: CGFloat) -> some View {
+        Circle()
+            .fill(RadialGradient(stops: [
+                .init(color: accent.opacity(opacity), location: 0),
+                .init(color: accent.opacity(opacity * 0.58), location: 0.4),
+                .init(color: accent.opacity(opacity * 0.14), location: 0.75),
+                .init(color: .clear, location: 1)
+            ], center: .center, startRadius: 0, endRadius: radius))
+            .frame(width: radius * 2, height: radius * 2)
+    }
+}
+
+/// Bake a small blurred wave once. Frames only transform this texture;
+/// they never re-tessellate the path or run a large blur on the window.
+private enum AmbientWaveTexture {
+    static let image: CGImage? = {
+        let width = 360, height = 110
+        guard let context = CGContext(data: nil, width: width, height: height,
+            bitsPerComponent: 8, bytesPerRow: width * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        context.scaleBy(x: 0.5, y: 0.5)
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.addPath(AmbientLightWave(phase: 0, amplitude: 34, thickness: 64)
+            .path(in: CGRect(x: 0, y: 0, width: 720, height: 220)).cgPath)
+        context.fillPath()
+        guard let source = context.makeImage() else { return nil }
+        let image = CIImage(cgImage: source)
+        let blurred = image.applyingFilter("CIGaussianBlur", parameters: ["inputRadius": 20])
+        return CIContext(options: [.useSoftwareRenderer: true]).createCGImage(blurred, from: image.extent)
+    }()
 }
 
 /// 両端が細くなる柔らかい帯。輪郭をぼかし、背景の光としてだけ見せる。
