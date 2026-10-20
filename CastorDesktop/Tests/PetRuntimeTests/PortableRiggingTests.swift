@@ -46,15 +46,20 @@ private func illustration(opaque: Bool = false) throws -> PortableRigImage {
     #expect(image.rgba[3] == 255)
 }
 
-@Test func portableRigRejectsUnboundedAndMisorderedMarkers() throws {
+@Test func portableRigRejectsUnboundedMarkersButKeepsConfirmedUnusualOnes() throws {
     let image = try illustration()
     let draft = try PortableRigBuilder.prepare(image)
     var layout = draft.layout
     layout.head.origin.x = -.infinity
     #expect(throws: (any Error).self) { try PortableRigBuilder.build(image: image, layout: layout) }
     layout = draft.layout
-    swap(&layout.eyeLeft, &layout.eyeRight)
+    layout.mouth.origin.x = CGFloat(image.width)
     #expect(throws: (any Error).self) { try PortableRigBuilder.build(image: image, layout: layout) }
+    // Placement is guidance only: a person may confirm eyes in an unusual
+    // order (a tilted or stylized face), and the character is still built.
+    layout = draft.layout
+    swap(&layout.eyeLeft, &layout.eyeRight)
+    _ = try PortableRigBuilder.build(image: image, layout: layout)
 }
 
 @Test func portableRigRoundTripsThroughExistingArchiveAndSavedPetLoader() throws {
