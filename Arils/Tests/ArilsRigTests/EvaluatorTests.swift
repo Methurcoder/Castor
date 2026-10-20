@@ -1079,3 +1079,31 @@ private func part(
         }
     }
 }
+
+@Test func warpKeyformsKeepSparseFallbacksForShortOffsetArraysAndAdditiveOperations() {
+    let rect = CGRect(x: 0, y: 0, width: 10, height: 10)
+    let mesh = DeformableMesh.grid(rect: rect, columns: 1, rows: 1)
+    func key(_ x: Float, _ y: Float, _ offset: SIMD2<Float>, count: Int = 4) -> WarpKeyformKey {
+        WarpKeyformKey(parameterXValue: x, parameterYValue: y,
+                       vertexOffsets: Array(repeating: offset, count: count))
+    }
+    let part = AvatarPart(id: "ragged", kind: .mouth, rect: rect, zOrder: 0, mesh: mesh,
+        deformations: [
+            .warpKeyform(parameterX: .mouthOpen, parameterY: .mouthForm, keys: [
+                key(0, -1, .zero), key(1, -1, SIMD2(10, 0), count: 2),
+                key(0, 1, SIMD2(0, 20)), key(1, 1, SIMD2(10, 20)),
+                key(0.5, 0, SIMD2(99, 99), count: 0),
+            ]),
+            .warpKeyform(parameterX: .mouthOpen, parameterY: .mouthForm,
+                         keys: [key(0, 0, SIMD2(2, -3))]),
+        ])
+    let evaluator = DeformationEvaluator(rig: AvatarRig(imageWidth: 10, imageHeight: 10,
+        parts: [part], parameters: StandardParameters.all))
+    let result = evaluator.evaluate(parameters: [.mouthOpen: 0.5, .mouthForm: 0])["ragged"]!
+    // The complete corners interpolate normally. Later vertices lack one
+    // corner, so the existing nearest-key fallback supplies that corner.
+    for index in mesh.vertices.indices {
+        let expected = index < 2 ? SIMD2<Float>(7, 7) : SIMD2<Float>(4.5, 7)
+        #expect(simd_distance(result[index], mesh.vertices[index] + expected) < 0.0001)
+    }
+}
