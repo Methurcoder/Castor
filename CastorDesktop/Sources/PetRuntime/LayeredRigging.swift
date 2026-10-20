@@ -77,11 +77,14 @@ public enum LayeredRigging {
         }
         let faceMask = masks.analysis.resized(width: faceContext.analysis.width, height: faceContext.analysis.height)
         var warnings = ["顔の推定結果は自動承認しません。頭・目・口の範囲を確認してください。"]
-        // The Mac's anime landmark model (ONNX) first, then the shared heuristic.
+        // The Mac's anime landmark model (ONNX) first, then dot-eye mascots,
+        // then the shared heuristic.
         var estimate: FaceLayout?
         var label = "Illustration heuristic"
         if let model = await OnnxAnimeFaceEstimator().estimateLayout(context: faceContext, subjectMask: faceMask) {
             estimate = model; label = OnnxAnimeFaceEstimator.sourceLabel
+        } else if let mascot = await MascotFaceEstimator().estimateLayout(context: faceContext, subjectMask: faceMask) {
+            estimate = mascot; label = MascotFaceEstimator.sourceLabel
         } else {
             if PortableML.face == nil {
                 warnings.append("顔推定モデルが未導入のため、共有のイラスト推定器を使用します。")
