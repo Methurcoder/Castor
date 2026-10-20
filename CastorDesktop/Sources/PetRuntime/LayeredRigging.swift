@@ -77,11 +77,14 @@ public enum LayeredRigging {
         }
         let faceMask = masks.analysis.resized(width: faceContext.analysis.width, height: faceContext.analysis.height)
         var warnings = ["顔の推定結果は自動承認しません。頭・目・口の範囲を確認してください。"]
-        // The Mac's anime landmark model (ONNX) first, then the shared heuristic.
+        // The Mac's anime landmark model (ONNX) first, then dot-eye mascots,
+        // then the shared heuristic.
         var estimate: FaceLayout?
         var label = "Illustration heuristic"
         if let model = await OnnxAnimeFaceEstimator().estimateLayout(context: faceContext, subjectMask: faceMask) {
             estimate = model; label = OnnxAnimeFaceEstimator.sourceLabel
+        } else if let mascot = await MascotFaceEstimator().estimateLayout(context: faceContext, subjectMask: faceMask) {
+            estimate = mascot; label = MascotFaceEstimator.sourceLabel
         } else {
             if PortableML.face == nil {
                 warnings.append("顔推定モデルが未導入のため、共有のイラスト推定器を使用します。")
@@ -114,10 +117,33 @@ public enum LayeredRigging {
                    mouthRect: layout.mouth, confidence: confidence)
     }
 
+    /// The reviewed markers carry only rectangles. An eye whose marker the
+    /// person left where the estimator put it keeps what the estimator knew
+    /// about it — its lid points (eye-shaped cut, moving iris) and whether it
+    /// is hidden. A moved marker means the person placed that eye themselves,
+    /// so it is built from the rectangle alone.
+    public static func faceLayout(_ markers: PortableFaceLayout, estimated: FaceLayout) -> FaceLayout {
+        var layout = faceLayout(markers, confidence: estimated.confidence)
+        func unchanged(_ a: CGRect, _ b: CGRect) -> Bool {
+            abs(a.minX - b.minX) < 0.5 && abs(a.minY - b.minY) < 0.5
+                && abs(a.width - b.width) < 0.5 && abs(a.height - b.height) < 0.5
+        }
+        if unchanged(markers.eyeLeft, estimated.eyeLeftRect) {
+            layout.eyeLeftLandmarks = estimated.eyeLeftLandmarks
+            layout.eyeLeftHidden = estimated.eyeLeftHidden
+        }
+        if unchanged(markers.eyeRight, estimated.eyeRightRect) {
+            layout.eyeRightLandmarks = estimated.eyeRightLandmarks
+            layout.eyeRightHidden = estimated.eyeRightHidden
+        }
+        return layout
+    }
+
     private static func layers(_ prepared: PreparedPortableRig, markers: PortableFaceLayout) throws -> RigLayerBuild {
         try markers.validate(width: prepared.source.width, height: prepared.source.height)
         return RigLayerBuilder.build(source: prepared.bitmap, analysisMask: prepared.masks.analysis,
-            extractionMask: prepared.masks.extraction, layout: faceLayout(markers), maskIsAuthoritative: prepared.maskIsAuthoritative)
+            extractionMask: prepared.masks.extraction, layout: faceLayout(markers, estimated: prepared.face.layout),
+            maskIsAuthoritative: prepared.maskIsAuthoritative)
     }
 
     public static func build(_ prepared: PreparedPortableRig, markers: PortableFaceLayout) throws -> AvatarArchive {

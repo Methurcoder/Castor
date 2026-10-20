@@ -13,7 +13,9 @@ import Foundation
 /// 1. the anime model, when it found a face and read it well;
 /// 2. otherwise Apple Vision, when it found a face in the subject;
 /// 3. otherwise whatever the model found, however weak;
-/// 4. otherwise the illustration heuristic.
+/// 4. otherwise two dark dot eyes on a light body (`MascotFaceEstimator`),
+///    the mascot style none of the above can read;
+/// 5. otherwise the illustration heuristic.
 ///
 /// Every result is still returned as a candidate, so face review can switch
 /// back to any of them.
@@ -26,17 +28,20 @@ public struct AnimeFirstFaceEstimator: FaceLayoutCandidatesEstimating {
 
     public var model: any FaceLayoutEstimating
     public var vision: any FaceLayoutEstimating
+    public var mascot: any FaceLayoutEstimating
     public var heuristic: any FaceLayoutEstimating
     public var weakModelConfidence: Float
 
     public init(
         model: any FaceLayoutEstimating = AnimeFaceCoreMLEstimator(),
         vision: any FaceLayoutEstimating = VisionFaceEstimator(),
+        mascot: any FaceLayoutEstimating = MascotFaceEstimator(),
         heuristic: any FaceLayoutEstimating = AnimeFaceEstimator(),
         weakModelConfidence: Float = AnimeFirstFaceEstimator.weakModelConfidence
     ) {
         self.model = model
         self.vision = vision
+        self.mascot = mascot
         self.heuristic = heuristic
         self.weakModelConfidence = weakModelConfidence
     }
@@ -47,7 +52,7 @@ public struct AnimeFirstFaceEstimator: FaceLayoutCandidatesEstimating {
 
     public func estimateCandidates(context: AnalysisContext, subjectMask: FloatPlane) async -> [FaceLayoutCandidate] {
         var candidates: [FaceLayoutCandidate] = []
-        for (index, estimator) in [model, vision, heuristic].enumerated() {
+        for (index, estimator) in [model, vision, mascot, heuristic].enumerated() {
             guard let layout = await estimator.estimateLayout(context: context, subjectMask: subjectMask) else { continue }
             let calibrated = estimator.calibratedConfidence(for: layout)
             guard calibrated.isFinite, calibrated > 0 else { continue }
@@ -66,7 +71,9 @@ public struct AnimeFirstFaceEstimator: FaceLayoutCandidatesEstimating {
         let fromVision = candidates.first { $0.sourceLabel == vision.estimatorSourceLabel }
         if let fromModel, !isWeak(fromModel.layout) { return fromModel }
         if let fromVision { return fromVision }
-        return fromModel ?? candidates.first { $0.sourceLabel == heuristic.estimatorSourceLabel }
+        return fromModel
+            ?? candidates.first { $0.sourceLabel == mascot.estimatorSourceLabel }
+            ?? candidates.first { $0.sourceLabel == heuristic.estimatorSourceLabel }
     }
 
     /// A face with one eye hidden reads low because of that eye alone; the

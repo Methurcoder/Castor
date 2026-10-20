@@ -57,6 +57,7 @@ struct CastorTests {
         )
         #expect(enabled.model is AnimeFaceCoreMLEstimator)
         #expect(enabled.vision is VisionFaceEstimator)
+        #expect(enabled.mascot is MascotFaceEstimator)
         #expect(enabled.heuristic is AnimeFaceEstimator)
 
         AnimeFaceLandmarksSettingsStore.isEnabled = false
