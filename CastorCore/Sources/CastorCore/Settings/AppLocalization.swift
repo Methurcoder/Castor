@@ -125,6 +125,8 @@ public nonisolated enum CastorAppStrings {
         "Drag each marker on the image. Use the sliders to correct its size. The cyan bottom edge is the neck cut used to move the head.": Entry(japanese: "画像上の各マーカーをドラッグして位置を調整します。スライダーで大きさを調整してください。水色の下端は、頭を動かすための首の切り分け位置です。", english: "Drag each marker on the image. Use the sliders to correct its size. The cyan bottom edge is the neck cut used to move the head."),
         "Drop a PNG, JPEG, or other image file.": Entry(japanese: "PNG、JPEGなどの画像ファイルをドロップしてください。", english: "Drop a PNG, JPEG, or other image file."),
         "EMBARRASSED": Entry(japanese: "照れ", english: "EMBARRASSED"),
+        "FRUSTRATED": Entry(japanese: "悔しい", english: "FRUSTRATED"),
+        "JEALOUS": Entry(japanese: "やきもち", english: "JEALOUS"),
         "Edit Ranges": Entry(japanese: "範囲を編集", english: "Edit Ranges"),
         "Editing ranges.": Entry(japanese: "範囲を編集中です。", english: "Editing ranges."),
         "Estimated by: %@": Entry(japanese: "推定方法: %@", english: "Estimated by: %@"),

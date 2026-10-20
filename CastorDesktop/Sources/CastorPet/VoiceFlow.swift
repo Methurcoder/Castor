@@ -28,14 +28,16 @@ enum WindowsVoiceFlow {
             return parts.count == 2 ? (String(parts[0]), String(parts[1])) : nil
         }
     }
-    static func speak(_ text:String,preferences:DesktopPreferences) throws {
+    /// `user`: what the person said this turn, read with the reply by the optional feeling model.
+    static func speak(_ text:String,preferences:DesktopPreferences,user:String?=nil) throws {
         guard preferences.neuralTTSEnabled else {try speak(text,voice:preferences.systemVoice);return}
         do {
             _ = try WindowsRiggingFlow.work(text:preferences.displayLanguage == .japanese ?
                 "Neural TTSで生成・再生しています。キャンセルで停止します。":"Generating and playing Neural TTS. Cancel to stop.",operation:{
                 let transport=try NeuralSpeechTransport(endpoint:URL(string:preferences.neuralEndpoint)!)
                 guard try await transport.isModelReady(model:preferences.neuralModel) else {throw VoiceError.unavailable}
-                let payload=NeuralSpeechPayload(model:preferences.neuralModel,input:text,instruct:preferences.neuralInstruction,
+                let instruct=DesktopFeelings.instruction(base:preferences.neuralInstruction,reply:text,user:user)
+                let payload=NeuralSpeechPayload(model:preferences.neuralModel,input:text,instruct:instruct,
                     voice:preferences.neuralVoice,speed:preferences.neuralSpeed,langCode:preferences.neuralLanguage)
                 let wav=try WavePCM(data:await transport.audio(for:payload))
                 let status=wav.samples.withUnsafeBufferPointer {

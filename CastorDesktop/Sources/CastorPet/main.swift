@@ -391,7 +391,8 @@ private func petWindowProc(_ hwnd: HWND?, _ message: UINT, _ wParam: WPARAM, _ l
                     if let reply = try WindowsConversationFlow.chat(preferences: window.preferences, history: &window.chatHistory, initialPrompt: prompt), window.preferences.systemTTSEnabled {
                         window.player.front.isSpeaking = true; window.player.side?.isSpeaking = true
                         defer { window.player.front.isSpeaking = false; window.player.side?.isSpeaking = false }
-                        try WindowsVoiceFlow.speak(reply, preferences: window.preferences)
+                        let said = window.chatHistory.last { $0.role == .user }?.content ?? prompt
+                        try WindowsVoiceFlow.speak(reply, preferences: window.preferences, user: said.isEmpty ? nil : said)
                     }
                 }
                 if command == UInt16(menuClearChat) { window.chatHistory.removeAll() }
@@ -596,6 +597,8 @@ if !preferences.microphoneSetupCompleted && preferenceSaveAllowed {
 }
 castor_microphone_enable(window.preferences.microphoneEnabled ? 1:0)
 PetWindow.shared = window
+// The optional feeling model loads in the background so the first spoken reply does not wait for it.
+Task.detached(priority: .utility) { _ = DesktopFeelings.classifier }
 guard window.create() else {
     showError("Could not create the character window.")
     exit(1)

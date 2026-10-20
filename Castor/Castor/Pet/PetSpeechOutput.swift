@@ -54,6 +54,12 @@ final class PetSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
     /// A streamed reply collected for a neural voice until the stream ends.
     private var pendingNeuralText = ""
     private var speechMetadata = OllamaSpeechMetadata.fallback
+    /// What the user said this turn, read with each line by the feeling model.
+    var feelingUserText: String?
+    /// Each segment's own feeling (when the feeling model is installed), read once.
+    private var segmentSpeech: [Int: OllamaSpeechMetadata] = [:]
+    /// The feeling of the segment being spoken now (or last spoken).
+    private(set) var currentSpeech = OllamaSpeechMetadata.fallback
     private var shouldUseNeuralVoice = true
     private var languageContext = PetSpeechLanguageContext()
 
@@ -207,6 +213,7 @@ final class PetSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
 
         self.completion = completion
         speechMetadata = speech
+        segmentSpeech = [:]
         languageContext.reset()
         languageContext.observe(text)
         currentSegmentIndex = 0
@@ -230,6 +237,7 @@ final class PetSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
         stop()
         self.completion = completion
         speechMetadata = speech
+        segmentSpeech = [:]
         languageContext.reset()
         currentSegmentIndex = 0
         segments = []
@@ -415,6 +423,7 @@ final class PetSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
         }
 
         let segment = segments[currentSegmentIndex]
+        currentSpeech = speech(forSegment: currentSegmentIndex)
         guard shouldUseNeuralVoice else {
             Self.logger.info("Using system voice for segment \(self.currentSegmentIndex + 1)/\(self.segments.count); chars=\(segment.count)")
             speakWithSystemVoice(segment)
@@ -436,7 +445,7 @@ final class PetSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
                     audioData = try await neuralClient.audio(
                         for: segment,
                         profile: voiceProfile,
-                        speech: speechMetadata,
+                        speech: currentSpeech,
                         languageCode: languageContext.neuralLanguageCode
                     )
                 }
@@ -605,6 +614,20 @@ final class PetSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
         return Float(min(max(baseRate, 0.35), 0.62))
     }
 
+    /// The feeling to speak segment `index` with: read from the line itself when
+    /// the feeling model is installed, else the reply's own `tts` metadata.
+    private func speech(forSegment index: Int) -> OllamaSpeechMetadata {
+        if let known = segmentSpeech[index] { return known }
+        var speech = speechMetadata
+        if segments.indices.contains(index),
+           let estimate = PetFeelingReader.shared.classifier?.estimate(reply: segments[index], user: feelingUserText) {
+            speech = estimate.speechMetadata(keeping: speechMetadata)
+            Self.logger.info("Segment \(index + 1) feeling=\(speech.emotion.rawValue, privacy: .public) p=\(estimate.confidence, format: .fixed(precision: 2))")
+        }
+        segmentSpeech[index] = speech
+        return speech
+    }
+
     private func prefetchNextSegment() {
         let nextIndex = currentSegmentIndex + 1
         guard shouldUseNeuralVoice, segments.indices.contains(nextIndex) else {
@@ -615,14 +638,14 @@ final class PetSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
         let nextSegment = segments[nextIndex]
         let client = neuralClient
         let profile = voiceProfile
-        let speech = speechMetadata
+        let nextSpeech = speech(forSegment: nextIndex)
         prefetchedAudio = (
             nextIndex,
             Task {
                 try await client.audio(
                     for: nextSegment,
                     profile: profile,
-                    speech: speech,
+                    speech: nextSpeech,
                     languageCode: languageContext.neuralLanguageCode
                 )
             }
@@ -631,15 +654,19 @@ final class PetSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
 
     private var systemPitch: Float {
         let offset: Double
-        switch speechMetadata.emotion {
+        switch currentSpeech.emotion {
         case .happy, .surprised:
-            offset = 0.08 * speechMetadata.intensity
+            offset = 0.08 * currentSpeech.intensity
         case .sad, .thoughtful:
-            offset = -0.05 * speechMetadata.intensity
+            offset = -0.05 * currentSpeech.intensity
         case .angry:
             offset = -0.02
         case .embarrassed:
             offset = 0.04
+        case .frustrated:
+            offset = -0.03 * currentSpeech.intensity
+        case .jealous:
+            offset = -0.01
         case .neutral:
             offset = 0
         }

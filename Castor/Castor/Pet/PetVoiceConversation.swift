@@ -59,6 +59,7 @@ final class PetVoiceConversation {
         speechOutput = PetSpeechOutput(
             voiceProfile: PetVoiceProfile.resolvedProfile()
         )
+        PetFeelingReader.shared.loadIfAvailable()
     }
 
     var caption: String {
@@ -116,12 +117,13 @@ final class PetVoiceConversation {
         !responseSegments.isEmpty
     }
 
+    /// The feeling of the line being spoken (read per line when the feeling model is installed).
     var responseEmotion: OllamaSpeechEmotion {
-        responseSpeech.emotion
+        speechOutput.isSpeaking ? speechOutput.currentSpeech.emotion : responseSpeech.emotion
     }
 
     var responseEmotionIntensity: Double {
-        responseSpeech.intensity
+        speechOutput.isSpeaking ? speechOutput.currentSpeech.intensity : responseSpeech.intensity
     }
 
     var isUsingNeuralVoice: Bool {
@@ -196,6 +198,7 @@ final class PetVoiceConversation {
         responseSpeech = .fallback
         phase = .speaking
         core.request(.surprised)
+        speechOutput.feelingUserText = nil
         speechOutput.speak(line, speech: .fallback) { [weak self] in
             guard let self else { return }
             self.phase = .idle
@@ -519,6 +522,7 @@ final class PetVoiceConversation {
                     // the character to idle while speaking, matching the Codex path's handling.
                     core.request(.idle)
                     latency.record(.ttsRequestStarted)
+                    speechOutput.feelingUserText = transcript
                     speechOutput.beginStreaming(speech: .fallback) { [weak self] in
                         self?.finishSpeaking(submitStartedAt: submitStartedAt)
                     }
@@ -606,6 +610,7 @@ final class PetVoiceConversation {
             self?.latency.record(.ttsResponseReceived)
         }
         latency.record(.ttsRequestStarted)
+        speechOutput.feelingUserText = transcript
         speechOutput.speak(trimmedReply, speech: responseSpeech) { [weak self] in
             self?.finishSpeaking(submitStartedAt: submitStartedAt)
         }
