@@ -114,10 +114,33 @@ public enum LayeredRigging {
                    mouthRect: layout.mouth, confidence: confidence)
     }
 
+    /// The reviewed markers carry only rectangles. An eye whose marker the
+    /// person left where the estimator put it keeps what the estimator knew
+    /// about it — its lid points (eye-shaped cut, moving iris) and whether it
+    /// is hidden. A moved marker means the person placed that eye themselves,
+    /// so it is built from the rectangle alone.
+    public static func faceLayout(_ markers: PortableFaceLayout, estimated: FaceLayout) -> FaceLayout {
+        var layout = faceLayout(markers, confidence: estimated.confidence)
+        func unchanged(_ a: CGRect, _ b: CGRect) -> Bool {
+            abs(a.minX - b.minX) < 0.5 && abs(a.minY - b.minY) < 0.5
+                && abs(a.width - b.width) < 0.5 && abs(a.height - b.height) < 0.5
+        }
+        if unchanged(markers.eyeLeft, estimated.eyeLeftRect) {
+            layout.eyeLeftLandmarks = estimated.eyeLeftLandmarks
+            layout.eyeLeftHidden = estimated.eyeLeftHidden
+        }
+        if unchanged(markers.eyeRight, estimated.eyeRightRect) {
+            layout.eyeRightLandmarks = estimated.eyeRightLandmarks
+            layout.eyeRightHidden = estimated.eyeRightHidden
+        }
+        return layout
+    }
+
     private static func layers(_ prepared: PreparedPortableRig, markers: PortableFaceLayout) throws -> RigLayerBuild {
         try markers.validate(width: prepared.source.width, height: prepared.source.height)
         return RigLayerBuilder.build(source: prepared.bitmap, analysisMask: prepared.masks.analysis,
-            extractionMask: prepared.masks.extraction, layout: faceLayout(markers), maskIsAuthoritative: prepared.maskIsAuthoritative)
+            extractionMask: prepared.masks.extraction, layout: faceLayout(markers, estimated: prepared.face.layout),
+            maskIsAuthoritative: prepared.maskIsAuthoritative)
     }
 
     public static func build(_ prepared: PreparedPortableRig, markers: PortableFaceLayout) throws -> AvatarArchive {
