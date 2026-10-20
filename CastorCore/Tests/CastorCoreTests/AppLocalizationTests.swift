@@ -8,7 +8,7 @@ import Testing
         #expect(!CastorAppStrings.label(source, language: .english).isEmpty)
     }
     #expect(CastorAppStrings.label("Import Image", language: .japanese) == "画像を読み込む")
-    #expect(CastorAppStrings.label("うちの子をGIFに", language: .english) == "Make a GIF of Your Pet")
+    #expect(CastorAppStrings.label("うちの子をGIFに", language: .english) == "Make a GIF of Your Character")
     #expect(CastorAppStrings.label("落ち着いた低めの声", language: .english) == "A calm, low voice")
     #expect(CastorAppStrings.label("head", language: .japanese) == "頭")
     #expect(CastorAppStrings.label("head", language: .english) == "Head")
