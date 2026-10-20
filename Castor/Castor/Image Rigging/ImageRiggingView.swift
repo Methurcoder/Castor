@@ -1609,6 +1609,13 @@ private struct ArilsFaceAlignmentSheet: View {
                         coordinateSlider(L("Width"), component: .width)
                         coordinateSlider(L("Height"), component: .height)
 
+                        if let hidden = hiddenEyeBinding(for: selectedFeature) {
+                            Toggle(L("This eye is hidden (keep it still)"), isOn: hidden)
+                            Text(L("Use this when hair or the turn of the face covers the eye. It will not blink or follow the gaze, and the picture there stays as drawn."))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
                         Divider()
                         Label(L("Automatic confidence: \(Int((selectedAutomaticChoice.review.confidence * 100).rounded()))%"),
                             systemImage: selectedAutomaticChoice.review.requiresReview
@@ -1621,7 +1628,20 @@ private struct ArilsFaceAlignmentSheet: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
-                        if AnimeFaceLandmarksSettingsStore.landmarkModelWasMissing(
+                        if AnimeFaceLandmarksSettingsStore.isEnabled,
+                           AnimeFaceLandmarksSettingsStore.visionPlacedMarkers(preferredSource: proposal.sourceLabel) {
+                            Label {
+                                Text(AnimeFaceLandmarksSettingsStore.landmarkModelWasMissing(
+                                    enabled: true, candidateSources: automaticChoices.map(\.sourceLabel)
+                                )
+                                     ? L("The anime landmark model found no face in this image, so Apple Vision placed the markers.")
+                                     : L("The anime landmark model could not read this face well (photos and unusual proportions are hard for it), so Apple Vision placed the markers. You can switch back under Detection candidate."))
+                            } icon: {
+                                Image(systemName: "info.circle")
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        } else if AnimeFaceLandmarksSettingsStore.landmarkModelWasMissing(
                             enabled: AnimeFaceLandmarksSettingsStore.isEnabled,
                             candidateSources: automaticChoices.map(\.sourceLabel)
                         ) {
@@ -1816,7 +1836,12 @@ private struct ArilsFaceAlignmentSheet: View {
                     provider: provider
                 )
                 try Task.checkCancellation()
-                layout = suggestion.layout
+                // The reviewer only places boxes; whether an eye is hidden
+                // stays as the person (or the landmark model) set it.
+                var suggested = suggestion.layout
+                suggested.eyeLeftHidden = layout.eyeLeftHidden
+                suggested.eyeRightHidden = layout.eyeRightHidden
+                layout = suggested
                 aiProposal = suggestion
             } catch is CancellationError {
                 // Closing the sheet or starting another request intentionally cancels this review.
@@ -1889,6 +1914,14 @@ private struct ArilsFaceAlignmentSheet: View {
                 setRect(rect.clamped(to: CGRect(origin: .zero, size: pixelSize)), for: selectedFeature)
             }
         )
+    }
+
+    private func hiddenEyeBinding(for feature: Feature) -> Binding<Bool>? {
+        switch feature {
+        case .leftEye: $layout.eyeLeftHidden
+        case .rightEye: $layout.eyeRightHidden
+        case .head, .mouth: nil
+        }
     }
 
     private func rectBinding(for feature: Feature) -> Binding<CGRect> {

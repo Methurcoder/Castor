@@ -18,6 +18,10 @@ public struct ExtractedLayers: Sendable {
     public var mouth: Bitmap
     /// The mouth interior shown while speaking (see `mouthCavityKeyforms`).
     public var mouthCavity: Bitmap
+    /// Present for both eyes or neither (see `PupilSplit`); when present,
+    /// `eyeLeft` / `eyeRight` already hold the split's overlay.
+    public var eyeLeftPupil: PupilSplit? = nil
+    public var eyeRightPupil: PupilSplit? = nil
 }
 
 /// Cuts the source image into part layers and repairs everything a moving part
@@ -491,8 +495,9 @@ public enum LayerFactory {
                 shape.holeContains(x: originX + CGFloat(x) + 0.5, y: originY + CGFloat(y) + 0.5)
             }
         }
-        inpaintEye(rect: plan.eyeLeftRect, shape: eyeLeftShape)
-        inpaintEye(rect: plan.eyeRightRect, shape: eyeRightShape)
+        // A hidden eye is never cut out, so there is nothing to repaint.
+        if !plan.eyeLeftHidden { inpaintEye(rect: plan.eyeLeftRect, shape: eyeLeftShape) }
+        if !plan.eyeRightHidden { inpaintEye(rect: plan.eyeRightRect, shape: eyeRightShape) }
         inpaintEllipse(rect: plan.mouthRect)
 
         // --- Feature cutouts --------------------------------------------------
@@ -544,14 +549,47 @@ public enum LayerFactory {
             return layer
         }
 
+        /// A hidden eye's layer is empty: the head keeps the original pixels
+        /// there, so nothing blinks or follows the gaze over hair or cheek.
+        func eyeLayer(rect: CGRect, shape: EyeShape?, hidden: Bool) -> Bitmap {
+            let layer = featureLayer(rect: rect, feather: 0.16, shape: shape)
+            return hidden ? Bitmap(width: layer.width, height: layer.height) : layer
+        }
+        var eyeLeft = eyeLayer(rect: plan.eyeLeftRect, shape: eyeLeftShape, hidden: plan.eyeLeftHidden)
+        var eyeRight = eyeLayer(rect: plan.eyeRightRect, shape: eyeRightShape, hidden: plan.eyeRightHidden)
+
+        // Moving irises only when every visible eye can be split; one iris
+        // moving inside its eye next to a whole eye sliding looks cross-eyed.
+        func pupil(_ layer: Bitmap, rect: CGRect, landmarks: [CGPoint], shape: EyeShape?, hidden: Bool) -> PupilSplit?? {
+            if hidden { return .some(nil) }
+            guard shape != nil else { return nil }
+            let origin = SIMD2(max(0, Int(rect.minX)), max(0, Int(rect.minY)))
+            guard let split = PupilSplit.split(eyeLayer: layer, origin: origin, landmarks: landmarks) else { return nil }
+            return .some(split)
+        }
+        var eyeLeftPupil: PupilSplit?
+        var eyeRightPupil: PupilSplit?
+        if let left = pupil(eyeLeft, rect: plan.eyeLeftRect, landmarks: plan.eyeLeftLandmarks,
+                            shape: eyeLeftShape, hidden: plan.eyeLeftHidden),
+           let right = pupil(eyeRight, rect: plan.eyeRightRect, landmarks: plan.eyeRightLandmarks,
+                             shape: eyeRightShape, hidden: plan.eyeRightHidden),
+           left != nil || right != nil {
+            eyeLeftPupil = left
+            eyeRightPupil = right
+            if let left { eyeLeft = left.overlay }
+            if let right { eyeRight = right.overlay }
+        }
+
         return ExtractedLayers(
             body: body,
             neckSeam: neckSeam,
             head: head,
-            eyeLeft: featureLayer(rect: plan.eyeLeftRect, feather: 0.16, shape: eyeLeftShape),
-            eyeRight: featureLayer(rect: plan.eyeRightRect, feather: 0.16, shape: eyeRightShape),
+            eyeLeft: eyeLeft,
+            eyeRight: eyeRight,
             mouth: featureLayer(rect: plan.mouthRect, feather: 0.2),
-            mouthCavity: mouthCavityLayer()
+            mouthCavity: mouthCavityLayer(),
+            eyeLeftPupil: eyeLeftPupil,
+            eyeRightPupil: eyeRightPupil
         )
     }
 

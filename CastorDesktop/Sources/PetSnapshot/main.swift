@@ -9,6 +9,8 @@ import PetRuntime
 //     Writes OUT_PREFIX.ppm with a fixed Quality turn.
 // pet-snapshot PET_FILE OUT_PREFIX WIDTH HEIGHT --pose YAW PITCH
 //     Writes OUT_PREFIX.ppm with the head held at YAW/PITCH degrees.
+// pet-snapshot PET_FILE OUT_PREFIX WIDTH HEIGHT --gaze X Y
+//     Writes OUT_PREFIX.ppm with the head still and the eyes at X/Y (-1...1).
 let arguments = CommandLine.arguments
 guard arguments.count >= 3 else {
     print("usage: pet-snapshot PET_FILE OUT_PREFIX [WIDTH HEIGHT] [--pose YAW PITCH | --turn VALUE]")
@@ -57,6 +59,17 @@ do {
         player.parameterOverrides = [
             .angleX: yaw, .angleY: pitch, .angleZ: 0,
             .eyeBallX: 0, .eyeBallY: 0, .eyeLeftOpen: 1, .eyeRightOpen: 1,
+        ]
+        player.render(into: &canvas, time: 0)
+        try writePPM(canvas, to: "\(arguments[2]).ppm")
+        exit(0)
+    }
+
+    if let flag = arguments.firstIndex(of: "--gaze"), arguments.count > flag + 2,
+       let x = Float(arguments[flag + 1]), let y = Float(arguments[flag + 2]) {
+        player.parameterOverrides = [
+            .angleX: 0, .angleY: 0, .angleZ: 0,
+            .eyeBallX: x, .eyeBallY: y, .eyeLeftOpen: 1, .eyeRightOpen: 1,
         ]
         player.render(into: &canvas, time: 0)
         try writePPM(canvas, to: "\(arguments[2]).ppm")

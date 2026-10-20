@@ -35,9 +35,20 @@ public enum RigLayerBuilder {
             : MatteCleanup.apply(source: source, mask: extractionMask, plan: plan)
         let cut = LayerFactory.extract(source: source, subjectMask: extractionMask, plan: plan,
                                        sharpenMaskEdges: !maskIsAuthoritative, inpaintedSource: inpaintedSource)
-        let layers = ["body": cut.body, "neckSeam": cut.neckSeam, "head": cut.head,
+        var layers = ["body": cut.body, "neckSeam": cut.neckSeam, "head": cut.head,
                       "eyeLeft": cut.eyeLeft, "eyeRight": cut.eyeRight, "mouth": cut.mouth,
                       "mouthCavity": cut.mouthCavity]
+        var plan = plan
+        if let pupil = cut.eyeLeftPupil {
+            layers[BindingSynthesizer.PupilPartID.leftWhite] = pupil.white
+            layers[BindingSynthesizer.PupilPartID.leftIris] = pupil.iris
+            plan.eyeLeftPupilTravel = pupil.travel
+        }
+        if let pupil = cut.eyeRightPupil {
+            layers[BindingSynthesizer.PupilPartID.rightWhite] = pupil.white
+            layers[BindingSynthesizer.PupilPartID.rightIris] = pupil.iris
+            plan.eyeRightPupilTravel = pupil.travel
+        }
         let alpha = layers.mapValues { $0.alphaPlane() }
         var rig = BindingSynthesizer.makeRig(plan: plan)
         rig.validatedPoseLimits = PoseSweepValidator.validate(rig: rig, plan: poseSweep,

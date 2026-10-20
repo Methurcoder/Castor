@@ -1,12 +1,13 @@
 import SwiftUI
 
-/// アプリ全体の tint に使うザクロ赤。ライト・ダーク共通で視認できる中間トーン。
+/// アプリ全体の tint に使う、少し紫がかった淡い水色(ペリウィンクル)。
+/// 白文字を載せても読める濃さにしてあり、ライト・ダーク共通で使う。
 enum CastorBrand {
-    static let accent = Color(red: 0.80, green: 0.16, blue: 0.25)
+    static let accent = Color(red: 0.33, green: 0.41, blue: 0.79)
 }
 
-/// Castor 共通の配色。ニュートラルな背景に、ザクロ赤をアクセントとして
-/// 選択状態・ボタン・メーターだけへ限定的に使う。
+/// Castor 共通の配色。ほんのり青みのある背景に、透明感のある淡い青紫を
+/// アクセントとして選択状態・ボタン・メーターだけへ限定的に使う。
 struct CastorPalette {
     let background: [Color]
     let primaryText: Color
@@ -16,32 +17,32 @@ struct CastorPalette {
     let meterTrack: Color
     let meterFill: Color
 
-    /// ザクロ赤のアクセント。meterFill と同一だが、意図を明示したい場面で使う。
+    /// 淡い青紫のアクセント。meterFill と同一だが、意図を明示したい場面で使う。
     var accent: Color { meterFill }
 
     init(isDark: Bool) {
         if isDark {
             background = [
-                Color(red: 0.06, green: 0.06, blue: 0.075),
-                Color(red: 0.045, green: 0.045, blue: 0.055)
+                Color(red: 0.055, green: 0.06, blue: 0.085),
+                Color(red: 0.04, green: 0.045, blue: 0.065)
             ]
             primaryText = Color(red: 0.97, green: 0.96, blue: 0.96)
             secondaryText = Color(red: 0.62, green: 0.62, blue: 0.66)
             readoutBackground = Color(red: 0.10, green: 0.10, blue: 0.12).opacity(0.72)
             readoutBorder = Color.white.opacity(0.13)
             meterTrack = Color.white.opacity(0.12)
-            meterFill = Color(red: 0.93, green: 0.33, blue: 0.40)
+            meterFill = Color(red: 0.62, green: 0.70, blue: 1.0)
         } else {
             background = [
-                Color(red: 0.97, green: 0.97, blue: 0.975),
-                Color(red: 0.93, green: 0.93, blue: 0.94)
+                Color(red: 0.965, green: 0.97, blue: 0.985),
+                Color(red: 0.925, green: 0.93, blue: 0.955)
             ]
             primaryText = Color(red: 0.13, green: 0.13, blue: 0.14)
             secondaryText = Color(red: 0.45, green: 0.45, blue: 0.48)
             readoutBackground = Color.white.opacity(0.72)
             readoutBorder = Color.black.opacity(0.07)
             meterTrack = Color.black.opacity(0.08)
-            meterFill = Color(red: 0.72, green: 0.09, blue: 0.19)
+            meterFill = Color(red: 0.30, green: 0.37, blue: 0.75)
         }
     }
 }
@@ -70,8 +71,8 @@ struct CastorAmbientBackground: View {
 
             ZStack {
                 (isDark
-                    ? Color(red: 0.05, green: 0.05, blue: 0.065)
-                    : Color(red: 0.955, green: 0.945, blue: 0.945))
+                    ? Color(red: 0.045, green: 0.05, blue: 0.075)
+                    : Color(red: 0.95, green: 0.955, blue: 0.975))
 
                 Circle()
                     .fill(accent.opacity(isDark ? 0.22 : 0.13))

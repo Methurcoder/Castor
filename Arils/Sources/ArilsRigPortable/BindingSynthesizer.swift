@@ -15,6 +15,17 @@ import ArilsCore
 /// is a fraction of the part's own size, so the same rules work at any image
 /// resolution. Tune here, not in the evaluator.
 public enum BindingSynthesizer {
+    /// Parts added for an eye whose iris was split out (`PupilSplit`). They
+    /// share the eye's kind, rect, mesh and blink so all three close together;
+    /// they come after the eye in the part list, so `firstPart(ofKind:)` still
+    /// finds the eye itself.
+    public enum PupilPartID {
+        public static let leftWhite = "eyeLeftWhite"
+        public static let leftIris = "eyeLeftIris"
+        public static let rightWhite = "eyeRightWhite"
+        public static let rightIris = "eyeRightIris"
+    }
+
     public static func makeRig(plan: PartPlan) -> AvatarRig {
         // Sub-rects of the body used by sway regions, normalized within body rect.
         let bodyRect = plan.subjectRect
@@ -136,8 +147,17 @@ public enum BindingSynthesizer {
             ]
         )
 
-        func eyePart(id: String, kind: PartKind, rect: CGRect, openParameter: ParameterID, z: Int) -> AvatarPart {
-            AvatarPart(
+        func eyePart(
+            id: String, kind: PartKind, rect: CGRect, openParameter: ParameterID, z: Int,
+            gaze: SIMD2<Float> = SIMD2(0.045, 0.035)
+        ) -> AvatarPart {
+            var deformations: [DeformationOp] = [
+                // openness 1 -> rest, 0 -> collapsed to a near-line.
+                .scale(parameter: openParameter, pivot: SIMD2(0.5, 0.55), gainX: 0.06, gainY: 0.92),
+            ]
+            if gaze.x != 0 { deformations.append(.translate(parameter: .eyeBallX, gainX: gaze.x, gainY: 0)) }
+            if gaze.y != 0 { deformations.append(.translate(parameter: .eyeBallY, gainX: 0, gainY: -gaze.y)) }
+            return AvatarPart(
                 id: id,
                 kind: kind,
                 parentID: "head",
@@ -145,14 +165,36 @@ public enum BindingSynthesizer {
                 pivot: SIMD2(0.5, 0.5),
                 zOrder: z,
                 mesh: .grid(rect: rect, columns: 4, rows: 4),
-                deformations: [
-                    // openness 1 -> rest, 0 -> collapsed to a near-line.
-                    .scale(parameter: openParameter, pivot: SIMD2(0.5, 0.55), gainX: 0.06, gainY: 0.92),
-                    .translate(parameter: .eyeBallX, gainX: 0.045, gainY: 0),
-                    .translate(parameter: .eyeBallY, gainX: 0, gainY: -0.035),
+                deformations: deformations
+            )
+        }
+
+        /// With a split iris the eye stays on the face and only the iris
+        /// follows the gaze, behind the eye's lids and in front of its white.
+        func pupilParts(
+            eyeID: String, whiteID: String, irisID: String, kind: PartKind, rect: CGRect,
+            openParameter: ParameterID, eyeZ: Int, travel: SIMD2<Float>?
+        ) -> (eye: AvatarPart, extra: [AvatarPart]) {
+            guard let travel, rect.width > 0, rect.height > 0 else {
+                return (eyePart(id: eyeID, kind: kind, rect: rect, openParameter: openParameter, z: eyeZ), [])
+            }
+            let gain = SIMD2(travel.x / Float(rect.width), travel.y / Float(rect.height))
+            return (
+                eyePart(id: eyeID, kind: kind, rect: rect, openParameter: openParameter, z: eyeZ, gaze: .zero),
+                [
+                    eyePart(id: whiteID, kind: kind, rect: rect, openParameter: openParameter, z: eyeZ - 6, gaze: .zero),
+                    eyePart(id: irisID, kind: kind, rect: rect, openParameter: openParameter, z: eyeZ - 5, gaze: gain),
                 ]
             )
         }
+        let leftEye = pupilParts(
+            eyeID: "eyeLeft", whiteID: PupilPartID.leftWhite, irisID: PupilPartID.leftIris, kind: .eyeLeft,
+            rect: plan.eyeLeftRect, openParameter: .eyeLeftOpen, eyeZ: 30, travel: plan.eyeLeftPupilTravel
+        )
+        let rightEye = pupilParts(
+            eyeID: "eyeRight", whiteID: PupilPartID.rightWhite, irisID: PupilPartID.rightIris, kind: .eyeRight,
+            rect: plan.eyeRightRect, openParameter: .eyeRightOpen, eyeZ: 31, travel: plan.eyeRightPupilTravel
+        )
 
         let mouthMesh = DeformableMesh.grid(rect: plan.mouthRect, columns: 4, rows: 4)
         let mouth = AvatarPart(
@@ -208,9 +250,9 @@ public enum BindingSynthesizer {
                 head,
                 mouth,
                 mouthCavity,
-                eyePart(id: "eyeLeft", kind: .eyeLeft, rect: plan.eyeLeftRect, openParameter: .eyeLeftOpen, z: 30),
-                eyePart(id: "eyeRight", kind: .eyeRight, rect: plan.eyeRightRect, openParameter: .eyeRightOpen, z: 31),
-            ],
+                leftEye.eye,
+                rightEye.eye,
+            ] + leftEye.extra + rightEye.extra,
             parameters: StandardParameters.all,
             physics: physics
         )

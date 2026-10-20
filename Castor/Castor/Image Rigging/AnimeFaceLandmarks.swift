@@ -29,6 +29,11 @@ enum AnimeFaceLandmarksSettingsStore {
     static func landmarkModelWasMissing(enabled: Bool, candidateSources: [String]) -> Bool {
         enabled && !candidateSources.contains(AnimeFaceCoreMLEstimator.sourceLabel)
     }
+
+    /// True when Apple Vision placed the markers instead of the landmark model.
+    static func visionPlacedMarkers(preferredSource: String) -> Bool {
+        preferredSource == VisionFaceEstimator.sourceLabel
+    }
 }
 
 enum ArilsRiggingPipelines {
@@ -41,12 +46,10 @@ enum ArilsRiggingPipelines {
         guard AnimeFaceLandmarksSettingsStore.isEnabled else {
             return AutoRigPipeline(occlusionInpainter: occlusionInpainter)
         }
+        // The landmark model leads; when it cannot read the face (photos,
+        // unusual proportions) Apple Vision takes over before the heuristic.
         return AutoRigPipeline(
-            faceEstimator: CompositeFaceEstimator(estimators: [
-                AnimeFaceCoreMLEstimator(),
-                AnimeFaceEstimator(),
-                VisionFaceEstimator(),
-            ]),
+            faceEstimator: AnimeFirstFaceEstimator(),
             occlusionInpainter: occlusionInpainter
         )
     }

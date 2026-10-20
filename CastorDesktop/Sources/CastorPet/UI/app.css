@@ -2,17 +2,18 @@
    rebuilt for WebView2. Dark is the default like the Mac window; light follows
    the system setting. */
 :root {
-  --bg-1: #0f0f13;
-  --bg-2: #0b0b0e;
+  --bg-1: #0e0f16;
+  --bg-2: #0a0b11;
   --text: #f7f5f5;
   --sub: #9e9ea8;
   --panel: rgba(26, 26, 31, 0.72);
   --panel-border: rgba(255, 255, 255, 0.13);
   --track: rgba(255, 255, 255, 0.10);
-  --accent: #ed5466;
-  --accent-strong: #cc2940;
-  --glow: rgba(204, 41, 64, 0.22);
-  --glow-2: rgba(204, 41, 64, 0.12);
+  --accent: #9fb3ff;
+  --accent-strong: #5367c9;
+  --danger: #ff6b7a;
+  --glow: rgba(140, 165, 255, 0.22);
+  --glow-2: rgba(170, 150, 255, 0.12);
   --sheen: rgba(255, 255, 255, 0.045);
   --head: #35c6f2;
   --eye-left: #34c759;
@@ -22,17 +23,18 @@
 }
 @media (prefers-color-scheme: light) {
   :root {
-    --bg-1: #f7f7f9;
-    --bg-2: #ededf0;
+    --bg-1: #f6f7fb;
+    --bg-2: #eceef5;
     --text: #212124;
     --sub: #73737a;
     --panel: rgba(255, 255, 255, 0.72);
     --panel-border: rgba(0, 0, 0, 0.07);
     --track: rgba(0, 0, 0, 0.06);
-    --accent: #b81730;
-    --accent-strong: #b81730;
-    --glow: rgba(204, 41, 64, 0.13);
-    --glow-2: rgba(204, 41, 64, 0.07);
+    --accent: #4c5fc0;
+    --accent-strong: #5367c9;
+    --danger: #c42b3f;
+    --glow: rgba(120, 150, 240, 0.16);
+    --glow-2: rgba(160, 140, 240, 0.08);
     --sheen: rgba(255, 255, 255, 0.40);
     color-scheme: light;
   }
@@ -221,5 +223,5 @@ textarea.field { resize: vertical; line-height: 1.5; }
 .ghost:disabled { opacity: .4; cursor: default; }
 
 .toast { position: fixed; left: 50%; bottom: 112px; transform: translateX(-50%); z-index: 5; padding: 10px 18px; border-radius: 12px; background: var(--panel); border: 1px solid var(--panel-border); backdrop-filter: blur(20px); font-size: 14px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
-.toast.error { border-color: var(--accent); }
+.toast.error { border-color: var(--danger); }
 .hidden { display: none !important; }
