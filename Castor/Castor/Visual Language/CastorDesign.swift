@@ -47,13 +47,16 @@ struct CastorPalette {
     }
 }
 
-/// 「アンビエント・ハロー」の共通背景。スモーク調の無地に、現在のキャラクターの
-/// アクセント色を光源としてにじませる。accent の変化はゆっくり色相移動する。
+/// カーソルの光に淡い波を重ねる。動いたときだけ揺れ、停止後は静かに収まる。
 struct CastorAmbientBackground: View {
     let accent: Color
     let isDark: Bool
     let lightPosition: CGPoint?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var waveClockOrigin = Date()
+    @State private var lastMovement = Date.distantPast
+    @State private var waveStrength: CGFloat = 0
+    @State private var waveActive = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -74,23 +77,45 @@ struct CastorAmbientBackground: View {
                     ? Color(red: 0.045, green: 0.05, blue: 0.075)
                     : Color(red: 0.95, green: 0.955, blue: 0.975))
 
-                Circle()
-                    .fill(accent.opacity(isDark ? 0.22 : 0.13))
-                    .frame(width: 560, height: 560)
+                Ellipse()
+                    .fill(accent.opacity(isDark ? 0.19 : 0.11))
+                    .frame(width: 620, height: 440)
                     .blur(radius: 130)
                     .position(targetPosition)
                     .animation(
-                        .spring(response: 0.42, dampingFraction: 0.82, blendDuration: 0.12),
+                        .spring(response: 0.65, dampingFraction: 0.74),
                         value: targetPosition
                     )
 
-                Circle()
-                    .fill(accent.opacity(isDark ? 0.12 : 0.07))
-                    .frame(width: 900, height: 900)
+                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || !waveActive)) { context in
+                    let elapsed = max(0, context.date.timeIntervalSince(lastMovement))
+                    let envelope = reduceMotion || !waveActive ? 0 : exp(-elapsed * 1.65)
+                    let strength = waveStrength * envelope
+                    let phase = context.date.timeIntervalSince(waveClockOrigin) * 1.4
+
+                    ZStack {
+                        AmbientLightWave(phase: phase, amplitude: 16 + 26 * strength, thickness: 64)
+                            .fill(accent.opacity(isDark ? 0.14 : 0.085))
+                            .blur(radius: 40)
+                        AmbientLightWave(phase: phase - 1.1, amplitude: 13 + 20 * strength, thickness: 90)
+                            .fill(accent.opacity(isDark ? 0.085 : 0.05))
+                            .offset(x: -55, y: 55)
+                            .blur(radius: 60)
+                    }
+                    .frame(width: 720, height: 220)
+                    .rotationEffect(.degrees(-12))
+                    .opacity(strength)
+                }
+                .position(targetPosition)
+                .animation(.spring(response: 0.9, dampingFraction: 0.7), value: targetPosition)
+
+                Ellipse()
+                    .fill(accent.opacity(isDark ? 0.10 : 0.06))
+                    .frame(width: 940, height: 680)
                     .blur(radius: 180)
                     .position(trailingPosition)
                     .animation(
-                        .spring(response: 0.72, dampingFraction: 0.86, blendDuration: 0.18),
+                        .spring(response: 1.05, dampingFraction: 0.78),
                         value: trailingPosition
                     )
 
@@ -102,7 +127,58 @@ struct CastorAmbientBackground: View {
             }
         }
         .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
         .animation(.easeInOut(duration: 1.1), value: accent)
+        .onChange(of: lightPosition) { previous, current in
+            guard !reduceMotion, let previous, let current else { return }
+            let distance = hypot(current.x - previous.x, current.y - previous.y)
+            guard distance > 0.5 else { return }
+            let now = Date()
+            let residual = waveStrength * exp(-max(0, now.timeIntervalSince(lastMovement)) * 1.65)
+            waveStrength = min(1, max(residual, distance / 24))
+            lastMovement = now
+            waveActive = true
+        }
+        .onChange(of: reduceMotion) { _, reduced in
+            if reduced { waveActive = false }
+        }
+        .task(id: lastMovement) {
+            guard waveActive, !reduceMotion else { return }
+            do {
+                try await Task.sleep(for: .seconds(3))
+                waveActive = false
+            } catch {
+                // New movement replaces the settling timer; removal cancels it too.
+            }
+        }
+    }
+}
+
+/// 両端が細くなる柔らかい帯。輪郭をぼかし、背景の光としてだけ見せる。
+private struct AmbientLightWave: Shape {
+    let phase: Double
+    let amplitude: CGFloat
+    let thickness: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let samples = 48
+        func point(_ index: Int, side: CGFloat) -> CGPoint {
+            let u = CGFloat(index) / CGFloat(samples)
+            let taper = pow(sin(.pi * u), 2)
+            let wave = sin(Double(u) * .pi * 2.1 - phase)
+                + 0.25 * sin(Double(u) * .pi * 4.2 - phase * 0.7)
+            return CGPoint(
+                x: rect.minX + u * rect.width,
+                y: rect.midY + CGFloat(wave) * amplitude * taper + side * thickness * 0.5 * taper
+            )
+        }
+        var path = Path()
+        path.move(to: point(0, side: -1))
+        for index in 1...samples { path.addLine(to: point(index, side: -1)) }
+        for index in stride(from: samples, through: 0, by: -1) { path.addLine(to: point(index, side: 1)) }
+        path.closeSubpath()
+        return path
     }
 }
 
