@@ -50,13 +50,14 @@ struct CastorTests {
         }
 
         AnimeFaceLandmarksSettingsStore.isEnabled = true
+        // The landmark model leads, Apple Vision takes over when it cannot
+        // read the face, and the heuristic comes last.
         let enabled = try #require(
-            ArilsRiggingPipelines.make().faceEstimator as? CompositeFaceEstimator
+            ArilsRiggingPipelines.make().faceEstimator as? AnimeFirstFaceEstimator
         )
-        #expect(enabled.estimators.first is AnimeFaceCoreMLEstimator)
-        #expect(enabled.estimators.contains { $0 is AnimeFaceEstimator })
-        #expect(enabled.estimators.contains { $0 is VisionFaceEstimator })
-        #expect(!enabled.estimators.contains { $0 is AnimeFaceServiceEstimator })
+        #expect(enabled.model is AnimeFaceCoreMLEstimator)
+        #expect(enabled.vision is VisionFaceEstimator)
+        #expect(enabled.heuristic is AnimeFaceEstimator)
 
         AnimeFaceLandmarksSettingsStore.isEnabled = false
         let disabled = try #require(
@@ -77,6 +78,8 @@ struct CastorTests {
         #expect(!AnimeFaceLandmarksSettingsStore.landmarkModelWasMissing(
             enabled: false, candidateSources: ["Illustration heuristic"]
         ))
+        #expect(AnimeFaceLandmarksSettingsStore.visionPlacedMarkers(preferredSource: VisionFaceEstimator.sourceLabel))
+        #expect(!AnimeFaceLandmarksSettingsStore.visionPlacedMarkers(preferredSource: landmark))
     }
 
     // MARK: - LaMa underpaint beta

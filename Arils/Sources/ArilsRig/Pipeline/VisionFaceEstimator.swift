@@ -6,7 +6,8 @@ import Vision
 /// photo-like images. Anime illustrations rarely trigger it, which is fine:
 /// returning nil hands arbitration back to `CompositeFaceEstimator`.
 public struct VisionFaceEstimator: FaceLayoutEstimating {
-    public var estimatorSourceLabel: String { "Apple Vision" }
+    public var estimatorSourceLabel: String { Self.sourceLabel }
+    public static let sourceLabel = "Apple Vision"
     /// Vision confidences on real faces are high; anything below this is more
     /// likely a false positive on stylized art, so we bow out.
     public var minimumObservationConfidence: Float
@@ -70,6 +71,13 @@ public struct VisionFaceEstimator: FaceLayoutEstimating {
             )
         }
 
+        func points(of region: VNFaceLandmarkRegion2D?) -> [CGPoint] {
+            guard let region, region.pointCount > 0 else { return [] }
+            return region.pointsInImage(imageSize: imageSize).map {
+                CGPoint(x: $0.x, y: CGFloat(imageHeight) - $0.y)
+            }
+        }
+
         func rect(of region: VNFaceLandmarkRegion2D?) -> CGRect? {
             guard let region, region.pointCount > 0 else { return nil }
             let points = region.pointsInImage(imageSize: imageSize)
@@ -113,7 +121,38 @@ public struct VisionFaceEstimator: FaceLayoutEstimating {
             eyeLeftRect: padded(viewerLeftEye, factor: 0.3),
             eyeRightRect: padded(viewerRightEye, factor: 0.3),
             mouthRect: padded(mouth, factor: 0.25),
-            confidence: face.confidence
+            confidence: face.confidence,
+            eyeLeftLandmarks: Self.lidLandmarks(fromContour: points(of: landmarks.rightEye)),
+            eyeRightLandmarks: Self.lidLandmarks(fromContour: points(of: landmarks.leftEye))
         )
+    }
+
+    /// Vision's eye contour (a closed ring of points, top-left image pixels)
+    /// as the six lid points the anime model produces: three along the upper
+    /// lid, then three along the lower, at a tenth, half and nine tenths
+    /// of the eye's width. Empty when the contour has no width.
+    static func lidLandmarks(fromContour contour: [CGPoint]) -> [CGPoint] {
+        guard contour.count >= 4,
+              let left = contour.min(by: { $0.x < $1.x }),
+              let right = contour.max(by: { $0.x < $1.x }),
+              right.x - left.x > 2 else { return [] }
+        // Split the ring at the corners: points above the corner line belong
+        // to the upper lid, the rest to the lower.
+        func aboveCornerLine(_ point: CGPoint) -> Bool {
+            let t = (point.x - left.x) / (right.x - left.x)
+            return point.y < left.y + (right.y - left.y) * t
+        }
+        let upper = ([left, right] + contour.filter(aboveCornerLine)).sorted { $0.x < $1.x }
+        let lower = ([left, right] + contour.filter { !aboveCornerLine($0) && $0 != left && $0 != right })
+            .sorted { $0.x < $1.x }
+        func y(at x: CGFloat, along chain: [CGPoint]) -> CGFloat {
+            for (a, b) in zip(chain, chain.dropFirst()) where x >= a.x && x <= b.x {
+                return b.x > a.x ? a.y + (b.y - a.y) * (x - a.x) / (b.x - a.x) : a.y
+            }
+            return chain.last?.y ?? left.y
+        }
+        let xs = [0.1, 0.5, 0.9].map { left.x + (right.x - left.x) * $0 }
+        return xs.map { CGPoint(x: $0, y: y(at: $0, along: upper)) }
+            + xs.map { CGPoint(x: $0, y: y(at: $0, along: lower)) }
     }
 }

@@ -22,6 +22,12 @@ public struct FaceLayout: Sendable, Equatable {
     /// rectangle. Empty otherwise.
     public var eyeLeftLandmarks: [CGPoint]
     public var eyeRightLandmarks: [CGPoint]
+    /// The eye is covered (hair, a profile's far side) and must not move.
+    /// Its rect stays as a placeholder so every layout keeps four markers,
+    /// but layer extraction leaves the source pixels where they are: no
+    /// cut-out, no repainted skin, no blink or gaze on whatever covers it.
+    public var eyeLeftHidden: Bool
+    public var eyeRightHidden: Bool
 
     public init(
         headRect: CGRect,
@@ -30,7 +36,9 @@ public struct FaceLayout: Sendable, Equatable {
         mouthRect: CGRect,
         confidence: Float,
         eyeLeftLandmarks: [CGPoint] = [],
-        eyeRightLandmarks: [CGPoint] = []
+        eyeRightLandmarks: [CGPoint] = [],
+        eyeLeftHidden: Bool = false,
+        eyeRightHidden: Bool = false
     ) {
         self.headRect = headRect
         self.eyeLeftRect = eyeLeftRect
@@ -39,6 +47,8 @@ public struct FaceLayout: Sendable, Equatable {
         self.confidence = confidence
         self.eyeLeftLandmarks = eyeLeftLandmarks
         self.eyeRightLandmarks = eyeRightLandmarks
+        self.eyeLeftHidden = eyeLeftHidden
+        self.eyeRightHidden = eyeRightHidden
     }
 
     /// Hard bounds for a layout explicitly confirmed by a person. Anatomical
@@ -78,7 +88,9 @@ public struct FaceLayout: Sendable, Equatable {
             mouthRect: scale(mouthRect),
             confidence: confidence,
             eyeLeftLandmarks: eyeLeftLandmarks.map { CGPoint(x: $0.x * factor, y: $0.y * factor) },
-            eyeRightLandmarks: eyeRightLandmarks.map { CGPoint(x: $0.x * factor, y: $0.y * factor) }
+            eyeRightLandmarks: eyeRightLandmarks.map { CGPoint(x: $0.x * factor, y: $0.y * factor) },
+            eyeLeftHidden: eyeLeftHidden,
+            eyeRightHidden: eyeRightHidden
         )
     }
 }

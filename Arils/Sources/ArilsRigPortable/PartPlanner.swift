@@ -22,6 +22,14 @@ public struct PartPlan: Sendable, Equatable {
     /// Eyelid landmarks carried over from the face layout (empty if none).
     public var eyeLeftLandmarks: [CGPoint] = []
     public var eyeRightLandmarks: [CGPoint] = []
+    /// Carried over from `FaceLayout`: a hidden eye keeps its source pixels.
+    public var eyeLeftHidden = false
+    public var eyeRightHidden = false
+    /// Iris travel at full gaze, in source pixels, for eyes whose iris was
+    /// split from the eye (`PupilSplit`). Filled in after layer extraction;
+    /// nil means the whole eye follows the gaze as before.
+    public var eyeLeftPupilTravel: SIMD2<Float>? = nil
+    public var eyeRightPupilTravel: SIMD2<Float>? = nil
 
     public var neckY: CGFloat { headRect.maxY }
 
@@ -201,7 +209,9 @@ public enum PartPlanner {
             mouthRect: mouth,
             collarHeight: collarHeight,
             eyeLeftLandmarks: layout.eyeLeftLandmarks,
-            eyeRightLandmarks: layout.eyeRightLandmarks
+            eyeRightLandmarks: layout.eyeRightLandmarks,
+            eyeLeftHidden: layout.eyeLeftHidden,
+            eyeRightHidden: layout.eyeRightHidden
         )
     }
 }

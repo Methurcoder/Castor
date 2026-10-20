@@ -61,6 +61,26 @@ public enum AnimeLandmarkLayout {
         public static let mouth = 24...27
     }
 
+    /// Mean landmark score below which an eye counts as not seen. On the
+    /// project's illustration set every visible eye scores at least 0.82 and
+    /// most sleeping (closed, sideways) eyes 0.67 or more; the far eye of a
+    /// profile, which the model still places on the cheek, scored 0.56.
+    public static let hiddenEyeScore: Float = 0.72
+    /// The other eye must read clearly for one eye to be called hidden.
+    /// When both are weak the face is simply hard to read (sleeping, tiny),
+    /// and the confidence says so instead.
+    public static let visibleEyeScore: Float = 0.85
+
+    /// Which eye, if any, the model placed without seeing it. A face with one
+    /// eye under hair or turned away still gets six points for that eye,
+    /// guessed onto hair or cheek; cutting and blinking those pixels is the
+    /// visibly wrong part, so such an eye is marked hidden and left still.
+    public static func hiddenEye(leftEyeScore: Float, rightEyeScore: Float) -> (left: Bool, right: Bool) {
+        if leftEyeScore < hiddenEyeScore, rightEyeScore >= visibleEyeScore { return (true, false) }
+        if rightEyeScore < hiddenEyeScore, leftEyeScore >= visibleEyeScore { return (false, true) }
+        return (false, false)
+    }
+
     /// One detection: `bbox` is `[x1, y1, x2, y2]`, `keypoints` are
     /// `[x, y, score]` in source pixels.
     public struct Detection: Sendable {
@@ -121,8 +141,21 @@ public enum AnimeLandmarkLayout {
         let head = clamped(BoxCalibration.head.apply(to: faceBox))
         guard head.width > 1, head.height > 1 else { return nil }
 
-        let landmarkScore = points.map(\.score).reduce(0, +) / Float(points.count)
-        let weakest = points.map(\.score).min() ?? 0
+        func meanScore(_ range: ClosedRange<Int>) -> Float {
+            range.map { points[$0].score }.reduce(0, +) / Float(range.count)
+        }
+        let hidden = hiddenEye(
+            leftEyeScore: meanScore(Landmarks.eyeLeft),
+            rightEyeScore: meanScore(Landmarks.eyeRight)
+        )
+        // A hidden eye's points are guesses by design; they say nothing
+        // about how well the rest of the face was read.
+        let hiddenRange = hidden.left ? Landmarks.eyeLeft : hidden.right ? Landmarks.eyeRight : nil
+        let readScores = points.indices
+            .filter { hiddenRange?.contains($0) != true }
+            .map { points[$0].score }
+        let landmarkScore = readScores.reduce(0, +) / Float(readScores.count)
+        let weakest = readScores.min() ?? 0
         // Detection probability saturates near 1 on almost anything face-like,
         // so it only gates; the landmark scores carry the actual signal about
         // whether the features were readable.
@@ -135,8 +168,10 @@ public enum AnimeLandmarkLayout {
             eyeRightRect: clamped(BoxCalibration.eyeRight.apply(to: eyeRightHull)),
             mouthRect: clamped(BoxCalibration.mouth.apply(to: mouthHull)),
             confidence: min(max(quality, 0), 1),
-            eyeLeftLandmarks: Landmarks.eyeLeft.map { points[$0].point },
-            eyeRightLandmarks: Landmarks.eyeRight.map { points[$0].point }
+            eyeLeftLandmarks: hidden.left ? [] : Landmarks.eyeLeft.map { points[$0].point },
+            eyeRightLandmarks: hidden.right ? [] : Landmarks.eyeRight.map { points[$0].point },
+            eyeLeftHidden: hidden.left,
+            eyeRightHidden: hidden.right
         )
     }
 }
