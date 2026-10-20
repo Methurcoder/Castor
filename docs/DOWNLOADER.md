@@ -30,14 +30,22 @@ Release の情報に置き換わります。
 
 | 環境 | 展開後のアプリ |
 | --- | --- |
-| macOS | `~/Applications/Castor-<version>-<platform>/Castor.app` |
+| macOS | `~/Library/Application Support/Castor/Versions/Castor-<version>-<platform>/Castor.app` |
 | Windows | `%LOCALAPPDATA%\Programs\Castor\Castor-<version>-<platform>\CastorPet.exe` |
+
+Mac の Launchpad は `~/Applications` にあるアプリをリンクも含めてすべて並べるため、
+版ごとのフォルダは `~/Applications` の外に置き、`~/Applications` には選択中の版を指す
+リンク `Castor.app` を1つだけ作ります（導入アプリ CastorSetup と同じ配置です）。
+`~/Applications/Castor.app` が既にある場合、置き換えるのは Castor の版フォルダを指すリンクだけです。
+アプリのコピーや別の場所へのリンクは残し、展開した `Castor.app` を Finder で表示します。
+以前のスクリプト版が `~/Applications/Castor-<version>-<platform>` に置いたフォルダは移動しません。
+不要になったら Finder でゴミ箱へ入れてください（キャラクター・設定はアプリのコンテナにあり、影響しません）。
 
 配布用 `Castor-Downloader.zip` には両OSの小さな起動スクリプトを同梱します。
 Mac版・Windows版の大きなアプリを両方ダウンロードすることはありません。
 
 新しいフォルダへ展開し、既存のインストールを上書きしません。取得用の一時 ZIP は
-削除します。アプリは自動実行せず、展開したフォルダを表示します。
+削除します（スクリプト版は常に完全ZIPを取得します。差分アップデートは導入アプリだけです）。アプリは自動実行せず、Finder で `Castor.app` を表示します。
 
 Windows は OS の LocalApplicationData フォルダを使い、配置先と同じ場所に作業用
 フォルダを作ります。TEMP が別ドライブでもフォルダ移動で失敗しない構成です。
@@ -154,6 +162,50 @@ Windows入力は `CastorPet.exe` と必要DLLだけを置いた専用ディレ�
 DLLの依存が全て揃うことをこのツールだけでは証明できないため、Swiftを入れていない
 Windowsで起動し、Swift/ICU/Visual C++等の再配布条件・必要なライセンスを確認してください。
 生成物はOS別ZIP、`castor-downloads.json`、小さな `Castor-Downloader.zip` です。
+
+### 差分アップデート用のファイル
+
+本体とNeural TTS helperのZIPごとに、入っている全ファイルのパス・SHA-256・容量を並べた
+`<ZIP名>.files.json` も生成し、`castor-downloads.json` の `inventory` に記録します。
+`--previous` に前回の準備フォルダ（または前回Releaseの資産を集めたフォルダ）を渡すと、
+前回のどのファイルとも中身が違うファイルだけを入れた `<ZIP名>-patch.zip` を作り、
+`patch` に記録します。これらもReleaseへアップロードします。
+
+```sh
+python3 scripts/prepare-castor-release.py --version v1.0.3 \
+  --windows-x86-64 /path/to/windows-runtime \
+  --previous /path/to/v1.0.2-release-folder \
+  --output /path/to/new-release-folder
+```
+
+導入アプリ（CastorSetup）の動作:
+
+- 今の版にある同じ中身のファイルはコピーし、足りないファイルだけ patch から取ります。
+  中身が全く同じ helper はダウンロードしません。
+- 組み立てた全ファイルを `.files.json` のSHA-256と照合し、1つでも違えば完全ZIPを取得します。
+- 中身が同じでも実行権限は一致するとは限らないため、`.files.json` には実行ファイルに `executable: true` を記録します。
+  組み立て後に各ファイルの権限をこの記録どおりに設定し、実行ファイル（Mac は記録が無い古い一覧でも `Castor.app/Contents/MacOS/Castor`）が
+  実行できなければ完全ZIPを取得します。
+- 古い導入アプリとスクリプト版は追加の項目を無視し、従来どおり完全ZIPを使います。
+
+途中で止まった場合（シャットダウン・強制終了・回線切断）:
+
+- 取得途中のZIPは `.CastorInstaller/Downloads` に残り、次回は続きから取得します。
+  完了後は検証してから使い、導入が終わると削除します。
+- 作業フォルダは次回の導入開始時に片付けます。今の版と選択は変わりません。
+- 新しい版のフォルダを置いた直後に止まった場合、次回はそのフォルダの全ファイルを記録と照合し、
+  一致したときだけ選択します。違っていればそのフォルダは触らず、別名で導入し直します。
+- 選択ファイル（`CurrentInstall.json`・`PreviousInstall.json`）はディスクへ書き込みを確定してから
+  一度に置き換えるので、電源断でも空や途中のファイルになりません。
+
+Mac で版を `~/Applications` に置いていた v1.0.0 までの導入アプリからの更新:
+
+- 新しい置き場所（`~/Library/Application Support/Castor/Versions`）にはまだ再利用できる版がないため、
+  最初の1回だけ完全ZIPを取得します。次の更新からは新しい置き場所の版を使って差分で更新します。
+- `~/Applications/Castor.app` が古い版を指すリンクなら、新しい版へのリンクに置き換えます。
+- 新しい版を選択できた後、`~/Applications` に残る古い版のフォルダと管理用の隠しフォルダ
+  `.CastorInstaller` をゴミ箱へ移します（完全削除ではありません）。導入アプリの記録がないフォルダは触りません。
+  起動中の古い版は残し、次回の導入・更新・「古い版を整理」で移します。
 
 将来の macOS 正式配布では、Developer ID Application で署名し、Apple の公証を
 受けて ticket を staple した app を配布します。証明書・秘密鍵・公証の認証情報は

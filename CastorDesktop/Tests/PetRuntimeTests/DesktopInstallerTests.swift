@@ -79,6 +79,9 @@ private let installerExtract: @Sendable(URL,URL) async throws -> Void = { _, des
     _ = try await DesktopInstaller.install(root:root,release:v1,manifest:m1,platform:"windows_x86_64",extract:installerExtract,stamp:{_ in},download:download)
     let selection=try Data(contentsOf:DesktopInstaller.selectionFile(root:root))
     for failure in 0..<4 {
+        // Each case starts without a download kept from the case before it
+        // (a verified download is otherwise reused by the next attempt).
+        try? FileManager.default.removeItem(at:DesktopInstaller.downloadsFolder(root:root))
         do {
             _ = try await DesktopInstaller.install(root:root,release:v2,manifest:m2,platform:"windows_x86_64",extract:{a,b in
                 if failure==0 {throw Failure.injected};if failure==1 {throw CancellationError()}
@@ -248,4 +251,467 @@ private actor InstallerGate {
     #expect(received.contains { $0>0 && $0<Int64(archive.count) })
     #expect(received.last==Int64(archive.count))
     #expect(Array(values.suffix(3))==[.verifying,.extracting,.finishing])
+}
+
+// MARK: - Updates that download only what changed, and interrupted updates
+
+/// A Windows release whose ZIPs install `files` (path -> contents), with a file
+/// list and, when `patch` is given, a patch ZIP of those paths.
+private struct UpdateFixture {
+    let release: DesktopRelease
+    let manifest: DesktopDownloadManifest
+    let assets: [String: Data]
+    /// What the fake extractor writes for each archive, by its SHA-256.
+    let payloads: [String: [String: Data]]
+    /// Files the fake extractor makes runnable, as a ZIP's modes would.
+    let executables: Set<String>
+
+    /// `executables` are runnable in the release; `listsExecutables: false`
+    /// publishes a file list from before that was recorded.
+    init(version: String, files: [String: Data], patch: [String]? = nil, platform: String = "windows_x86_64",
+         executables: Set<String> = [], listsExecutables: Bool = true) throws {
+        let stem="Castor-\(version)-\(platform)"
+        let names=files.keys.sorted()
+        // The ZIP bytes only need to be distinct and structurally valid; the
+        // fake extractor below writes the real contents.
+        let padding=platform.hasPrefix("macos") ? "Castor.app/Contents/Resources/\(version)" : "licenses/\(version)"
+        let full=installerZIP(names+["\(padding)-full.txt"])
+        var assets=[stem+".zip":full]
+        var payloads=[PackageIntegrity.sha256(full):files]
+        var listing:[String:Any]=["schema":1,"files":Dictionary(uniqueKeysWithValues:files.map { file in
+            var entry:[String:Any]=["sha256":PackageIntegrity.sha256(file.value),"bytes":file.value.count]
+            if listsExecutables,executables.contains(file.key) { entry["executable"]=true }
+            return (file.key,entry) })]
+        var patchFile: DesktopDownloadManifest.UpdateFile?
+        if let patch {
+            listing["patch"]=patch
+            if !patch.isEmpty {
+                let archive=installerZIP(patch.sorted()+["\(padding)-patch.txt"])
+                assets[stem+"-patch.zip"]=archive
+                payloads[PackageIntegrity.sha256(archive)]=files.filter { patch.contains($0.key) }
+                patchFile = .init(asset:stem+"-patch.zip",sha256:PackageIntegrity.sha256(archive),bytes:Int64(archive.count))
+            }
+        }
+        let listed=try JSONSerialization.data(withJSONObject:listing,options:[.sortedKeys])
+        assets[stem+".files.json"]=listed
+        self.assets=assets;self.payloads=payloads;self.executables=executables
+        release=DesktopRelease(tag_name:version,draft:false,prerelease:false,assets:assets.map {
+            .init(name:$0.key,browser_download_url:"https://github.com/Methurcoder/Castor/releases/download/\(version)/\($0.key)",size:Int64($0.value.count)) })
+        manifest=DesktopDownloadManifest(schema:1,version:version,platforms:[platform:.init(
+            asset:stem+".zip",sha256:PackageIntegrity.sha256(full),bytes:Int64(full.count),
+            inventory:.init(asset:stem+".files.json",sha256:PackageIntegrity.sha256(listed),bytes:Int64(listed.count)),
+            patch:patchFile)])
+    }
+}
+private final class DownloadLog: @unchecked Sendable {
+    let lock=NSLock();var names:[String]=[]
+    func add(_ name:String){lock.withLock {names.append(name)}}
+    var all:[String]{lock.withLock {names}}
+}
+private func updateDownload(_ fixtures:[UpdateFixture],log:DownloadLog) -> @Sendable(URL,URL) async throws -> Void {
+    let assets=fixtures.reduce(into:[String:Data]()) { $0.merge($1.assets) { a,_ in a } }
+    return { url,to in
+        log.add(url.lastPathComponent)
+        guard let data=assets[url.lastPathComponent] else { throw DesktopInstaller.InstallError.downloadFailed(404) }
+        try data.write(to:to)
+    }
+}
+private func updateExtract(_ fixtures:[UpdateFixture]) -> @Sendable(URL,URL) async throws -> Void {
+    let payloads=fixtures.reduce(into:[String:[String:Data]]()) { $0.merge($1.payloads) { a,_ in a } }
+    let executables=fixtures.reduce(into:Set<String>()) { $0.formUnion($1.executables) }
+    return { archive,destination in
+        guard let files=payloads[try PackageIntegrity.sha256(file:archive)] else { throw PackageZIP.ZIPError.invalid }
+        for (path,data) in files {
+            let file=destination.appendingPathComponent(path)
+            try FileManager.default.createDirectory(at:file.deletingLastPathComponent(),withIntermediateDirectories:true)
+            try data.write(to:file)
+            if executables.contains(path) {
+                try FileManager.default.setAttributes([.posixPermissions:0o755],ofItemAtPath:file.path)
+            }
+        }
+    }
+}
+private func updateRoot(_ name:String)->URL {
+    FileManager.default.temporaryDirectory.appendingPathComponent("castor-\(name)-\(UUID().uuidString)")
+}
+private func contents(_ root:URL,_ app:DesktopInstalledApp,_ path:String) throws -> Data {
+    try Data(contentsOf:root.appendingPathComponent(app.folder).appendingPathComponent(path))
+}
+private let baseFiles=["CastorPet.exe":Data("pet v1".utf8),"swiftCore.dll":Data("runtime".utf8),"UI/app.js":Data("page v1".utf8)]
+
+@Test func updateDownloadsOnlyChangedFilesAndCopiesTheRest() async throws {
+    let root=updateRoot("delta");defer {try? FileManager.default.removeItem(at:root)}
+    let v1=try UpdateFixture(version:"v1",files:baseFiles)
+    var changed=baseFiles;changed["CastorPet.exe"]=Data("pet v2".utf8)
+    let v2=try UpdateFixture(version:"v2",files:changed,patch:["CastorPet.exe"])
+    let log=DownloadLog()
+    _ = try await DesktopInstaller.install(root:root,release:v1.release,manifest:v1.manifest,platform:"windows_x86_64",
+        extract:updateExtract([v1,v2]),stamp:{_ in},download:updateDownload([v1,v2],log:log))
+    #expect(log.all==["Castor-v1-windows_x86_64.files.json","Castor-v1-windows_x86_64.zip"])
+    let second=DownloadLog()
+    let app=try await DesktopInstaller.install(root:root,release:v2.release,manifest:v2.manifest,platform:"windows_x86_64",
+        extract:updateExtract([v1,v2]),stamp:{_ in},download:updateDownload([v1,v2],log:second))
+    // Only the list and the one changed file; never the full ZIP.
+    #expect(second.all==["Castor-v2-windows_x86_64.files.json","Castor-v2-windows_x86_64-patch.zip"])
+    #expect(try contents(root,app,"CastorPet.exe")==Data("pet v2".utf8))
+    #expect(try contents(root,app,"UI/app.js")==Data("page v1".utf8))
+    #expect(app.files==changed.mapValues { PackageIntegrity.sha256($0) })
+    #expect(try DesktopInstaller.selected(root:root)?.folder==app.folder)
+    // Downloads are removed once installed.
+    #expect(!FileManager.default.fileExists(atPath:DesktopInstaller.downloadsFolder(root:root).path))
+}
+
+@Test func unchangedHelperUpdatesWithoutDownloadingItsPackage() async throws {
+    let root=updateRoot("same");defer {try? FileManager.default.removeItem(at:root)}
+    let v1=try UpdateFixture(version:"v1",files:baseFiles),v2=try UpdateFixture(version:"v2",files:baseFiles,patch:[])
+    let log=DownloadLog()
+    _ = try await DesktopInstaller.install(root:root,release:v1.release,manifest:v1.manifest,platform:"windows_x86_64",
+        extract:updateExtract([v1]),stamp:{_ in},download:updateDownload([v1],log:log))
+    let second=DownloadLog()
+    let app=try await DesktopInstaller.install(root:root,release:v2.release,manifest:v2.manifest,platform:"windows_x86_64",
+        extract:updateExtract([v1]),stamp:{_ in},download:updateDownload([v2],log:second))
+    #expect(second.all==["Castor-v2-windows_x86_64.files.json"])
+    #expect(app.version=="v2")
+    #expect(try contents(root,app,"swiftCore.dll")==Data("runtime".utf8))
+}
+
+@Test func damagedInstalledFilesFallBackToTheFullPackage() async throws {
+    let root=updateRoot("fallback");defer {try? FileManager.default.removeItem(at:root)}
+    let v1=try UpdateFixture(version:"v1",files:baseFiles)
+    var changed=baseFiles;changed["CastorPet.exe"]=Data("pet v2".utf8)
+    let v2=try UpdateFixture(version:"v2",files:changed,patch:["CastorPet.exe"])
+    let first=try await DesktopInstaller.install(root:root,release:v1.release,manifest:v1.manifest,platform:"windows_x86_64",
+        extract:updateExtract([v1,v2]),stamp:{_ in},download:updateDownload([v1,v2],log:DownloadLog()))
+    // A file of the installed version changed on disk since it was installed.
+    try Data("damaged".utf8).write(to:root.appendingPathComponent(first.folder).appendingPathComponent("UI/app.js"))
+    let log=DownloadLog()
+    let app=try await DesktopInstaller.install(root:root,release:v2.release,manifest:v2.manifest,platform:"windows_x86_64",
+        extract:updateExtract([v1,v2]),stamp:{_ in},download:updateDownload([v1,v2],log:log))
+    #expect(log.all.last=="Castor-v2-windows_x86_64.zip")
+    #expect(try contents(root,app,"UI/app.js")==Data("page v1".utf8))
+    #expect(app.files==changed.mapValues { PackageIntegrity.sha256($0) })
+}
+
+private let macExecutable="Castor.app/Contents/MacOS/Castor"
+private let macFiles=[macExecutable:Data("app v1".utf8),"Castor.app/Contents/Info.plist":Data("plist v1".utf8)]
+
+/// The installed v1 executable has lost its permission (same content), then
+/// v2 changes only Info.plist, so the update would reuse that executable.
+private func updateAfterLosingTheExecutableBit(listsExecutables: Bool) async throws -> (DesktopInstalledApp, [String], URL) {
+    let root=updateRoot("mode")
+    let platform="macos_arm64"
+    let v1=try UpdateFixture(version:"v1",files:macFiles,platform:platform,executables:[macExecutable],
+                             listsExecutables:listsExecutables)
+    var changed=macFiles;changed["Castor.app/Contents/Info.plist"]=Data("plist v2".utf8)
+    let v2=try UpdateFixture(version:"v2",files:changed,patch:["Castor.app/Contents/Info.plist"],platform:platform,
+                             executables:[macExecutable],listsExecutables:listsExecutables)
+    let first=try await DesktopInstaller.install(root:root,release:v1.release,manifest:v1.manifest,platform:platform,
+        extract:updateExtract([v1,v2]),stamp:{_ in},download:updateDownload([v1,v2],log:DownloadLog()))
+    let installed=root.appendingPathComponent(first.folder).appendingPathComponent(macExecutable)
+    try FileManager.default.setAttributes([.posixPermissions:0o644],ofItemAtPath:installed.path)
+    let log=DownloadLog()
+    let app=try await DesktopInstaller.install(root:root,release:v2.release,manifest:v2.manifest,platform:platform,
+        extract:updateExtract([v1,v2]),stamp:{_ in},download:updateDownload([v1,v2],log:log))
+    return (app,log.all,root)
+}
+
+@Test func aReusedExecutableGetsThePublishedPermissionBack() async throws {
+    let (app,downloads,root)=try await updateAfterLosingTheExecutableBit(listsExecutables:true)
+    defer {try? FileManager.default.removeItem(at:root)}
+    // Still an update of only the changed file, and the app runs.
+    #expect(downloads==["Castor-v2-macos_arm64.files.json","Castor-v2-macos_arm64-patch.zip"])
+    let executable=root.appendingPathComponent(app.folder).appendingPathComponent(macExecutable)
+    #expect(FileManager.default.isExecutableFile(atPath:executable.path))
+    let plist=root.appendingPathComponent(app.folder).appendingPathComponent("Castor.app/Contents/Info.plist")
+    let mode=try FileManager.default.attributesOfItem(atPath:plist.path)[.posixPermissions] as? NSNumber
+    #expect(mode?.intValue==0o644)
+}
+
+@Test func anOlderListWithoutModesFallsBackRatherThanSelectAnAppThatCannotRun() async throws {
+    let (app,downloads,root)=try await updateAfterLosingTheExecutableBit(listsExecutables:false)
+    defer {try? FileManager.default.removeItem(at:root)}
+    #expect(downloads.last=="Castor-v2-macos_arm64.zip")
+    let executable=root.appendingPathComponent(app.folder).appendingPathComponent(macExecutable)
+    #expect(FileManager.default.isExecutableFile(atPath:executable.path))
+    #expect(try DesktopInstaller.selected(root:root)?.folder==app.folder)
+}
+
+@Test func anUpdateStoppedBeforeSelectionIsCheckedAndSelectedNextTime() async throws {
+    let root=updateRoot("resume-select");defer {try? FileManager.default.removeItem(at:root)}
+    let v1=try UpdateFixture(version:"v1",files:baseFiles)
+    var changed=baseFiles;changed["CastorPet.exe"]=Data("pet v2".utf8)
+    let v2=try UpdateFixture(version:"v2",files:changed,patch:["CastorPet.exe"])
+    let extract=updateExtract([v1,v2]),download=updateDownload([v1,v2],log:DownloadLog())
+    let first=try await DesktopInstaller.install(root:root,release:v1.release,manifest:v1.manifest,platform:"windows_x86_64",extract:extract,stamp:{_ in},download:download)
+    let oldSelection=try Data(contentsOf:DesktopInstaller.selectionFile(root:root))
+    let second=try await DesktopInstaller.install(root:root,release:v2.release,manifest:v2.manifest,platform:"windows_x86_64",extract:extract,stamp:{_ in},download:download)
+    // Power cut after the new folder was placed, before it was selected:
+    try oldSelection.write(to:DesktopInstaller.selectionFile(root:root))
+    // ...and an interrupted run's work folder and temporary file were left behind.
+    try FileManager.default.createDirectory(at:root.appendingPathComponent(".castor-stage-left"),withIntermediateDirectories:true)
+    try Data("partial".utf8).write(to:DesktopInstaller.metadataRoot(root:root).appendingPathComponent(".tmp-left"))
+    let log=DownloadLog()
+    let resumed=try await DesktopInstaller.install(root:root,release:v2.release,manifest:v2.manifest,platform:"windows_x86_64",
+        extract:extract,stamp:{_ in},download:updateDownload([],log:log))
+    #expect(log.all.isEmpty)
+    #expect(resumed.folder==second.folder)
+    #expect(try DesktopInstaller.selected(root:root)?.folder==second.folder)
+    #expect(FileManager.default.fileExists(atPath:root.appendingPathComponent(first.folder).path))
+    #expect(!FileManager.default.fileExists(atPath:root.appendingPathComponent(".castor-stage-left").path))
+    #expect(!FileManager.default.fileExists(atPath:DesktopInstaller.metadataRoot(root:root).appendingPathComponent(".tmp-left").path))
+    // A placed folder that was changed is never selected; the update installs beside it.
+    try oldSelection.write(to:DesktopInstaller.selectionFile(root:root))
+    try Data("changed".utf8).write(to:root.appendingPathComponent(second.folder).appendingPathComponent("CastorPet.exe"))
+    let beside=try await DesktopInstaller.install(root:root,release:v2.release,manifest:v2.manifest,platform:"windows_x86_64",
+        extract:extract,stamp:{_ in},download:download)
+    #expect(beside.folder.hasPrefix("Castor-v2-windows_x86_64-repair-"))
+    #expect(try contents(root,beside,"CastorPet.exe")==Data("pet v2".utf8))
+    #expect(try contents(root,second,"CastorPet.exe")==Data("changed".utf8))
+}
+
+@Test func anInterruptedDownloadContinuesFromWhereItStopped() async throws {
+    let root=updateRoot("resume-download");defer {try? FileManager.default.removeItem(at:root)}
+    let v1=try UpdateFixture(version:"v1",files:baseFiles)
+    let full=v1.assets["Castor-v1-windows_x86_64.zip"]!
+    enum Stop: Error { case shutdown }
+    final class Seen: @unchecked Sendable { let lock=NSLock(); var sizes:[Int]=[] }
+    let seen=Seen()
+    let download: @Sendable(URL,URL) async throws -> Void = { url,to in
+        guard url.lastPathComponent.hasSuffix(".zip") else { return try v1.assets[url.lastPathComponent]!.write(to:to) }
+        let existing=(try? Data(contentsOf:to)) ?? Data()
+        seen.lock.withLock { seen.sizes.append(existing.count) }
+        if existing.isEmpty {
+            try full.prefix(full.count/2).write(to:to)
+            throw Stop.shutdown
+        }
+        // A range request: append only the rest.
+        let handle=try FileHandle(forWritingTo:to);defer {try? handle.close()}
+        _ = try handle.seekToEnd();try handle.write(contentsOf:full.suffix(from:existing.count))
+    }
+    await #expect(throws:Stop.self) {
+        try await DesktopInstaller.install(root:root,release:v1.release,manifest:v1.manifest,platform:"windows_x86_64",
+            extract:updateExtract([v1]),stamp:{_ in},download:download)
+    }
+    #expect(try DesktopInstaller.selected(root:root)==nil)
+    let app=try await DesktopInstaller.install(root:root,release:v1.release,manifest:v1.manifest,platform:"windows_x86_64",
+        extract:updateExtract([v1]),stamp:{_ in},download:download)
+    #expect(seen.lock.withLock { seen.sizes }==[0,full.count/2])
+    #expect(try contents(root,app,"CastorPet.exe")==Data("pet v1".utf8))
+}
+
+@Test func aDamagedSelectionDoesNotBlockTheNextInstall() async throws {
+    let root=updateRoot("damaged-selection");defer {try? FileManager.default.removeItem(at:root)}
+    let v1=try UpdateFixture(version:"v1",files:baseFiles),v2=try UpdateFixture(version:"v2",files:baseFiles,patch:[])
+    let extract=updateExtract([v1,v2]),download=updateDownload([v1,v2],log:DownloadLog())
+    _ = try await DesktopInstaller.install(root:root,release:v1.release,manifest:v1.manifest,platform:"windows_x86_64",extract:extract,stamp:{_ in},download:download)
+    // An empty selection file, as an older version could leave after a power cut.
+    try Data().write(to:DesktopInstaller.selectionFile(root:root))
+    let app=try await DesktopInstaller.install(root:root,release:v2.release,manifest:v2.manifest,platform:"windows_x86_64",extract:extract,stamp:{_ in},download:download)
+    #expect(try DesktopInstaller.selected(root:root)?.folder==app.folder)
+}
+
+@Test func durableWriteReplacesWholeFilesOnly() throws {
+    let folder=updateRoot("durable");defer {try? FileManager.default.removeItem(at:folder)}
+    try FileManager.default.createDirectory(at:folder,withIntermediateDirectories:true)
+    let file=folder.appendingPathComponent("CurrentInstall.json")
+    try DesktopInstaller.durableWrite(Data("first".utf8),to:file)
+    try DesktopInstaller.durableWrite(Data("second".utf8),to:file)
+    #expect(try Data(contentsOf:file)==Data("second".utf8))
+    #expect(try FileManager.default.contentsOfDirectory(atPath:folder.path)==["CurrentInstall.json"])
+}
+
+@Test func updateFileListsRejectUnsafePaths() throws {
+    for path in ["../evil.dll","/evil.dll","a//b","a\\b","C:evil","./a",""] {
+        #expect(!DesktopInstaller.safeRelativePath(path))
+    }
+    #expect(DesktopInstaller.safeRelativePath("UI/app.js"))
+    let json=Data(#"{"schema":1,"files":{"a.dll":{"sha256":"\#(String(repeating:"0",count:64))","bytes":1},"A.DLL":{"sha256":"\#(String(repeating:"0",count:64))","bytes":1}}}"#.utf8)
+    let listed=try JSONDecoder().decode(DesktopInstaller.UpdateInventory.self,from:json)
+    #expect(throws:(any Error).self) { try listed.validate() }
+}
+
+// MARK: - One Castor in ~/Applications (Launchpad lists every app there)
+
+/// A Mac version selected in `root`, as Setup records it.
+@discardableResult
+private func fakeMacInstall(root:URL,component:DesktopHelperComponent?=nil,version:String) throws -> DesktopInstalledApp {
+    let stem=component?.stem ?? "Castor",manager=FileManager.default
+    let folder=root.appendingPathComponent("\(stem)-\(version)-macos_arm64")
+    let executable="\(stem).app/Contents/MacOS/\(stem)",body=Data("\(stem) \(version)".utf8)
+    try manager.createDirectory(at:folder.appendingPathComponent(executable).deletingLastPathComponent(),withIntermediateDirectories:true)
+    try body.write(to:folder.appendingPathComponent(executable))
+    let app=DesktopInstalledApp(version:version,platform:"macos_arm64",folder:folder.lastPathComponent,component:component,
+                                files:[executable:PackageIntegrity.sha256(body)])
+    try JSONEncoder().encode(app).write(to:folder.appendingPathComponent("CastorInstall.json"))
+    try manager.createDirectory(at:DesktopInstaller.metadataRoot(root:root),withIntermediateDirectories:true)
+    try JSONEncoder().encode(app).write(to:DesktopInstaller.selectionFile(root:root))
+    return app
+}
+/// What Setup up to v1.0.0 left: a version folder in ~/Applications and the link to it.
+@discardableResult
+private func legacyMacInstall(home:URL,component:DesktopHelperComponent?=nil) throws -> URL {
+    let stem=component?.stem ?? "Castor"
+    let root=DesktopInstallLayout.installationRoot(base:DesktopInstallLayout.macLegacyRoot(home:home),component:component)
+    let folder=root.appendingPathComponent(try fakeMacInstall(root:root,component:component,version:"v1.0.0").folder)
+    try FileManager.default.createSymbolicLink(at:DesktopInstallLayout.macLaunchFolder(home:home).appendingPathComponent(stem+".app"),
+                                               withDestinationURL:folder.appendingPathComponent(stem+".app"))
+    return folder
+}
+/// Moves items into `folder`, as the OS Trash would.
+private func trash(into folder:URL) throws -> (URL) throws -> Void {
+    try FileManager.default.createDirectory(at:folder,withIntermediateDirectories:true)
+    return { item in try FileManager.default.moveItem(at:item,to:folder.appendingPathComponent(UUID().uuidString+"-"+item.lastPathComponent)) }
+}
+private func linkTarget(_ folder:URL,_ name:String="Castor.app") throws -> String {
+    try FileManager.default.destinationOfSymbolicLink(atPath:folder.appendingPathComponent(name).path)
+}
+private func macRelease(_ version:String,_ files:[String:Data],patch:[String]?=nil) throws -> UpdateFixture {
+    try UpdateFixture(version:version,files:files,patch:patch,platform:"macos_arm64",executables:[macExecutable])
+}
+
+@Test func aMacInstallAndItsUpdatesLeaveOneCastorInApplications() async throws {
+    let home=updateRoot("mac-new");defer {try? FileManager.default.removeItem(at:home)}
+    let root=DesktopInstallLayout.macVersionsRoot(home:home),apps=DesktopInstallLayout.macLaunchFolder(home:home)
+    let legacy=DesktopInstallLayout.macLegacyRoot(home:home)
+    var changed=macFiles;changed["Castor.app/Contents/Info.plist"]=Data("plist v2".utf8)
+    let v1=try macRelease("v1",macFiles),v2=try macRelease("v2",changed,patch:["Castor.app/Contents/Info.plist"])
+    let v3=try macRelease("v3",macFiles,patch:["Castor.app/Contents/Info.plist"])
+    let fixtures=[v1,v2,v3],discard=try trash(into:home.appendingPathComponent("Trash"))
+    for fixture in fixtures {
+        let app=try await DesktopInstaller.install(root:root,release:fixture.release,manifest:fixture.manifest,platform:"macos_arm64",
+            extract:updateExtract(fixtures),stamp:{_ in},download:updateDownload(fixtures,log:DownloadLog()))
+        try DesktopInstallLayout.linkLaunchEntry(app,root:root,launchFolder:apps,legacyRoots:[legacy])
+        _ = try DesktopInstaller.pruneOldVersions(root:root,trash:discard)
+        #expect(try DesktopInstallLayout.retireLegacyVersions(legacyRoot:legacy,root:root,component:nil,trash:discard)==0)
+        // The link and nothing else, hidden or not: versions and records are under Library.
+        #expect(try FileManager.default.contentsOfDirectory(atPath:apps.path)==["Castor.app"])
+        #expect(try linkTarget(apps)==root.appendingPathComponent(app.folder).appendingPathComponent("Castor.app").path)
+        #expect(FileManager.default.isExecutableFile(atPath:apps.appendingPathComponent(macExecutable).path))
+    }
+    #expect(DesktopInstallLayout.selectedRoot(root:root,legacyRoot:legacy)==root)
+    // Removing the app removes its link only.
+    let current=try #require(try DesktopInstaller.selected(root:root))
+    try DesktopInstaller.uninstall(root:root)
+    DesktopInstallLayout.removeLaunchEntry(current,root:root,launchFolder:apps)
+    #expect(try FileManager.default.contentsOfDirectory(atPath:apps.path).isEmpty)
+}
+
+@Test func theFirstUpdateFromTheOldLayoutMovesCastorOutOfApplications() async throws {
+    let home=updateRoot("mac-migrate");defer {try? FileManager.default.removeItem(at:home)}
+    let root=DesktopInstallLayout.macVersionsRoot(home:home),apps=DesktopInstallLayout.macLaunchFolder(home:home)
+    let legacy=DesktopInstallLayout.macLegacyRoot(home:home)
+    let old=try legacyMacInstall(home:home)
+    // Characters and settings are in the app's container, which Setup never touches.
+    let container=home.appendingPathComponent("Library/Containers/dev.pomegranate.prototype/Data/Library/Application Support/Castor")
+    try FileManager.default.createDirectory(at:container,withIntermediateDirectories:true)
+    let pet=container.appendingPathComponent("CastorPet.json");try Data("my pet".utf8).write(to:pet)
+    // Until the update, Launch and Remove find the version where it is.
+    #expect(DesktopInstallLayout.selectedRoot(root:root,legacyRoot:legacy)==legacy)
+
+    var changed=macFiles;changed["Castor.app/Contents/Info.plist"]=Data("plist v2".utf8)
+    let v2=try macRelease("v2",macFiles),v3=try macRelease("v3",changed,patch:["Castor.app/Contents/Info.plist"])
+    let log=DownloadLog()
+    let app=try await DesktopInstaller.install(root:root,release:v2.release,manifest:v2.manifest,platform:"macos_arm64",
+        extract:updateExtract([v2,v3]),stamp:{_ in},download:updateDownload([v2,v3],log:log))
+    // Nothing to reuse in the new place yet, so the whole package.
+    #expect(log.all==["Castor-v2-macos_arm64.files.json","Castor-v2-macos_arm64.zip"])
+    // The old link points into ~/Applications; it is the installer's, so it is replaced.
+    try DesktopInstallLayout.linkLaunchEntry(app,root:root,launchFolder:apps,legacyRoots:[legacy])
+    #expect(try linkTarget(apps)==root.appendingPathComponent(app.folder).appendingPathComponent("Castor.app").path)
+    let trashFolder=home.appendingPathComponent("Trash")
+    #expect(try DesktopInstallLayout.retireLegacyVersions(legacyRoot:legacy,root:root,component:nil,trash:trash(into:trashFolder))==1)
+    #expect(try FileManager.default.contentsOfDirectory(atPath:apps.path)==["Castor.app"])
+    // In the Trash, not deleted: the old version and its records.
+    let trashed=try FileManager.default.contentsOfDirectory(atPath:trashFolder.path)
+    #expect(trashed.contains {$0.hasSuffix("-"+old.lastPathComponent)})
+    #expect(trashed.contains {$0.hasSuffix("-.CastorInstaller")})
+    #expect(try Data(contentsOf:pet)==Data("my pet".utf8))
+    #expect(DesktopInstallLayout.selectedRoot(root:root,legacyRoot:legacy)==root)
+
+    // The next update reuses the files of the version in the new place.
+    let second=DownloadLog()
+    let next=try await DesktopInstaller.install(root:root,release:v3.release,manifest:v3.manifest,platform:"macos_arm64",
+        extract:updateExtract([v2,v3]),stamp:{_ in},download:updateDownload([v2,v3],log:second))
+    #expect(second.all==["Castor-v3-macos_arm64.files.json","Castor-v3-macos_arm64-patch.zip"])
+    try DesktopInstallLayout.linkLaunchEntry(next,root:root,launchFolder:apps,legacyRoots:[legacy])
+    #expect(try FileManager.default.contentsOfDirectory(atPath:apps.path)==["Castor.app"])
+    #expect(try linkTarget(apps)==root.appendingPathComponent(next.folder).appendingPathComponent("Castor.app").path)
+}
+
+@Test func theHelperMovesTooAndKeepsTheLinkCastorOpensItBy() throws {
+    let home=updateRoot("mac-helper");defer {try? FileManager.default.removeItem(at:home)}
+    let apps=DesktopInstallLayout.macLaunchFolder(home:home)
+    let root=DesktopInstallLayout.installationRoot(base:DesktopInstallLayout.macVersionsRoot(home:home),component:.neuralTTS)
+    let legacy=DesktopInstallLayout.installationRoot(base:DesktopInstallLayout.macLegacyRoot(home:home),component:.neuralTTS)
+    try legacyMacInstall(home:home,component:.neuralTTS)
+    let app=try fakeMacInstall(root:root,component:.neuralTTS,version:"v2")
+    try DesktopInstallLayout.linkLaunchEntry(app,root:root,launchFolder:apps,legacyRoots:[legacy])
+    #expect(try DesktopInstallLayout.retireLegacyVersions(legacyRoot:legacy,root:root,component:.neuralTTS,
+        emptyFolders:[legacy,legacy.deletingLastPathComponent()],trash:trash(into:home.appendingPathComponent("Trash")))==1)
+    // Castor opens ~/Applications/CastorNeuralTTS.app; the emptied CastorHelpers folder is gone.
+    #expect(try FileManager.default.contentsOfDirectory(atPath:apps.path)==["CastorNeuralTTS.app"])
+    #expect(try linkTarget(apps,"CastorNeuralTTS.app")==root.appendingPathComponent(app.folder).appendingPathComponent("CastorNeuralTTS.app").path)
+}
+
+@Test func theLaunchLinkReplacesOnlyLinksTheInstallerMade() throws {
+    let home=updateRoot("mac-link");defer {try? FileManager.default.removeItem(at:home)}
+    let manager=FileManager.default
+    let root=DesktopInstallLayout.macVersionsRoot(home:home),apps=DesktopInstallLayout.macLaunchFolder(home:home)
+    let legacy=DesktopInstallLayout.macLegacyRoot(home:home),link=apps.appendingPathComponent("Castor.app")
+    let app=try fakeMacInstall(root:root,version:"v2")
+    let wanted=root.appendingPathComponent(app.folder).appendingPathComponent("Castor.app").path
+    func linked()->Bool {(try? DesktopInstallLayout.linkLaunchEntry(app,root:root,launchFolder:apps,legacyRoots:[legacy])) != nil}
+    // A copy of the app someone put there.
+    try manager.createDirectory(at:link.appendingPathComponent("Contents"),withIntermediateDirectories:true)
+    #expect(!linked());#expect(manager.fileExists(atPath:link.appendingPathComponent("Contents").path))
+    try manager.removeItem(at:link)
+    // Links to an app elsewhere, to a look-alike folder without the installer's
+    // record, and to a folder whose record is the helper's.
+    let elsewhere=home.appendingPathComponent("Elsewhere/Castor.app")
+    let lookalike=apps.appendingPathComponent("Castor-mine/Castor.app")
+    let helperRecord=apps.appendingPathComponent("Castor-v1-macos_arm64")
+    for folder in [elsewhere,lookalike,helperRecord.appendingPathComponent("Castor.app")] {
+        try manager.createDirectory(at:folder,withIntermediateDirectories:true)
+    }
+    try JSONEncoder().encode(DesktopInstalledApp(version:"v1",platform:"macos_arm64",folder:"CastorNeuralTTS-v1-macos_arm64",component:.neuralTTS))
+        .write(to:helperRecord.appendingPathComponent("CastorInstall.json"))
+    for other in [elsewhere,lookalike,helperRecord.appendingPathComponent("Castor.app")] {
+        try manager.createSymbolicLink(at:link,withDestinationURL:other)
+        #expect(!linked());#expect(try linkTarget(apps)==other.path)
+        try manager.removeItem(at:link)
+    }
+    // A version that is not selected gets no link.
+    let unselected=DesktopInstalledApp(version:"v9",platform:"macos_arm64",folder:"Castor-v9-macos_arm64")
+    #expect((try? DesktopInstallLayout.linkLaunchEntry(unselected,root:root,launchFolder:apps,legacyRoots:[legacy]))==nil)
+    #expect(!manager.fileExists(atPath:link.path))
+    // A link an older Setup made, whose version is already in the Trash.
+    try manager.createSymbolicLink(atPath:link.path,withDestinationPath:"Castor-v1.0.0-macos_arm64/Castor.app")
+    #expect(linked());#expect(try linkTarget(apps)==wanted)
+    try manager.removeItem(at:link)
+    // And one whose version is still there.
+    try legacyMacInstall(home:home)
+    #expect(linked());#expect(try linkTarget(apps)==wanted)
+}
+
+@Test func retiringTheOldLayoutMovesOnlyTheInstallersVersions() throws {
+    let home=updateRoot("mac-retire");defer {try? FileManager.default.removeItem(at:home)}
+    let manager=FileManager.default
+    let root=DesktopInstallLayout.macVersionsRoot(home:home),apps=DesktopInstallLayout.macLaunchFolder(home:home)
+    let legacy=DesktopInstallLayout.macLegacyRoot(home:home)
+    let old=try legacyMacInstall(home:home),meta=DesktopInstaller.metadataRoot(root:legacy)
+    let discard=try trash(into:home.appendingPathComponent("Trash"))
+    // Nothing moves before the new place has a version.
+    #expect(try DesktopInstallLayout.retireLegacyVersions(legacyRoot:legacy,root:root,component:nil,trash:discard)==0)
+    #expect(manager.fileExists(atPath:old.path))
+    try fakeMacInstall(root:root,version:"v2")
+    // Not the installer's: a folder from the older script downloader (no record) and another app.
+    let script=apps.appendingPathComponent("Castor-v0.9-macos_arm64/Castor.app"),other=apps.appendingPathComponent("Other.app")
+    for folder in [script,other] {try manager.createDirectory(at:folder,withIntermediateDirectories:true)}
+    // While the old version runs, the Trash leaves it, and its records stay with it.
+    #expect(try DesktopInstallLayout.retireLegacyVersions(legacyRoot:legacy,root:root,component:nil,trash:{_ in})==0)
+    #expect(manager.fileExists(atPath:old.path));#expect(manager.fileExists(atPath:meta.path))
+    // A later run moves it.
+    #expect(try DesktopInstallLayout.retireLegacyVersions(legacyRoot:legacy,root:root,component:nil,trash:discard)==1)
+    #expect(!manager.fileExists(atPath:old.path));#expect(!manager.fileExists(atPath:meta.path))
+    #expect(manager.fileExists(atPath:script.path));#expect(manager.fileExists(atPath:other.path))
 }

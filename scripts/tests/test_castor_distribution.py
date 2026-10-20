@@ -156,6 +156,47 @@ class DistributionTests(unittest.TestCase):
                 archives.append(archive.read_bytes())
             self.assertEqual(archives[0],archives[1])
 
+    def test_update_file_lists_and_patches_carry_only_changed_files(self):
+        first = self.base/'first'
+        release.prepare(first, 'v1', {'macos_arm64': self.mac, 'windows_x86_64': self.windows})
+        old = json.loads((first/'castor-downloads.json').read_text())
+        for entry in old['platforms'].values():
+            listed = first/entry['inventory']['asset']
+            self.assertEqual(entry['inventory']['sha256'], hashlib.sha256(listed.read_bytes()).hexdigest())
+            files = json.loads(listed.read_text())['files']
+            with zipfile.ZipFile(first/entry['asset']) as z:
+                self.assertEqual(set(files), {i.filename for i in z.infolist() if not i.is_dir()})
+                for name, item in files.items():
+                    self.assertEqual(item['sha256'], hashlib.sha256(z.read(name)).hexdigest())
+                    # Runnable files say so, so a reused copy can be given its mode back.
+                    runnable = bool((z.getinfo(name).external_attr >> 16) & 0o111)
+                    self.assertEqual(item.get('executable', False), runnable)
+            if entry['asset'].startswith('Castor-v1-macos'):
+                self.assertTrue(files['Castor.app/Contents/MacOS/Castor'].get('executable'))
+            self.assertNotIn('patch', entry)
+        (self.windows/'UI'/'app.js').write_text('changed page')
+        second = self.base/'second'
+        release.prepare(second, 'v2', {'macos_arm64': self.mac, 'windows_x86_64': self.windows}, previous=first)
+        manifest = json.loads((second/'castor-downloads.json').read_text())
+        windows = manifest['platforms']['windows_x86_64']
+        listing = json.loads((second/windows['inventory']['asset']).read_text())
+        self.assertEqual(listing['patch'], ['UI/app.js'])
+        patch = second/windows['patch']['asset']
+        self.assertEqual(patch.name, 'Castor-v2-windows_x86_64-patch.zip')
+        self.assertEqual(windows['patch']['sha256'], hashlib.sha256(patch.read_bytes()).hexdigest())
+        with zipfile.ZipFile(patch) as z:
+            self.assertEqual(z.namelist(), ['UI/app.js'])
+            self.assertEqual(z.read('UI/app.js'), b'changed page')
+        # Nothing new on the Mac: an empty patch list and no patch asset.
+        mac = manifest['platforms']['macos_arm64']
+        self.assertEqual(json.loads((second/mac['inventory']['asset']).read_text())['patch'], [])
+        self.assertNotIn('patch', mac)
+        # A damaged earlier folder never shapes a patch.
+        (first/old['platforms']['windows_x86_64']['inventory']['asset']).write_text('{}')
+        with self.assertRaises(ValueError):
+            release.prepare(self.base/'third', 'v3', {'windows_x86_64': self.windows}, previous=first)
+        self.assertFalse((self.base/'third').exists())
+
     def test_packages_have_matching_hashes_architectures_licenses_and_launchers(self):
         manifest = self.package()
         for platform, asset in manifest['platforms'].items():
@@ -331,7 +372,7 @@ class DistributionTests(unittest.TestCase):
             for i, name in enumerate(assets)]}
         (self.output/'release.json').write_text(json.dumps(metadata))
         self.home = self.base/'home'
-        self.home.mkdir()
+        self.home.mkdir(exist_ok=True)
         self.log = self.base/'fetches'
 
     @unittest.skipUnless(sys.platform == 'darwin', 'Native macOS launcher requires macOS')
@@ -346,7 +387,36 @@ class DistributionTests(unittest.TestCase):
     def test_mac_preserves_existing_install(self):
         self.run_mac(existing=True)
 
-    def run_mac(self, corrupt=False, existing=False):
+    @unittest.skipUnless(sys.platform == 'darwin', 'Native macOS launcher requires macOS')
+    def test_mac_replaces_the_link_to_a_version_kept_in_applications(self):
+        # Setup up to v1.0.0 kept versions in ~/Applications and linked Castor.app to one.
+        apps = self.base/'home/Applications'
+        old = apps/'Castor-v1.0.0-macos_arm64/Castor.app'
+        old.mkdir(parents=True)
+        (apps/'Castor.app').symlink_to(old)
+        self.run_mac()
+        # The old folder is left to CastorSetup, which moves it to the Trash.
+        self.assertTrue(old.is_dir())
+
+    @unittest.skipUnless(sys.platform == 'darwin', 'Native macOS launcher requires macOS')
+    def test_mac_keeps_a_copy_of_castor_app_in_applications(self):
+        copy = self.base/'home/Applications/Castor.app/Contents'
+        copy.mkdir(parents=True)
+        self.run_mac(keeps_link=True)
+        self.assertTrue(copy.is_dir())
+        self.assertFalse(copy.parent.is_symlink())
+
+    @unittest.skipUnless(sys.platform == 'darwin', 'Native macOS launcher requires macOS')
+    def test_mac_keeps_a_link_to_an_app_elsewhere(self):
+        elsewhere = self.base/'elsewhere/Castor.app'
+        elsewhere.mkdir(parents=True)
+        link = self.base/'home/Applications/Castor.app'
+        link.parent.mkdir(parents=True)
+        link.symlink_to(elsewhere)
+        self.run_mac(keeps_link=True)
+        self.assertEqual(os.readlink(link), str(elsewhere))
+
+    def run_mac(self, corrupt=False, existing=False, keeps_link=False):
         self.setup_release(corrupt)
         binaries = self.base/'bin'
         binaries.mkdir()
@@ -364,7 +434,8 @@ with open(os.environ['TEST_LOG'],'a') as f: f.write(name+'\\n')
 shutil.copyfile(Path(os.environ['TEST_RELEASE'])/name, args[args.index('-o')+1])
 ''')
         curl.chmod(0o755)
-        target = self.home/'Applications/Castor-local-test-macos_arm64'
+        target = self.home/'Library/Application Support/Castor/Versions/Castor-local-test-macos_arm64'
+        apps = self.home/'Applications'
         if existing:
             target.mkdir(parents=True)
             (target/'keep').write_text('existing')
@@ -382,6 +453,12 @@ shutil.copyfile(Path(os.environ['TEST_RELEASE'])/name, args[args.index('-o')+1])
             self.assertEqual((target/'keep').read_text(), 'existing')
         else:
             self.assertTrue((target/'Castor.app/Contents/MacOS/Castor').is_file())
+            if not keeps_link:
+                # Launchpad lists every app in ~/Applications: one link there, nothing else new.
+                self.assertEqual(os.readlink(apps/'Castor.app'), str(target/'Castor.app'))
+                self.assertEqual(sorted(p.name for p in apps.iterdir() if not p.name.startswith('Castor-v')), ['Castor.app'])
+        if existing or corrupt:
+            self.assertFalse((apps/'Castor.app').is_symlink())
 
     @unittest.skipUnless(PWSH, 'PowerShell runtime is required for this check')
     def test_windows_public_download_flow(self):

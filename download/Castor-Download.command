@@ -92,11 +92,28 @@ if zipinfo -l "$work/app.zip" | /usr/bin/grep -q '^l'; then fail 'Symbolic links
 mkdir "$work/app"
 ditto -x -k "$work/app.zip" "$work/app"
 [ -f "$work/app/Castor.app/Contents/Info.plist" ] && [ -x "$work/app/Castor.app/Contents/MacOS/Castor" ] || fail 'Castor.app is missing.'
-base="$HOME/Applications"
-mkdir -p "$base"
+# Versions stay outside ~/Applications: Launchpad lists every app there, so
+# ~/Applications gets only one Castor.app link (the same place CastorSetup uses).
+base="$HOME/Library/Application Support/Castor/Versions"
+apps="$HOME/Applications"
+mkdir -p "$base" "$apps"
 target="$base/Castor-$version-$platform"
 # Atomic directory reservation prevents replacing an existing install.
 mkdir "$target" || fail 'That version is already installed. The existing folder was kept.'
 cp -R "$work/app/." "$target/"
 printf 'Installed: %s\n' "$target"
-open "$target"
+link="$apps/Castor.app"
+# Replace only a link to a Castor version folder (here or where older
+# versions were kept); a copy of the app or any other item stays.
+ours=false
+if [ -L "$link" ]; then
+    case "$(readlink "$link")" in "$base"/Castor-*/Castor.app|"$apps"/Castor-*/Castor.app) ours=true;; esac
+fi
+if $ours || { [ ! -e "$link" ] && [ ! -L "$link" ]; }; then
+    ln -sfh "$target/Castor.app" "$link"
+    printf 'Open from: %s\n' "$link"
+    open -R "$link"
+else
+    printf 'Kept the existing %s. Open Castor from: %s\n' "$link" "$target/Castor.app"
+    open -R "$target/Castor.app"
+fi
