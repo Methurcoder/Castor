@@ -198,7 +198,9 @@ public final class PetPlayer {
         for pass in passes {
             for part in drawableParts {
                 guard let texture = textures[part.id], let screen = projected[part.id] else { continue }
-                rasterize(part: part, screen: screen, texture: texture, opacity: part.opacity,
+                rasterize(part: part, screen: screen, texture: texture,
+                          opacity: BlinkFade.opacity(base: part.opacity, parameter: BlinkFade.parameter(for: part),
+                                                     parameters: parameters),
                           width: canvas.width, height: canvas.height, pass: pass)
             }
         }

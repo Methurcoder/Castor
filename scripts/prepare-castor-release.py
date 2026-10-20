@@ -103,7 +103,84 @@ def check_installer(path, platform):
         check_arch(path, platform)
 
 
-def prepare(output, version, apps, setups=None, neural_helpers=None, installers=None):
+def zip_inventory(archive):
+    """Every file a release ZIP installs, by path: its SHA-256 and size, and
+    `executable` for files the ZIP marks runnable.
+
+    An installer that reuses an already installed copy of a file gets its
+    content right by the hash alone, but not its permission: a copy that lost
+    its executable bit would still match. The flag lets it set and check the
+    mode the release ships."""
+    with zipfile.ZipFile(archive) as z:
+        files = {}
+        for info in z.infolist():
+            if info.is_dir():
+                continue
+            item = {'sha256': hashlib.sha256(z.read(info)).hexdigest(), 'bytes': info.file_size}
+            if (info.external_attr >> 16) & 0o111:
+                item['executable'] = True
+            files[info.filename] = item
+        return files
+
+
+def previous_inventory(previous, group, platform):
+    """The file list of the same package in an earlier release folder, or None.
+
+    `previous` is the output folder of an earlier prepare run (or the assets
+    downloaded from that Release). Its own file list is used when it has one;
+    older releases are read from their ZIP. Hashes are checked against the
+    earlier manifest, so a damaged earlier folder never shapes a patch."""
+    if previous is None:
+        return None
+    manifest = json.loads((previous/'castor-downloads.json').read_text(encoding='utf-8'))
+    entry = (manifest.get('components', {}).get('NeuralTTS', {}) if group == 'NeuralTTS' else manifest.get('platforms', {})).get(platform)
+    if not entry:
+        return None
+    listed = entry.get('inventory')
+    if listed and (previous/listed['asset']).is_file():
+        data = (previous/listed['asset']).read_bytes()
+        if hashlib.sha256(data).hexdigest() != listed['sha256']:
+            raise ValueError(f'Previous file list does not match its manifest: {listed["asset"]}')
+        return json.loads(data)['files']
+    archive = previous/entry['asset']
+    if not archive.is_file():
+        return None
+    if hashlib.sha256(archive.read_bytes()).hexdigest() != entry['sha256']:
+        raise ValueError(f'Previous package does not match its manifest: {entry["asset"]}')
+    return zip_inventory(archive)
+
+
+def add_update_files(stage, archive, entry, old_files):
+    """Write the file list (and, against `old_files`, a patch ZIP) for one package.
+
+    An installer that already has a file with the same SHA-256 copies it
+    locally; only files with new content come from the patch. The installer
+    checks every assembled file against this list and falls back to the full
+    ZIP on any difference."""
+    files = zip_inventory(archive)
+    listing = {'schema': 1, 'files': files}
+    stem = archive.name[:-len('.zip')]
+    if old_files is not None:
+        known = {item['sha256'] for item in old_files.values()}
+        changed = sorted(name for name, item in files.items() if item['sha256'] not in known)
+        listing['patch'] = changed
+        if changed:
+            patch = stage/f'{stem}-patch.zip'
+            with zipfile.ZipFile(archive) as source, zipfile.ZipFile(patch, 'w') as z:
+                for name in changed:
+                    z.writestr(source.getinfo(name), source.read(name))
+            entry['patch'] = {'asset': patch.name, 'sha256': hashlib.sha256(patch.read_bytes()).hexdigest(),
+                              'bytes': patch.stat().st_size}
+    listed = stage/f'{stem}.files.json'
+    listed.write_text(json.dumps(listing, indent=1, sort_keys=True)+'\n', encoding='utf-8')
+    entry['inventory'] = {'asset': listed.name, 'sha256': hashlib.sha256(listed.read_bytes()).hexdigest(),
+                          'bytes': listed.stat().st_size}
+
+
+def prepare(output, version, apps, setups=None, neural_helpers=None, installers=None, previous=None):
+    previous = previous.resolve() if previous else None
+    if previous is not None and not (previous/'castor-downloads.json').is_file():
+        raise ValueError('The previous release folder needs its castor-downloads.json.')
     setups = setups or {}
     installers = installers or {}
     for platform, source in installers.items():
@@ -250,6 +327,7 @@ def prepare(output, version, apps, setups=None, neural_helpers=None, installers=
                 'asset': name, 'sha256': hashlib.sha256(archive.read_bytes()).hexdigest(),
                 'bytes': archive.stat().st_size,
             }
+            add_update_files(stage, archive, manifest['platforms'][platform], previous_inventory(previous, 'app', platform))
         for platform, files in setup_payloads.items():
             name = f'CastorSetup-{version}-{platform}.zip'
             archive = stage/name
@@ -265,6 +343,7 @@ def prepare(output, version, apps, setups=None, neural_helpers=None, installers=
             with zipfile.ZipFile(archive,'w') as z:
                 for source, relative in files: put(z,source,relative)
             manifest['components']['NeuralTTS'][helper_platform] = {'asset':name,'sha256':hashlib.sha256(archive.read_bytes()).hexdigest(),'bytes':archive.stat().st_size}
+            add_update_files(stage, archive, manifest['components']['NeuralTTS'][helper_platform], previous_inventory(previous, 'NeuralTTS', helper_platform))
         if installers:
             manifest['installers'] = {}
         for platform, source in installers.items():
@@ -288,6 +367,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--version', required=True)
     parser.add_argument('--output', type=Path, required=True, help='New folder outside the checkout')
+    parser.add_argument('--previous', type=Path,
+                        help='Folder of the previous release (its castor-downloads.json and assets); adds patch ZIPs with only the changed files')
     for p in PLATFORMS:
         parser.add_argument('--'+p.replace('_', '-'), dest=p, type=Path,
                             help='Built Castor.app (Mac) or flat executable + runtime DLL directory (Windows)')
@@ -301,7 +382,8 @@ def main():
         prepare(args.output, args.version, {p: getattr(args, p) for p in PLATFORMS if getattr(args, p)},
                 {p: getattr(args,'setup_'+p) for p in PLATFORMS if getattr(args,'setup_'+p)},
                 {p: getattr(args,'neural_helper_'+p) for p in PLATFORMS if getattr(args,'neural_helper_'+p)},
-                {p: getattr(args,'installer_'+p) for p in PLATFORMS if getattr(args,'installer_'+p)})
+                {p: getattr(args,'installer_'+p) for p in PLATFORMS if getattr(args,'installer_'+p)},
+                args.previous)
     except (ValueError, OSError, KeyError, plistlib.InvalidFileException) as error:
         parser.exit(1, f'error: {error}\n')
 

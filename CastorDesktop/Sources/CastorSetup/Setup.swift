@@ -26,6 +26,8 @@ struct SetupLocalization: Sendable {
             return (text("ダウンロードしたファイルを確認しています…", "Checking the downloaded file…"), 1, nil)
         case .extracting:
             return (text("展開しています…", "Unpacking…"), 1, nil)
+        case .reusing:
+            return (text("変更のないファイルを今の版から再利用しています…", "Reusing unchanged files from the installed version…"), 1, nil)
         case .finishing:
             return (text("仕上げています…", "Finishing…"), 1, nil)
         }
@@ -288,7 +290,9 @@ import SwiftUI
     func cancel(){job?.cancel()}
     func launch(component:DesktopHelperComponent?=nil){
         do{
-            if let app=try DesktopInstaller.selected(root:NativeInstall.installationRoot(component:component)){try NativeInstall.launch(app)}
+            // Before the first update, the selected version is still where an older Setup put it.
+            let root=try NativeInstall.selectedRoot(component:component)
+            if let app=try DesktopInstaller.selected(root:root){try NativeInstall.launch(app,root:root)}
             else {status=strings.notInstalled(helper:component != nil)}
         }catch{status=strings.errorMessage(error)}
     }
@@ -302,10 +306,10 @@ import SwiftUI
         alert.addButton(withTitle:strings.text("削除", "Remove"));alert.addButton(withTitle:strings.cancel)
         if alert.runModal() == .alertFirstButtonReturn {
             do{
-                let root=try NativeInstall.installationRoot(component:component)
+                let root=try NativeInstall.selectedRoot(component:component)
                 let old=try DesktopInstaller.selected(root:root)
                 try DesktopInstaller.uninstall(root:root)
-                if let old{NativeInstall.removeLaunchEntry(old)}
+                if let old{NativeInstall.removeLaunchEntry(old,root:root)}
                 status=old == nil ? strings.notInstalled(helper:component != nil) : strings.removed(helper:component != nil)
             }catch{status=strings.errorMessage(error)}
         }

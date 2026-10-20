@@ -33,19 +33,39 @@ enum NativeInstall {
 #endif
         }
     }
+    /// Where versions are installed. On a Mac this is outside ~/Applications,
+    /// which then holds only the launch links (see DesktopInstallLayout).
     static var root: URL {
         get throws {
 #if os(Windows)
             guard let local=ProcessInfo.processInfo.environment["LOCALAPPDATA"],!local.isEmpty else { throw AdapterError.unsupported }
             return URL(fileURLWithPath:local).appendingPathComponent("Programs/Castor",isDirectory:true)
 #else
-            return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications",isDirectory:true)
+            return DesktopInstallLayout.macVersionsRoot(home:FileManager.default.homeDirectoryForCurrentUser)
 #endif
         }
     }
     static func installationRoot(component:DesktopHelperComponent?) throws -> URL {
-        let base=try root
-        return component.map {base.appendingPathComponent("CastorHelpers/"+$0.rawValue,isDirectory:true)} ?? base
+        DesktopInstallLayout.installationRoot(base:try root,component:component)
+    }
+#if os(macOS)
+    private static var home: URL { FileManager.default.homeDirectoryForCurrentUser }
+    /// ~/Applications, where the one Castor.app (and CastorNeuralTTS.app) link goes.
+    static var launchFolder: URL { DesktopInstallLayout.macLaunchFolder(home:home) }
+    /// Where Setup up to v1.0.0 installed `component`, listed by Launchpad.
+    static func legacyRoot(component:DesktopHelperComponent?) -> URL {
+        DesktopInstallLayout.installationRoot(base:DesktopInstallLayout.macLegacyRoot(home:home),component:component)
+    }
+#endif
+    /// The root holding the selected version: the installation root, or on a
+    /// Mac the old place until the first update moves Castor out of it.
+    static func selectedRoot(component:DesktopHelperComponent?) throws -> URL {
+        let installRoot=try installationRoot(component:component)
+#if os(macOS)
+        return DesktopInstallLayout.selectedRoot(root:installRoot,legacyRoot:legacyRoot(component:component))
+#else
+        return installRoot
+#endif
     }
     static func extract(_ archive: URL, _ destination: URL) async throws {
         try Task.checkCancellation()
@@ -93,27 +113,17 @@ enum NativeInstall {
     }
     static func createLaunchEntry(_ app: DesktopInstalledApp) throws {
         // Never overwrite another user's app or an unrelated Castor shortcut.
-        let base=try root
         let installBase=try installationRoot(component:app.component)
-        guard try DesktopInstaller.selected(root:installBase)?.folder==app.folder else {throw AdapterError.unpack}
 #if os(macOS)
-        let stem=app.component?.stem ?? "Castor"
-        let link=base.appendingPathComponent(stem+".app")
-        let target=installBase.appendingPathComponent(app.folder).appendingPathComponent(stem+".app")
-        let manager=FileManager.default
-        if let existing=try? manager.destinationOfSymbolicLink(atPath:link.path) {
-            let old=URL(fileURLWithPath:existing)
-            let marker=old.deletingLastPathComponent().appendingPathComponent("CastorInstall.json")
-            guard old.lastPathComponent==stem+".app",old.deletingLastPathComponent().deletingLastPathComponent().standardizedFileURL==installBase.standardizedFileURL,
-                  let record=try? JSONDecoder().decode(DesktopInstalledApp.self,from:Data(contentsOf:marker)),
-                  record.component==app.component,record.folder==old.deletingLastPathComponent().lastPathComponent else {throw AdapterError.unpack}
-        } else if manager.fileExists(atPath:link.path) {throw AdapterError.unpack}
-        let staged=base.appendingPathComponent(".castor-link-\(UUID().uuidString)")
-        defer {try? manager.removeItem(at:staged)}
-        try manager.createSymbolicLink(at:staged,withDestinationURL:target)
-        let committed=staged.path.withCString {source in link.path.withCString {rename(source,$0)}}
-        guard committed==0 else {throw AdapterError.unpack}
+        // The helper keeps its link too: Castor opens ~/Applications/CastorNeuralTTS.app.
+        // A link an older Setup made to its version in ~/Applications is replaced.
+        do {
+            try DesktopInstallLayout.linkLaunchEntry(app,root:installBase,launchFolder:launchFolder,
+                                                     legacyRoots:[legacyRoot(component:app.component)])
+        } catch {throw AdapterError.unpack}
 #elseif os(Windows)
+        let base=try root
+        guard try DesktopInstaller.selected(root:installBase)?.folder==app.folder else {throw AdapterError.unpack}
         guard app.component==nil else {return}
         let file=base.appendingPathComponent(app.folder).appendingPathComponent("CastorPet.exe")
         guard file.path.withCString({file in base.path.withCString {castor_pet_shortcut(file,$0,0)}})>0 else {throw AdapterError.unpack}
@@ -123,18 +133,30 @@ enum NativeInstall {
     @MainActor
     #endif
     static func pruneOldVersions(component:DesktopHelperComponent?=nil) throws {
-        let installRoot=try installationRoot(component:component)
+        let installRoot=try selectedRoot(component:component)
 #if os(macOS)
         let running=NSWorkspace.shared.runningApplications.compactMap {$0.bundleURL?.resolvingSymlinksInPath()}
 #endif
-        _ = try DesktopInstaller.pruneOldVersions(root:installRoot,trash:{ folder in
+        let trash: (URL) throws -> Void = { folder in
 #if os(macOS)
             if running.contains(where:{$0.path.hasPrefix(folder.path+"/")}) {return}
             try FileManager.default.trashItem(at:folder,resultingItemURL:nil)
 #elseif os(Windows)
             guard folder.path.withCString({castor_recycle_directory($0)})>0 else {throw AdapterError.unpack}
 #endif
-        })
+        }
+        var failure: Error?
+        do { _ = try DesktopInstaller.pruneOldVersions(root:installRoot,trash:trash) } catch { failure=error }
+#if os(macOS)
+        // Versions an older Setup left in ~/Applications go to the Trash once
+        // the new place has a version; a running one is retried next time.
+        let legacy=legacyRoot(component:component)
+        do {
+            try DesktopInstallLayout.retireLegacyVersions(legacyRoot:legacy,root:try installationRoot(component:component),component:component,
+                emptyFolders:component == nil ? [] : [legacy,legacy.deletingLastPathComponent()],trash:trash)
+        } catch { failure=failure ?? error }
+#endif
+        if let failure { throw failure }
         // Only old, empty OS-lock metadata is hidden; no app/data is deleted.
 #if os(macOS)
         var old=installRoot.appendingPathComponent("Install.lock")
@@ -143,14 +165,13 @@ enum NativeInstall {
         }
 #endif
     }
-    static func removeLaunchEntry(_ app: DesktopInstalledApp) {
-        guard let base=try? root,let installBase=try? installationRoot(component:app.component) else{return}
+    /// `root` is where `app` is installed (the installation root by default).
+    static func removeLaunchEntry(_ app: DesktopInstalledApp, root installRoot: URL? = nil) {
 #if os(macOS)
-        let stem=app.component?.stem ?? "Castor"
-        let link=base.appendingPathComponent(stem+".app")
-        let target=installBase.appendingPathComponent(app.folder).appendingPathComponent(stem+".app")
-        if (try? FileManager.default.destinationOfSymbolicLink(atPath:link.path))==target.path {try? FileManager.default.removeItem(at:link)}
+        guard let installBase=installRoot ?? (try? installationRoot(component:app.component)) else{return}
+        DesktopInstallLayout.removeLaunchEntry(app,root:installBase,launchFolder:launchFolder)
 #elseif os(Windows)
+        guard let base=try? root,let _=installRoot ?? (try? installationRoot(component:app.component)) else{return}
         guard app.component==nil else {return}
         let file=base.appendingPathComponent(app.folder).appendingPathComponent("CastorPet.exe")
         _ = file.path.withCString {file in base.path.withCString {castor_pet_shortcut(file,$0,1)}}
@@ -159,8 +180,9 @@ enum NativeInstall {
     #if os(macOS)
     @MainActor
     #endif
-    static func launch(_ app: DesktopInstalledApp) throws {
-        let folder=try installationRoot(component:app.component).appendingPathComponent(app.folder,isDirectory:true)
+    /// `root` is where `app` is installed (the installation root by default).
+    static func launch(_ app: DesktopInstalledApp, root: URL? = nil) throws {
+        let folder=try (root ?? installationRoot(component:app.component)).appendingPathComponent(app.folder,isDirectory:true)
 #if os(macOS)
         _ = NSWorkspace.shared.open(folder.appendingPathComponent("\(app.component?.stem ?? "Castor").app"))
 #elseif os(Windows)

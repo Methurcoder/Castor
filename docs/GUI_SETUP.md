@@ -29,9 +29,13 @@ Windowsのコード署名、MacのDeveloper ID署名・公証は未整備です�
 - **修復**: 同じ版を別フォルダへ取得し直します。旧版を残して切り替えます。
 - **アプリを削除**: 選択中の管理対象アプリだけを削除します。旧版、キャラクター、設定は残ります。
 
-Macの配置先は`~/Applications/Castor-<version>-<platform>/Castor.app`、Windowsは
+Macの配置先は`~/Library/Application Support/Castor/Versions/Castor-<version>-<platform>/Castor.app`、Windowsは
 `%LOCALAPPDATA%\Programs\Castor\Castor-<version>-windows_x86_64\CastorPet.exe`です。
 Windowsキャラクター・設定は`%LOCALAPPDATA%\Castor`にあり、アプリのversionフォルダとは分けます。
+MacのLaunchpadは`~/Applications`のアプリをリンクも含めてすべて並べるため、版ごとのフォルダはそこへ置かず、
+`~/Applications`には選択中の版を指す`Castor.app`（helper導入時は`CastorNeuralTTS.app`も）だけを作ります。
+v1.0.0までの`~/Applications/Castor-<version>-<platform>`からの最初の更新は完全ZIPで行い、
+新しい版を選択できた後に旧配置の版フォルダと`.CastorInstaller`をゴミ箱へ移します。
 Macの既存保存先と旧Pomegranate設定キーを変更しません。
 
 ## 失敗時と安全確認
@@ -78,7 +82,7 @@ Windowsの初回GUI、実機のOS警告・マイク、開発環境のないPCで
 ## 任意のNeural TTS helper
 
 導入GUIでNeural TTS helperの取得/更新・起動・修復・削除を選べます。本体とは別の
-`CastorHelpers/NeuralTTS`領域へ導入し、失敗・取消でも旧本体/旧helper/キャラクター/設定を保持します。
+`CastorHelpers/NeuralTTS`領域（Macは`~/Library/Application Support/Castor/Versions`の下）へ導入し、失敗・取消でも旧本体/旧helper/キャラクター/設定を保持します。
 配布manifestの`components.NeuralTTS`にそのOS/CPU用のassetがある場合だけ取得します。
 helperを消してもモデルcacheは削除しません。v1.0.0にOS別のhelper assetを用意しています。
 

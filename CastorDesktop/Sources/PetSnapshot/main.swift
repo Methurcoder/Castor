@@ -13,7 +13,7 @@ import PetRuntime
 //     Writes OUT_PREFIX.ppm with the head still and the eyes at X/Y (-1...1).
 let arguments = CommandLine.arguments
 guard arguments.count >= 3 else {
-    print("usage: pet-snapshot PET_FILE OUT_PREFIX [WIDTH HEIGHT] [--pose YAW PITCH | --turn VALUE]")
+    print("usage: pet-snapshot PET_FILE OUT_PREFIX [WIDTH HEIGHT] [--pose YAW PITCH [--eyes OPENNESS] | --turn VALUE]")
     exit(1)
 }
 let width = arguments.count > 3 ? Int(arguments[3]) ?? 260 : 260
@@ -60,6 +60,12 @@ do {
             .angleX: yaw, .angleY: pitch, .angleZ: 0,
             .eyeBallX: 0, .eyeBallY: 0, .eyeLeftOpen: 1, .eyeRightOpen: 1,
         ]
+        // `--eyes 0` draws the eyes closed (a blink frame).
+        if let eyes = arguments.firstIndex(of: "--eyes"), arguments.count > eyes + 1,
+           let openness = Float(arguments[eyes + 1]) {
+            player.parameterOverrides[.eyeLeftOpen] = openness
+            player.parameterOverrides[.eyeRightOpen] = openness
+        }
         player.render(into: &canvas, time: 0)
         try writePPM(canvas, to: "\(arguments[2]).ppm")
         exit(0)

@@ -45,6 +45,8 @@ public final class MetalAvatarRenderer: AvatarRendering {
         let uvs: [SIMD2<Float>]
         let texture: MTLTexture
         let opacity: Float
+        /// Eye openness that fades this part while it closes (`BlinkFade`).
+        let blinkParameter: ParameterID?
     }
 
     private let device: MTLDevice
@@ -164,7 +166,8 @@ public final class MetalAvatarRenderer: AvatarRendering {
                 vertexCount: vertexCount,
                 uvs: part.mesh.uvs,
                 texture: texture,
-                opacity: part.opacity
+                opacity: part.opacity,
+                blinkParameter: BlinkFade.parameter(for: part)
             ))
         }
     }
@@ -354,7 +357,11 @@ public final class MetalAvatarRenderer: AvatarRendering {
             var uniforms = Uniforms(
                 scale: aspectFit.scale,
                 offset: aspectFit.offset,
-                opacity: part.opacity,
+                opacity: BlinkFade.opacity(
+                    base: part.opacity,
+                    parameter: part.blinkParameter,
+                    parameters: parameters
+                ),
                 cameraDistance: projection.cameraDistance,
                 depthRange: projection.depthRange,
                 zBias: projection.zBias(forDrawOrderIndex: drawOrderIndex),

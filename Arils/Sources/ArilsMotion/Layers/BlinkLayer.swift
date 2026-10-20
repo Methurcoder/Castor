@@ -24,10 +24,12 @@ public final class BlinkLayer: MotionLayer {
     private var blinkStartedAt: Double = -.greatestFiniteMagnitude
     private var blinkDepth: Float = 1
 
-    // Blink profile (seconds).
-    private let closeDuration: Float = 0.07
-    private let holdDuration: Float = 0.04
-    private let openDuration: Float = 0.17
+    // Blink profile (seconds). Kept short: a squashed eye is a thin dark
+    // strip, and the longer it lingers the more it reads as a shadow under
+    // the eye than a blink (see `BlinkFade`, which also lightens it).
+    private let closeDuration: Float = 0.06
+    private let holdDuration: Float = 0.03
+    private let openDuration: Float = 0.11
     /// No new blink this soon after the previous one started.
     private let refractory: Double = 0.45
 
