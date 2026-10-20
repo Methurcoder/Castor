@@ -1,15 +1,16 @@
 /* Castor Setup for Windows: a wizard in the app's look (dark by default,
    light follows the system), for WebView2. */
 :root {
-  --bg-1: #0f0f13;
-  --bg-2: #0b0b0e;
+  --bg-1: #0e0f16;
+  --bg-2: #0a0b11;
   --text: #f7f5f5;
   --sub: #a3a3ad;
   --panel: rgba(26, 26, 31, 0.78);
   --panel-border: rgba(255, 255, 255, 0.12);
   --track: rgba(255, 255, 255, 0.08);
-  --accent: #ed5466;
-  --accent-strong: #cc2940;
+  --accent: #9fb3ff;
+  --accent-strong: #5367c9;
+  --danger: #ff6b7a;
   --side-1: #2b2f8f;
   --side-2: #14163f;
   --ok: #34c759;
@@ -17,15 +18,16 @@
 }
 @media (prefers-color-scheme: light) {
   :root {
-    --bg-1: #f7f7f9;
-    --bg-2: #ededf0;
+    --bg-1: #f6f7fb;
+    --bg-2: #eceef5;
     --text: #212124;
     --sub: #6b6b73;
     --panel: rgba(255, 255, 255, 0.85);
     --panel-border: rgba(0, 0, 0, 0.08);
     --track: rgba(0, 0, 0, 0.05);
-    --accent: #b81730;
-    --accent-strong: #b81730;
+    --accent: #4c5fc0;
+    --accent-strong: #5367c9;
+    --danger: #c42b3f;
     color-scheme: light;
   }
 }
@@ -106,14 +108,14 @@ body {
 .release .notes code { font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; }
 .note { font-size: 12px; color: var(--sub); max-width: 440px; line-height: 1.6; }
 .done-mark { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--ok) 20%, transparent); color: var(--ok); font-size: 30px; font-weight: 800; }
-.error-mark { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
+.error-mark { background: color-mix(in srgb, var(--danger) 20%, transparent); color: var(--danger); }
 
 .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .card { text-align: left; border: 1px solid var(--panel-border); background: var(--panel); color: var(--text); font: inherit; border-radius: 12px; padding: 11px 13px; cursor: pointer; }
 .card:hover { border-color: var(--accent); }
 .card b { display: block; font-size: 14px; }
 .card span { display: block; font-size: 12px; color: var(--sub); margin-top: 3px; line-height: 1.5; }
-.card.danger b { color: var(--accent); }
+.card.danger b { color: var(--danger); }
 .section-title { font-size: 13px; font-weight: 800; color: var(--sub); margin-top: 6px; }
 
 /* Footer buttons */
