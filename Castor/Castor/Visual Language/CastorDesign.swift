@@ -1,5 +1,4 @@
 import SwiftUI
-import CoreImage
 import Observation
 
 /// アプリ全体の tint に使う、少し紫がかった淡い水色(ペリウィンクル)。
@@ -109,25 +108,11 @@ struct CastorAmbientBackground: View {
                     let strength = waveStrength * envelope
                     let phase = context.date.timeIntervalSince(waveClockOrigin) * 1.4
 
-                    if let image = AmbientWaveTexture.image {
-                        ZStack {
-                            Image(decorative: image, scale: 1)
-                                .renderingMode(.template)
-                                .resizable()
-                                .foregroundStyle(accent.opacity(isDark ? 0.14 : 0.085))
-                                .scaleEffect(x: 1 + sin(phase) * 0.025, y: 1 + cos(phase) * 0.12)
-                                .offset(y: sin(phase) * 12 * strength)
-                            Image(decorative: image, scale: 1)
-                                .renderingMode(.template)
-                                .resizable()
-                                .foregroundStyle(accent.opacity(isDark ? 0.085 : 0.05))
-                                .scaleEffect(x: 1.08, y: 1.35)
-                                .offset(x: -55 + cos(phase) * 10, y: 55 + sin(phase - 1.1) * 10)
-                        }
-                        .frame(width: 720, height: 220)
+                    AmbientParticleWave(phase: phase, strength: strength, accent: accent, isDark: isDark)
+                        .frame(width: 720, height: 240)
                         .rotationEffect(.degrees(-12))
                         .opacity(strength)
-                    }
+
                 }
                 .position(targetPosition)
                 .animation(.spring(response: 0.9, dampingFraction: 0.7), value: targetPosition)
@@ -157,7 +142,7 @@ struct CastorAmbientBackground: View {
             guard distance > 0.5 else { return }
             let now = Date()
             let residual = waveStrength * exp(-max(0, now.timeIntervalSince(lastMovement)) * 1.65)
-            waveStrength = min(1, max(residual, distance / 24))
+            waveStrength = min(1, max(0.32, residual, distance / 18))
             lastMovement = now
             waveActive = true
         }
@@ -192,51 +177,58 @@ struct CastorAmbientBackground: View {
     }
 }
 
-/// Bake a small blurred wave once. Frames only transform this texture;
-/// they never re-tessellate the path or run a large blur on the window.
-private enum AmbientWaveTexture {
-    static let image: CGImage? = {
-        let width = 360, height = 110
-        guard let context = CGContext(data: nil, width: width, height: height,
-            bitsPerComponent: 8, bytesPerRow: width * 4,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
-        context.scaleBy(x: 0.5, y: 0.5)
-        context.setFillColor(CGColor(gray: 1, alpha: 1))
-        context.addPath(AmbientLightWave(phase: 0, amplitude: 34, thickness: 64)
-            .path(in: CGRect(x: 0, y: 0, width: 720, height: 220)).cgPath)
-        context.fillPath()
-        guard let source = context.makeImage() else { return nil }
-        let image = CIImage(cgImage: source)
-        let blurred = image.applyingFilter("CIGaussianBlur", parameters: ["inputRadius": 20])
-        return CIContext(options: [.useSoftwareRenderer: true]).createCGImage(blurred, from: image.extent)
-    }()
-}
-
-/// 両端が細くなる柔らかい帯。輪郭をぼかし、背景の光としてだけ見せる。
-private struct AmbientLightWave: Shape {
+/// A fixed field of small round particles. Only their coordinates change;
+/// one Canvas batches the dots into eight paths, with no blur or per-dot views.
+private struct AmbientParticleWave: View {
     let phase: Double
-    let amplitude: CGFloat
-    let thickness: CGFloat
+    let strength: CGFloat
+    let accent: Color
+    let isDark: Bool
 
-    func path(in rect: CGRect) -> Path {
-        let samples = 48
-        func point(_ index: Int, side: CGFloat) -> CGPoint {
-            let u = CGFloat(index) / CGFloat(samples)
-            let taper = pow(sin(.pi * u), 2)
-            let wave = sin(Double(u) * .pi * 2.1 - phase)
-                + 0.25 * sin(Double(u) * .pi * 4.2 - phase * 0.7)
-            return CGPoint(
-                x: rect.minX + u * rect.width,
-                y: rect.midY + CGFloat(wave) * amplitude * taper + side * thickness * 0.5 * taper
-            )
+    private struct Particle: Sendable {
+        let u: CGFloat
+        let row: CGFloat
+        let seed: Double
+        let radius: CGFloat
+    }
+
+    private static let particles: [Particle] = (0..<196).map { index in
+        let column = index % 28
+        let row = index / 28
+        // Stable, deliberately uneven spacing; never reseeded during a frame.
+        let seed = Double((index * 73 + 41) % 197) / 197
+        let jitter = CGFloat(seed - 0.5)
+        return Particle(u: (CGFloat(column) + 0.5 + jitter * 0.6) / 28,
+                        row: CGFloat(row - 3) + jitter * 0.45,
+                        seed: seed * .pi * 2,
+                        radius: 0.85 + CGFloat((index * 31) % 17) / 17 * 1.15)
+    }
+
+    var body: some View {
+        Canvas(rendersAsynchronously: true) { context, size in
+            var dots = Array(repeating: Path(), count: 8)
+            for particle in Self.particles {
+                let u = particle.u
+                let taper = pow(sin(.pi * u), 2)
+                let wave = sin(Double(u) * .pi * 2.4 - phase + Double(particle.row) * 0.12)
+                let drift = sin(phase * 0.7 + particle.seed)
+                let x = u * size.width + CGFloat(drift) * (3 + 4 * strength) * taper
+                let y = size.height * 0.5 + particle.row * 14
+                    + CGFloat(wave) * (18 + 25 * strength) * taper
+                    + CGFloat(cos(phase * 0.85 + particle.seed)) * 3
+                let shimmer = 0.75 + 0.25 * sin(phase * 0.6 + particle.seed)
+                let rowFade = 1 - abs(particle.row) / 5
+                let brightness = taper * rowFade * CGFloat(shimmer)
+                let bucket = min(7, max(0, Int(brightness * 8)))
+                let radius = particle.radius * (0.92 + 0.08 * CGFloat(drift))
+                dots[bucket].addEllipse(in: CGRect(x: x - radius, y: y - radius,
+                    width: radius * 2, height: radius * 2))
+            }
+            for index in dots.indices {
+                let alpha = (Double(index) + 0.5) / 8 * (isDark ? 0.68 : 0.50)
+                context.fill(dots[index], with: .color(accent.opacity(alpha)))
+            }
         }
-        var path = Path()
-        path.move(to: point(0, side: -1))
-        for index in 1...samples { path.addLine(to: point(index, side: -1)) }
-        for index in stride(from: samples, through: 0, by: -1) { path.addLine(to: point(index, side: 1)) }
-        path.closeSubpath()
-        return path
     }
 }
 
