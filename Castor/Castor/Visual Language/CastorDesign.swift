@@ -64,16 +64,13 @@ struct CastorTrackedAmbientBackground: View {
     }
 }
 
-/// カーソルの光に淡い波を重ねる。動いたときだけ揺れ、停止後は静かに収まる。
+/// 「アンビエント・ハロー」の共通背景。スモーク調の無地に、現在のキャラクターの
+/// アクセント色を光源としてにじませる。accent の変化はゆっくり色相移動する。
 struct CastorAmbientBackground: View {
     let accent: Color
     let isDark: Bool
     let lightPosition: CGPoint?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var waveClockOrigin = Date()
-    @State private var lastMovement = Date.distantPast
-    @State private var waveStrength: CGFloat = 0
-    @State private var waveActive = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -94,34 +91,23 @@ struct CastorAmbientBackground: View {
                     ? Color(red: 0.045, green: 0.05, blue: 0.075)
                     : Color(red: 0.95, green: 0.955, blue: 0.975))
 
-                halo(opacity: isDark ? 0.16 : 0.095, radius: 440)
-                    .scaleEffect(x: 1, y: 0.74)
+                Circle()
+                    .fill(accent.opacity(isDark ? 0.22 : 0.13))
+                    .frame(width: 560, height: 560)
+                    .blur(radius: 130)
                     .position(targetPosition)
                     .animation(
-                        .spring(response: 0.65, dampingFraction: 0.74),
+                        .spring(response: 0.42, dampingFraction: 0.82, blendDuration: 0.12),
                         value: targetPosition
                     )
 
-                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || !waveActive)) { context in
-                    let elapsed = max(0, context.date.timeIntervalSince(lastMovement))
-                    let envelope = reduceMotion || !waveActive ? 0 : exp(-elapsed * 1.65)
-                    let strength = waveStrength * envelope
-                    let phase = context.date.timeIntervalSince(waveClockOrigin) * 1.4
-
-                    AmbientParticleWave(phase: phase, strength: strength, accent: accent, isDark: isDark)
-                        .frame(width: 720, height: 240)
-                        .rotationEffect(.degrees(-12))
-                        .opacity(strength)
-
-                }
-                .position(targetPosition)
-                .animation(.spring(response: 0.9, dampingFraction: 0.7), value: targetPosition)
-
-                halo(opacity: isDark ? 0.085 : 0.05, radius: 650)
-                    .scaleEffect(x: 1, y: 0.74)
+                Circle()
+                    .fill(accent.opacity(isDark ? 0.12 : 0.07))
+                    .frame(width: 900, height: 900)
+                    .blur(radius: 180)
                     .position(trailingPosition)
                     .animation(
-                        .spring(response: 1.05, dampingFraction: 0.78),
+                        .spring(response: 0.72, dampingFraction: 0.86, blendDuration: 0.18),
                         value: trailingPosition
                     )
 
@@ -136,99 +122,6 @@ struct CastorAmbientBackground: View {
         .allowsHitTesting(false)
         .accessibilityHidden(true)
         .animation(.easeInOut(duration: 1.1), value: accent)
-        .onChange(of: lightPosition) { previous, current in
-            guard !reduceMotion, let previous, let current else { return }
-            let distance = hypot(current.x - previous.x, current.y - previous.y)
-            guard distance > 0.5 else { return }
-            let now = Date()
-            let residual = waveStrength * exp(-max(0, now.timeIntervalSince(lastMovement)) * 1.65)
-            waveStrength = min(1, max(0.32, residual, distance / 18))
-            lastMovement = now
-            waveActive = true
-        }
-        .onChange(of: reduceMotion) { _, reduced in
-            if reduced { waveActive = false }
-        }
-        .task(id: waveActive) {
-            guard waveActive, !reduceMotion else { return }
-            // One settling task per interaction, rather than cancelling and
-            // creating a new task for every mouse event.
-            do {
-                while !Task.isCancelled {
-                    try await Task.sleep(for: .milliseconds(250))
-                    if Date().timeIntervalSince(lastMovement) >= 3 {
-                        waveActive = false
-                        return
-                    }
-                }
-            } catch { /* View removal or reduced motion cancels the task. */ }
-        }
-    }
-
-    private func halo(opacity: Double, radius: CGFloat) -> some View {
-        Circle()
-            .fill(RadialGradient(stops: [
-                .init(color: accent.opacity(opacity), location: 0),
-                .init(color: accent.opacity(opacity * 0.58), location: 0.4),
-                .init(color: accent.opacity(opacity * 0.14), location: 0.75),
-                .init(color: .clear, location: 1)
-            ], center: .center, startRadius: 0, endRadius: radius))
-            .frame(width: radius * 2, height: radius * 2)
-    }
-}
-
-/// A fixed field of small round particles. Only their coordinates change;
-/// one Canvas batches the dots into eight paths, with no blur or per-dot views.
-private struct AmbientParticleWave: View {
-    let phase: Double
-    let strength: CGFloat
-    let accent: Color
-    let isDark: Bool
-
-    private struct Particle: Sendable {
-        let u: CGFloat
-        let row: CGFloat
-        let seed: Double
-        let radius: CGFloat
-    }
-
-    private static let particles: [Particle] = (0..<196).map { index in
-        let column = index % 28
-        let row = index / 28
-        // Stable, deliberately uneven spacing; never reseeded during a frame.
-        let seed = Double((index * 73 + 41) % 197) / 197
-        let jitter = CGFloat(seed - 0.5)
-        return Particle(u: (CGFloat(column) + 0.5 + jitter * 0.6) / 28,
-                        row: CGFloat(row - 3) + jitter * 0.45,
-                        seed: seed * .pi * 2,
-                        radius: 0.85 + CGFloat((index * 31) % 17) / 17 * 1.15)
-    }
-
-    var body: some View {
-        Canvas(rendersAsynchronously: true) { context, size in
-            var dots = Array(repeating: Path(), count: 8)
-            for particle in Self.particles {
-                let u = particle.u
-                let taper = pow(sin(.pi * u), 2)
-                let wave = sin(Double(u) * .pi * 2.4 - phase + Double(particle.row) * 0.12)
-                let drift = sin(phase * 0.7 + particle.seed)
-                let x = u * size.width + CGFloat(drift) * (3 + 4 * strength) * taper
-                let y = size.height * 0.5 + particle.row * 14
-                    + CGFloat(wave) * (18 + 25 * strength) * taper
-                    + CGFloat(cos(phase * 0.85 + particle.seed)) * 3
-                let shimmer = 0.75 + 0.25 * sin(phase * 0.6 + particle.seed)
-                let rowFade = 1 - abs(particle.row) / 5
-                let brightness = taper * rowFade * CGFloat(shimmer)
-                let bucket = min(7, max(0, Int(brightness * 8)))
-                let radius = particle.radius * (0.92 + 0.08 * CGFloat(drift))
-                dots[bucket].addEllipse(in: CGRect(x: x - radius, y: y - radius,
-                    width: radius * 2, height: radius * 2))
-            }
-            for index in dots.indices {
-                let alpha = (Double(index) + 0.5) / 8 * (isDark ? 0.68 : 0.50)
-                context.fill(dots[index], with: .color(accent.opacity(alpha)))
-            }
-        }
     }
 }
 
