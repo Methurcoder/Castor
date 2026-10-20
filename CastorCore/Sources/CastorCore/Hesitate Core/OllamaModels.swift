@@ -88,6 +88,10 @@ public nonisolated enum OllamaSpeechEmotion: String, Codable, CaseIterable, Equa
     case surprised
     case thoughtful
     case embarrassed
+    /// Vexed at losing, missing, or one's own mistake (悔しさ).
+    case frustrated
+    /// Put out that attention went to someone or something else (嫉妬・やきもち).
+    case jealous
 }
 
 public nonisolated struct OllamaSpeechMetadata: Equatable, Sendable {

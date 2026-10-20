@@ -352,7 +352,9 @@ private nonisolated enum JSONValue: Encodable {
                             .string("angry"),
                             .string("surprised"),
                             .string("thoughtful"),
-                            .string("embarrassed")
+                            .string("embarrassed"),
+                            .string("frustrated"),
+                            .string("jealous")
                         ])
                     ]),
                     "intensity": .object([

@@ -40,6 +40,10 @@ struct PetVoiceProfile: Equatable {
             emotionDirection = "短い間を取りながら、考え深く丁寧に話してください。"
         case .embarrassed:
             emotionDirection = "やさしいためらいを含め、少し照れて戸惑った様子で話してください。"
+        case .frustrated:
+            emotionDirection = "負けず嫌いな悔しさを、語尾に少し力を込めて表現してください。泣き声にはしないでください。"
+        case .jealous:
+            emotionDirection = "少しすねた、やきもちを焼いている口調で、拗ねすぎず可愛らしく話してください。"
         }
 
         let intensityPercent = Int((speech.intensity * 100).rounded())
@@ -77,6 +81,10 @@ struct PetVoiceProfile: Equatable {
             emotionDirection = "Sound reflective, with small pauses and careful phrasing."
         case .embarrassed:
             emotionDirection = "Sound shy and slightly flustered, with gentle hesitation."
+        case .frustrated:
+            emotionDirection = "Sound vexed at losing, with a little determined edge. Do not sound tearful."
+        case .jealous:
+            emotionDirection = "Sound a little sulky and jealous, pouting but still endearing."
         }
 
         let paceDirection: String

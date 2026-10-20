@@ -289,7 +289,7 @@ private nonisolated struct LMStudioResponseFormat: Encodable {
                                 "enum": .array([
                                     .string("neutral"), .string("happy"), .string("sad"),
                                     .string("angry"), .string("surprised"), .string("thoughtful"),
-                                    .string("embarrassed")
+                                    .string("embarrassed"), .string("frustrated"), .string("jealous")
                                 ])
                             ]),
                             "intensity": .object(["type": .string("number"), "minimum": .number(0), "maximum": .number(1)]),

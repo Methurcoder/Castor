@@ -85,6 +85,13 @@ public enum PortableML {
         }
     }
 
+    /// Any model file by path (for optional models kept outside `models/`), or
+    /// nil when ONNX Runtime or the file is unavailable.
+    static func openModel(at url: URL) -> OnnxInferenceModel? {
+        guard runtimeLoaded, FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return try? OnnxInferenceModel(contentsOf: url)
+    }
+
     /// The face detector and landmark model, or nil when not installed.
     public static let face: AnimeFacePipeline? = {
         guard let features = open("AnimeFaceFeatures"),
