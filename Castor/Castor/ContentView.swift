@@ -15,7 +15,7 @@ struct ContentView: View {
     @Environment(\.openSettings) private var openSettings
     @State private var experienceMode: ExperienceMode = .rigging
     @State private var isDebugPanelVisible = false
-    @State private var ambientLightPosition: CGPoint?
+    @State private var ambientLightTracking = CastorAmbientLightTracking()
     @AppStorage("Pomegranate.AppearanceMode")
     private var appearance: AppearanceMode = .system
     @Environment(\.colorScheme) private var colorScheme
@@ -72,9 +72,9 @@ struct ContentView: View {
         .onContinuousHover(coordinateSpace: .local) { phase in
             switch phase {
             case .active(let location):
-                ambientLightPosition = location
+                ambientLightTracking.position = location
             case .ended:
-                ambientLightPosition = nil
+                ambientLightTracking.position = nil
             }
         }
         .foregroundStyle(palette.primaryText)
@@ -192,10 +192,10 @@ struct ContentView: View {
     }
 
     private func background(_ palette: CastorPalette) -> some View {
-        CastorAmbientBackground(
+        CastorTrackedAmbientBackground(
             accent: CastorBrand.accent,
             isDark: resolvedIsDark,
-            lightPosition: ambientLightPosition
+            tracking: ambientLightTracking
         )
     }
 }

@@ -1,4 +1,5 @@
 import SwiftUI
+import Observation
 
 /// アプリ全体の tint に使う、少し紫がかった淡い水色(ペリウィンクル)。
 /// 白文字を載せても読める濃さにしてあり、ライト・ダーク共通で使う。
@@ -44,6 +45,22 @@ struct CastorPalette {
             meterTrack = Color.black.opacity(0.08)
             meterFill = Color(red: 0.30, green: 0.37, blue: 0.75)
         }
+    }
+}
+
+/// Mouse input changes only the backdrop's observation scope, not the editor.
+@Observable
+final class CastorAmbientLightTracking {
+    var position: CGPoint?
+}
+
+struct CastorTrackedAmbientBackground: View {
+    let accent: Color
+    let isDark: Bool
+    let tracking: CastorAmbientLightTracking
+
+    var body: some View {
+        CastorAmbientBackground(accent: accent, isDark: isDark, lightPosition: tracking.position)
     }
 }
 
@@ -102,6 +119,8 @@ struct CastorAmbientBackground: View {
             }
         }
         .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
         .animation(.easeInOut(duration: 1.1), value: accent)
     }
 }

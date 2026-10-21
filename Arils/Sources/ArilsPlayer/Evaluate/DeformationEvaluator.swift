@@ -108,16 +108,19 @@ public struct DeformationEvaluator: Sendable {
             worldMatrices[index] = world
             inheritedDisplacements[index] = inherited
 
+            // The key grid depends on this frame's parameters, not the vertex.
+            // Resolve its corners once, then only blend offsets in the hot loop.
+            let keyforms = keyformBlends(of: part, parameters: parameters)
             var vertices = [SIMD2<Float>]()
             vertices.reserveCapacity(part.mesh.vertexCount)
             for (vertexIndex, rest) in part.mesh.vertices.enumerated() {
+                var keyformDisplacement = SIMD2<Float>.zero
+                for blend in keyforms where blend.vertices.contains(vertexIndex) {
+                    keyformDisplacement += blend.offset(at: vertexIndex)
+                }
                 let warped = rest
                     + warpDisplacement(of: part, at: rest, parameters: parameters)
-                    + keyformDisplacement(
-                        of: part,
-                        vertexIndex: vertexIndex,
-                        parameters: parameters
-                    )
+                    + keyformDisplacement
                 vertices.append(apply(world, warped) + inherited)
             }
             result[part.id] = vertices
@@ -278,39 +281,62 @@ public struct DeformationEvaluator: Sendable {
         return displacement
     }
 
-    private func keyformDisplacement(
+    /// One interpolation shared by a contiguous range of mesh vertices.
+    /// Arrays retain the key's existing storage; no offsets are copied here.
+    private struct KeyformBlend {
+        let vertices: Range<Int>
+        let topLeft: [SIMD2<Float>]
+        let topRight: [SIMD2<Float>]
+        let bottomLeft: [SIMD2<Float>]
+        let bottomRight: [SIMD2<Float>]
+        let tx: Float
+        let ty: Float
+        let exact: Bool
+
+        func offset(at index: Int) -> SIMD2<Float> {
+            if exact { return topLeft[index] }
+            let top = topLeft[index] + (topRight[index] - topLeft[index]) * tx
+            let bottom = bottomLeft[index] + (bottomRight[index] - bottomLeft[index]) * tx
+            return top + (bottom - top) * ty
+        }
+    }
+
+    private func keyformBlends(
         of part: AvatarPart,
-        vertexIndex: Int,
         parameters: [ParameterID: Float]
-    ) -> SIMD2<Float> {
-        var displacement = SIMD2<Float>.zero
+    ) -> [KeyformBlend] {
+        var blends: [KeyformBlend] = []
         for operation in part.deformations {
             guard case let .warpKeyform(parameterX, parameterY, keys) = operation,
                   !keys.isEmpty else { continue }
             let x = parameterValue(parameterX, parameters)
             let y = parameterValue(parameterY, parameters)
-            displacement += Self.keyformOffset(
-                keys: keys,
-                x: x,
-                y: y,
-                vertexIndex: vertexIndex
-            )
+            var start = 0
+            while start < part.mesh.vertexCount {
+                // Old/hand-authored keys can have different offset counts.
+                // Keep their existing per-vertex fallback without doing the
+                // same grid search separately for every vertex in the range.
+                let valid = keys.filter { start < $0.vertexOffsets.count }
+                guard let count = valid.map({ $0.vertexOffsets.count }).min() else { break }
+                let end = min(count, part.mesh.vertexCount)
+                blends.append(Self.keyformBlend(keys: valid, x: x, y: y, vertices: start..<end))
+                start = end
+            }
         }
-        return displacement
+        return blends
     }
 
-    private static func keyformOffset(
-        keys: [WarpKeyformKey],
+    private static func keyformBlend(
+        keys valid: [WarpKeyformKey],
         x: Float,
         y: Float,
-        vertexIndex: Int
-    ) -> SIMD2<Float> {
-        let valid = keys.filter { vertexIndex < $0.vertexOffsets.count }
-        guard !valid.isEmpty else { return .zero }
+        vertices: Range<Int>
+    ) -> KeyformBlend {
         if let exact = valid.min(by: {
             squaredDistance($0, x: x, y: y) < squaredDistance($1, x: x, y: y)
         }), squaredDistance(exact, x: x, y: y) < 1e-10 {
-            return exact.vertexOffsets[vertexIndex]
+            return KeyformBlend(vertices: vertices, topLeft: exact.vertexOffsets,
+                topRight: [], bottomLeft: [], bottomRight: [], tx: 0, ty: 0, exact: true)
         }
 
         let xs = Array(Set(valid.map(\.parameterXValue))).sorted()
@@ -353,12 +379,12 @@ public struct DeformationEvaluator: Sendable {
         let tx = x1 == x0 ? 0 : min(max((x - x0) / (x1 - x0), 0), 1)
         let ty = y1 == y0 ? 0 : min(max((y - y0) / (y1 - y0), 0), 1)
 
-        func offset(at keyX: Float, _ keyY: Float) -> SIMD2<Float> {
+        func offsets(at keyX: Float, _ keyY: Float) -> [SIMD2<Float>] {
             if let key = valid.first(where: {
                 abs($0.parameterXValue - keyX) < 1e-6
                     && abs($0.parameterYValue - keyY) < 1e-6
             }) {
-                return key.vertexOffsets[vertexIndex]
+                return key.vertexOffsets
             }
             let nearest = valid.min {
                 let left = ($0.parameterXValue - keyX) * ($0.parameterXValue - keyX)
@@ -367,14 +393,15 @@ public struct DeformationEvaluator: Sendable {
                     + ($1.parameterYValue - keyY) * ($1.parameterYValue - keyY)
                 return left < right
             }!
-            return nearest.vertexOffsets[vertexIndex]
+            return nearest.vertexOffsets
         }
 
-        let top = offset(at: x0, y0)
-            + (offset(at: x1, y0) - offset(at: x0, y0)) * tx
-        let bottom = offset(at: x0, y1)
-            + (offset(at: x1, y1) - offset(at: x0, y1)) * tx
-        return top + (bottom - top) * ty
+        return KeyformBlend(
+            vertices: vertices,
+            topLeft: offsets(at: x0, y0), topRight: offsets(at: x1, y0),
+            bottomLeft: offsets(at: x0, y1), bottomRight: offsets(at: x1, y1),
+            tx: tx, ty: ty, exact: false
+        )
     }
 
     private static func squaredDistance(
