@@ -14,7 +14,7 @@ It breathes, blinks, looks around and talks — and sometimes hesitates or looks
 
 Castor is the **authorized successor** to [Pomegranate](https://github.com/atemoyacode-sudo/Pomegranate). It keeps Pomegranate's copyright notice and MIT License, and is developed by Methurcoder.
 
-Version names: fixes are released as v1.0.0 with a letter added, such as "Castor v1.0.0 (e)". Their tags look like `v1.0.0-e`. The Mac app's internal version is 1.0.2, told apart by build number. Only (a) and (b) are tagged `v1.0.1` and `v1.0.2`.
+Version names: from v1.1.0, the release name, tag and Mac app version match ("Castor v1.1.0", tag `v1.1.0`, app 1.1.0). Earlier fixes of v1.0.0 were named with a letter, such as "Castor v1.0.0 (e)", tagged like `v1.0.0-e`, with Mac app version 1.0.2 (only (a) and (b) are tagged `v1.0.1` and `v1.0.2`).
 
 The app itself is available in Japanese and English. Most of the detailed documents in `docs/` are in Japanese for now.
 
