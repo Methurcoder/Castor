@@ -372,13 +372,19 @@ public enum DesktopInstaller {
         #endif
     }
 
+    /// The items in `folder`, listed by name. On Windows the URL listing also
+    /// opens every item and fails on the install lock, which is held exclusively.
+    static func entries(_ folder:URL) throws -> [URL] {
+        try FileManager.default.contentsOfDirectory(atPath:folder.path).map {folder.appendingPathComponent($0)}
+    }
+
     /// Removes work folders of runs that were interrupted (shutdown, crash).
     /// Called under the install lock, so no other run is using them.
     private static func removeStaleWork(root:URL) {
         let manager=FileManager.default
-        for item in (try? manager.contentsOfDirectory(at:root,includingPropertiesForKeys:nil)) ?? []
+        for item in (try? entries(root)) ?? []
         where item.lastPathComponent.hasPrefix(".castor-stage-") { try? manager.removeItem(at:item) }
-        for item in (try? manager.contentsOfDirectory(at:metadataRoot(root:root),includingPropertiesForKeys:nil)) ?? []
+        for item in (try? entries(metadataRoot(root:root))) ?? []
         where item.lastPathComponent.hasPrefix(".tmp-") { try? manager.removeItem(at:item) }
     }
 
@@ -566,7 +572,7 @@ public enum DesktopInstaller {
         let previous=try readRecord(previousFile(root:root))
         let keep=Set([current.folder,previous?.folder].compactMap {$0})
         var count=0
-        for folder in try FileManager.default.contentsOfDirectory(at:root,includingPropertiesForKeys:[.isDirectoryKey,.isSymbolicLinkKey]) {
+        for folder in try entries(root) {
             guard !keep.contains(folder.lastPathComponent),folder.lastPathComponent.hasPrefix((current.component?.stem ?? "Castor")+"-") else {continue}
             let flags=try folder.resourceValues(forKeys:[.isDirectoryKey,.isSymbolicLinkKey])
             guard flags.isDirectory==true,flags.isSymbolicLink != true,

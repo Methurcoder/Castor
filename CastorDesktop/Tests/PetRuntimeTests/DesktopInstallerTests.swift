@@ -428,6 +428,8 @@ private let baseFiles=["CastorPet.exe":Data("pet v1".utf8),"swiftCore.dll":Data(
 private let macExecutable="Castor.app/Contents/MacOS/Castor"
 private let macFiles=[macExecutable:Data("app v1".utf8),"Castor.app/Contents/Info.plist":Data("plist v1".utf8)]
 
+// Mac packages are installed only on a Mac, where POSIX modes exist.
+#if !os(Windows)
 /// The installed v1 executable has lost its permission (same content), then
 /// v2 changes only Info.plist, so the update would reuse that executable.
 private func updateAfterLosingTheExecutableBit(listsExecutables: Bool) async throws -> (DesktopInstalledApp, [String], URL) {
@@ -467,6 +469,28 @@ private func updateAfterLosingTheExecutableBit(listsExecutables: Bool) async thr
     let executable=root.appendingPathComponent(app.folder).appendingPathComponent(macExecutable)
     #expect(FileManager.default.isExecutableFile(atPath:executable.path))
     #expect(try DesktopInstaller.selected(root:root)?.folder==app.folder)
+}
+
+#endif
+
+/// Users of older versions have Install.lock beside the versions; it is held
+/// exclusively on Windows while installing or cleaning up.
+@Test func cleanupWorksBesideTheOldLockFile() async throws {
+    let root=updateRoot("old-lock");defer {try? FileManager.default.removeItem(at:root)}
+    try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true)
+    try Data().write(to:root.appendingPathComponent("Install.lock"))
+    let v1=try UpdateFixture(version:"v1",files:baseFiles)
+    var changed=baseFiles;changed["CastorPet.exe"]=Data("pet v2".utf8)
+    let v2=try UpdateFixture(version:"v2",files:changed),v3=try UpdateFixture(version:"v3",files:baseFiles)
+    let extract=updateExtract([v1,v2,v3]),download=updateDownload([v1,v2,v3],log:DownloadLog())
+    for fixture in [v1,v2,v3] {
+        _ = try await DesktopInstaller.install(root:root,release:fixture.release,manifest:fixture.manifest,platform:"windows_x86_64",extract:extract,stamp:{_ in},download:download)
+    }
+    try Data("partial".utf8).write(to:DesktopInstaller.metadataRoot(root:root).appendingPathComponent(".tmp-left"))
+    // v1 is neither current nor previous.
+    #expect(try DesktopInstaller.pruneOldVersions(root:root,trash:{try FileManager.default.removeItem(at:$0)})==1)
+    _ = try await DesktopInstaller.install(root:root,release:v3.release,manifest:v3.manifest,platform:"windows_x86_64",repair:true,extract:extract,stamp:{_ in},download:download)
+    #expect(!FileManager.default.fileExists(atPath:DesktopInstaller.metadataRoot(root:root).appendingPathComponent(".tmp-left").path))
 }
 
 @Test func anUpdateStoppedBeforeSelectionIsCheckedAndSelectedNextTime() async throws {
@@ -602,6 +626,8 @@ private func macRelease(_ version:String,_ files:[String:Data],patch:[String]?=n
     try UpdateFixture(version:version,files:files,patch:patch,platform:"macos_arm64",executables:[macExecutable])
 }
 
+// Launch links in ~/Applications and the old layout there exist only on the Mac.
+#if !os(Windows)
 @Test func aMacInstallAndItsUpdatesLeaveOneCastorInApplications() async throws {
     let home=updateRoot("mac-new");defer {try? FileManager.default.removeItem(at:home)}
     let root=DesktopInstallLayout.macVersionsRoot(home:home),apps=DesktopInstallLayout.macLaunchFolder(home:home)
@@ -748,3 +774,5 @@ private func macRelease(_ version:String,_ files:[String:Data],patch:[String]?=n
     #expect(!manager.fileExists(atPath:old.path));#expect(!manager.fileExists(atPath:meta.path))
     #expect(manager.fileExists(atPath:script.path));#expect(manager.fileExists(atPath:other.path))
 }
+
+#endif
