@@ -44,6 +44,14 @@
       "helper.launch": "起動", "helper.launch.text": "helper の画面を開きます",
       "helper.repair": "修復", "helper.repair.text": "helper を入れ直します",
       "helper.remove": "削除", "helper.remove.text": "helper を削除します（モデルキャッシュは保持）",
+      "manage.feelings": "感情モデル（任意）",
+      "feelings.install": "取得・更新", "feelings.install.text": "話す1文ごとの気持ちを読み取り、声の演技に使います（約270MB・この PC の中で処理）",
+      "feelings.repair": "修復", "feelings.repair.text": "感情モデルを入れ直します",
+      "feelings.remove": "削除", "feelings.remove.text": "感情モデルを削除します（会話AIの返す感情に戻ります）",
+      "done.feelings": "感情モデル {v} を導入しました",
+      "done.feelings.lead": "Castor を起動し直すと、話す1文ごとの気持ちが声に反映されます。",
+      "confirm.remove.feelings": "感情モデルを削除しますか？",
+      "confirm.remove.feelings.text": "感情モデルだけを削除します。Castor 本体、キャラクター・設定は残ります。",
       "confirm.remove": "Castor を削除しますか？", "confirm.remove.helper": "Neural TTS helper を削除しますか？",
       "confirm.remove.text": "アプリ本体だけを削除します。作ったキャラクター・設定・モデルキャッシュは残ります。",
       "error.title": "完了できませんでした",
@@ -90,6 +98,14 @@
       "helper.launch": "Launch", "helper.launch.text": "Open the helper's window",
       "helper.repair": "Repair", "helper.repair.text": "Reinstall the helper",
       "helper.remove": "Remove", "helper.remove.text": "Remove the helper (model cache is kept)",
+      "manage.feelings": "Feeling model (optional)",
+      "feelings.install": "Download / Update", "feelings.install.text": "Reads the feeling of each spoken line for the voice (about 270 MB, runs on this PC)",
+      "feelings.repair": "Repair", "feelings.repair.text": "Reinstall the feeling model",
+      "feelings.remove": "Remove", "feelings.remove.text": "Remove the feeling model (Castor goes back to the language model's feeling)",
+      "done.feelings": "Feeling model {v} is installed",
+      "done.feelings.lead": "Restart Castor to voice each line with its own feeling.",
+      "confirm.remove.feelings": "Remove the feeling model?",
+      "confirm.remove.feelings.text": "Only the feeling model is removed. The Castor app, characters and settings stay.",
       "confirm.remove": "Remove Castor?", "confirm.remove.helper": "Remove the Neural TTS helper?",
       "confirm.remove.text": "Only the app is removed. Your characters, settings and model cache stay.",
       "error.title": "Could not finish",
@@ -106,7 +122,7 @@
     listen: (handler) => window.chrome.webview.addEventListener("message", (event) => handler(event.data)),
   } : mockHost();
 
-  let state = { installed: null, helper: null, license: "", notices: "", root: "" };
+  let state = { installed: null, helper: null, feelings: null, license: "", notices: "", root: "" };
   let page = "welcome";
   let historyReturn = "welcome";
   let busy = false;
@@ -156,6 +172,10 @@
         footer.append(spacer, button(t("cancel"), "", () => host.send({ type: "cancel" })));
         break;
       case "done":
+        if (lastAction && lastAction.component === "feelings") {
+          footer.append(spacer, button(t("close"), "", close), button(t("manage"), "primary", () => show("manage")));
+          break;
+        }
         footer.append(spacer, button(t("close"), "", close),
           button(lastAction && lastAction.component ? t("launchHelper") : t("launch"), "primary",
             () => { host.send({ type: "launch", component: lastAction ? lastAction.component : null }); }));
@@ -190,6 +210,7 @@
     $("licenseText").textContent = $("licenseTabs").dataset.tab === "notices" ? state.notices : state.license;
     for (const element of document.querySelectorAll("[data-needs-app]")) element.classList.toggle("hidden", !state.installed);
     for (const element of document.querySelectorAll("[data-needs-helper]")) element.classList.toggle("hidden", !state.helper);
+    for (const element of document.querySelectorAll("[data-needs-feelings]")) element.classList.toggle("hidden", !state.feelings);
   }
 
   function run(action) {
@@ -197,7 +218,8 @@
     lastAction = action;
     if (action.type === "install") {
       busy = true;
-      $("progressText").textContent = action.component ? "Neural TTS helper…" : t("install.progress");
+      $("progressText").textContent = action.component === "feelings" ? t("manage.feelings") + "…"
+        : action.component ? "Neural TTS helper…" : t("install.progress");
       $("progressBar").classList.add("hidden");
       $("progressDetail").textContent = "";
       show("progress");
@@ -271,7 +293,9 @@
   }
 
   function confirmRemove(component) {
-    $("confirmTitle").textContent = component ? t("confirm.remove.helper") : t("confirm.remove");
+    $("confirmTitle").textContent = component === "feelings" ? t("confirm.remove.feelings")
+      : component ? t("confirm.remove.helper") : t("confirm.remove");
+    $("confirmText").textContent = component === "feelings" ? t("confirm.remove.feelings.text") : t("confirm.remove.text");
     $("confirm").classList.remove("hidden");
     $("confirmYes").onclick = () => { $("confirm").classList.add("hidden"); run({ type: "remove", component }); };
   }
@@ -289,13 +313,13 @@
     switch (message.type) {
       case "init":
         language = message.language === "en" ? "en" : "ja";
-        state = { installed: message.installed, helper: message.helper, license: message.license || "",
+        state = { installed: message.installed, helper: message.helper, feelings: message.feelings, license: message.license || "",
                   notices: message.notices || "", root: message.root || "" };
         applyLanguage();
         show(state.installed ? "manage" : "welcome");
         break;
       case "status":
-        state.installed = message.installed; state.helper = message.helper;
+        state.installed = message.installed; state.helper = message.helper; state.feelings = message.feelings;
         renderStatus();
         break;
       case "progress": {
@@ -311,8 +335,9 @@
         break;
       case "installed":
         busy = false;
-        $("doneTitle").textContent = message.component ? t("done.helper", message.version) : t("done.title", message.version);
-        $("doneLead").textContent = message.component ? t("done.helper.lead") : t("done.lead");
+        const kind = message.component === "feelings" ? "done.feelings" : message.component ? "done.helper" : null;
+        $("doneTitle").textContent = kind ? t(kind, message.version) : t("done.title", message.version);
+        $("doneLead").textContent = kind ? t(kind + ".lead") : t("done.lead");
         $("doneNote").textContent = message.note || "";
         show("done");
         break;
@@ -382,7 +407,7 @@
         if (message.type === "install") {
           reply({ type: "progress", text: language === "ja" ? "ダウンロードしています… 42%" : "Downloading… 42%", fraction: 0.42, detail: "164 / 390 MB" }, 700);
           reply({ type: "installed", version: "v1.0.0", component: message.component }, 1800);
-          reply({ type: "status", installed: "v1.0.0", helper: null }, 1800);
+          reply({ type: "status", installed: "v1.0.0", helper: null, feelings: message.component === "feelings" ? "v1.0.1" : null }, 1800);
         }
         if (message.type === "cancel") reply({ type: "cancelled" });
         if (message.type === "remove") reply({ type: "status", installed: null, helper: null });

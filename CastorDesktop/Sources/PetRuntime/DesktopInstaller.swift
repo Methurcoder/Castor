@@ -4,11 +4,18 @@ import CInstallLock
 import FoundationNetworking
 #endif
 
-public enum DesktopHelperComponent:String,Codable,Sendable {
+public enum DesktopHelperComponent:String,Codable,Sendable,CaseIterable {
     case neuralTTS = "NeuralTTS"
+    /// The optional feeling model (data only: nothing to run or launch).
+    case feelings = "Feelings"
     public var stem:String {"Castor"+rawValue}
+    /// A helper app people launch (as opposed to data Castor reads).
+    public var isApp:Bool {self == .neuralTTS}
+    /// The file that must be present in an installed copy: the helper's
+    /// executable, or the feeling model's description.
     public func executable(platform:String)->String {
-        platform.hasPrefix("macos") ? "\(stem).app/Contents/MacOS/\(stem)":"\(stem).exe"
+        guard isApp else {return "feelings.json"}
+        return platform.hasPrefix("macos") ? "\(stem).app/Contents/MacOS/\(stem)":"\(stem).exe"
     }
 }
 public struct DesktopRelease: Decodable, Sendable {
@@ -356,7 +363,7 @@ public enum DesktopInstaller {
                                       ofItemAtPath:payload.appendingPathComponent(path).path)
         }
         var runnable=inventory.files.filter { $0.value.executable==true }.map(\.key)
-        if platform.hasPrefix("macos") {
+        if platform.hasPrefix("macos"), component?.isApp ?? true {
             runnable.append(component?.executable(platform:platform) ?? "Castor.app/Contents/MacOS/Castor")
         }
         guard runnable.allSatisfy({ manager.isExecutableFile(atPath:payload.appendingPathComponent($0).path) }) else {
@@ -504,9 +511,9 @@ public enum DesktopInstaller {
         try Task.checkCancellation()
         let executable=unpacked.appendingPathComponent(component?.executable(platform:platform) ?? (platform.hasPrefix("macos") ? "Castor.app/Contents/MacOS/Castor" : "CastorPet.exe"))
         guard manager.fileExists(atPath:executable.path),
-              !platform.hasPrefix("macos")||manager.isExecutableFile(atPath:executable.path),
+              !platform.hasPrefix("macos")||component?.isApp==false||manager.isExecutableFile(atPath:executable.path),
               component != nil||platform.hasPrefix("macos")||manager.fileExists(atPath:unpacked.appendingPathComponent("swiftCore.dll").path) else { throw InstallError.missingApp }
-        if component != nil,platform=="windows_x86_64" {
+        if component == .neuralTTS,platform=="windows_x86_64" {
             let runtime=unpacked.appendingPathComponent("_internal",isDirectory:true)
             let files=(try? manager.contentsOfDirectory(atPath:runtime.path)) ?? []
             guard manager.fileExists(atPath:runtime.appendingPathComponent("base_library.zip").path),

@@ -109,6 +109,12 @@
       <button class="card" data-action="repair" data-component="neuralTTS" data-needs-helper><b data-t="helper.repair"></b><span data-t="helper.repair.text"></span></button>
       <button class="card danger" data-action="remove" data-component="neuralTTS" data-needs-helper><b data-t="helper.remove"></b><span data-t="helper.remove.text"></span></button>
     </div>
+    <p class="section-title" data-t="manage.feelings"></p>
+    <div class="actions">
+      <button class="card" data-action="install" data-component="feelings"><b data-t="feelings.install"></b><span data-t="feelings.install.text"></span></button>
+      <button class="card" data-action="repair" data-component="feelings" data-needs-feelings><b data-t="feelings.repair"></b><span data-t="feelings.repair.text"></span></button>
+      <button class="card danger" data-action="remove" data-component="feelings" data-needs-feelings><b data-t="feelings.remove"></b><span data-t="feelings.remove.text"></span></button>
+    </div>
   </section>
 
   <section class="page hidden" data-page="history">
@@ -131,7 +137,7 @@
 <div class="modal hidden" id="confirm">
   <div class="box">
     <h3 id="confirmTitle"></h3>
-    <p data-t="confirm.remove.text"></p>
+    <p id="confirmText" data-t="confirm.remove.text"></p>
     <div class="row">
       <button class="button" id="confirmNo" data-t="cancel">キャンセル</button>
       <button class="button primary" id="confirmYes" data-t="remove">削除する</button>

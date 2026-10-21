@@ -53,6 +53,39 @@ struct SetupLocalization: Sendable {
         text("Macの初回起動: 未署名または開発署名のアプリはGatekeeperに止められる場合があります。まずアプリを開き、警告を閉じてから「システム設定」>「プライバシーとセキュリティ」>「このまま開く」を選び、認証して起動を確認してください。必要な場合は、この導入アプリ（CastorSetup）・Castor本体・Neural TTS helperのそれぞれで行います。Developer ID署名・公証と実機動作の確認は未完了です。",
              "First launch on Mac: Gatekeeper may block unsigned or development-signed apps. Try opening the app, dismiss the warning, then go to System Settings > Privacy & Security > Open Anyway, authenticate, and confirm opening it. If needed, repeat this for this installer (CastorSetup), Castor, and the Neural TTS helper individually. Developer ID signing, notarization, and real-device checks are not complete.")
     }
+    /// What a component is called in messages.
+    func name(_ component: DesktopHelperComponent?) -> String {
+        switch component {
+        case nil: "Castor"
+        case .neuralTTS: "Neural TTS helper"
+        case .feelings: text("感情モデル", "the feeling model")
+        }
+    }
+    var feelingsDescription: String {
+        text("任意の感情モデル（Macは約140MB、Windowsは約270MB）。入れると、キャラクターが話す1文ごとの気持ちを読み取り、声の演技に反映します。読み取りはこのPCの中だけで行います。",
+             "Optional feeling model (about 140 MB on Mac, 270 MB on Windows). It reads the feeling of each line the character speaks and uses it for the voice. Everything runs on this computer.")
+    }
+    func feelingsInstalled(_ version: String) -> String {
+        text("感情モデル \(version)を導入しました。Castorを起動し直すと、話す1文ごとの気持ちが声に反映されます。",
+             "The feeling model \(version) was installed. Restart Castor to voice each line with its own feeling.")
+    }
+    func removalTitle(_ component: DesktopHelperComponent?) -> String {
+        component == .feelings ? text("感情モデルを削除しますか？", "Remove the feeling model?") : removalTitle(helper: component != nil)
+    }
+    func removalDetail(_ component: DesktopHelperComponent?) -> String {
+        component == .feelings
+            ? text("削除するのは導入済みの感情モデルです。Castor本体、キャラクター・会話設定は保持します。削除後は会話AIが返す感情を使います。",
+                   "Remove the installed feeling model. The Castor app, characters, and conversation settings are kept. Castor then uses the feeling the language model returns.")
+            : removalDetail(helper: component != nil)
+    }
+    func removed(_ component: DesktopHelperComponent?) -> String {
+        component == .feelings ? text("感情モデルを削除しました。Castor本体、キャラクター・設定は保持しています。", "The feeling model was removed. The Castor app, characters, and settings were kept.")
+            : removed(helper: component != nil)
+    }
+    func notInstalled(_ component: DesktopHelperComponent?) -> String {
+        component == .feelings ? text("感情モデルはまだ導入されていません。「感情モデルを取得・更新」で導入してください。", "The feeling model is not installed. Choose Download / Update Feeling Model to install it.")
+            : notInstalled(helper: component != nil)
+    }
     func removalTitle(helper: Bool) -> String {
         helper ? text("Neural TTS helperを削除しますか？", "Remove the Neural TTS helper?")
             : text("Castor本体を削除しますか？", "Remove the Castor app?")
@@ -133,8 +166,8 @@ private func setupUI() {
     do {
         let platform=try NativeInstall.platform
         while true {
-            let options=strings.text("取得・更新\n導入済みアプリを起動\n修復（旧版を保持）\nCastor本体を削除（キャラクター・設定は保持）\nNeural TTS helperを取得・更新（任意）\nNeural TTS helperを起動\nNeural TTS helperを修復\nNeural TTS helperを削除（モデルキャッシュ保持）\nCastorの古い版を整理\nNeural TTS helperの古い版を整理\n終了",
-                "Download / Update\nLaunch installed app\nRepair (keep previous version)\nRemove Castor (keep characters/settings)\nDownload / Update Neural TTS helper (optional)\nLaunch Neural TTS helper\nRepair Neural TTS helper\nRemove Neural TTS helper (keep model cache)\nClean up older Castor versions\nClean up older Neural TTS helper versions\nExit")
+            let options=strings.text("取得・更新\n導入済みアプリを起動\n修復（旧版を保持）\nCastor本体を削除（キャラクター・設定は保持）\nNeural TTS helperを取得・更新（任意）\nNeural TTS helperを起動\nNeural TTS helperを修復\nNeural TTS helperを削除（モデルキャッシュ保持）\nCastorの古い版を整理\nNeural TTS helperの古い版を整理\n感情モデルを取得・更新（任意）\n感情モデルを削除\n終了",
+                "Download / Update\nLaunch installed app\nRepair (keep previous version)\nRemove Castor (keep characters/settings)\nDownload / Update Neural TTS helper (optional)\nLaunch Neural TTS helper\nRepair Neural TTS helper\nRemove Neural TTS helper (keep model cache)\nClean up older Castor versions\nClean up older Neural TTS helper versions\nDownload / Update Feeling Model (optional)\nRemove Feeling Model\nExit")
             let choice=strings.title.withCString { title in options.withCString {castor_choose_option(title,$0)} }
             if choice<0 {
                 // Never vanish silently: say what happened and where the log is.
@@ -145,9 +178,9 @@ private func setupUI() {
                 _ = body.withUnsafeBufferPointer {b in title.withUnsafeBufferPointer {MessageBoxW(nil,b.baseAddress,$0.baseAddress,0x10)}}
                 return
             }
-            if choice==0 || choice==11 {return}
+            if choice==0 || choice==13 {return}
             // Existing app/helper actions keep their indices; the app cleanup item is not a helper.
-            let component:DesktopHelperComponent?=[5,6,7,8,10].contains(choice) ? .neuralTTS:nil
+            let component:DesktopHelperComponent?=[5,6,7,8,10].contains(choice) ? .neuralTTS : [11,12].contains(choice) ? .feelings : nil
             if choice==9 || choice==10 {
                 do { try NativeInstall.pruneOldVersions(component:component); _ = show(strings.cleanupFinished) }
                 catch { _ = show(strings.cleanupFailed(error)) }
@@ -156,17 +189,17 @@ private func setupUI() {
             let root=try NativeInstall.installationRoot(component:component)
             if choice==2 || choice==6 {
                 if let app=try DesktopInstaller.selected(root:root){try NativeInstall.launch(app)}
-                else { _ = show(strings.notInstalled(helper:component != nil)) }
+                else { _ = show(strings.notInstalled(component)) }
                 continue
             }
-            if choice==4 || choice==8 {
-                let confirm=show(strings.removalTitle(helper:component != nil)+"\n\n"+strings.removalDetail(helper:component != nil),
+            if choice==4 || choice==8 || choice==12 {
+                let confirm=show(strings.removalTitle(component)+"\n\n"+strings.removalDetail(component),
                     buttons:strings.text("削除する\nキャンセル", "Remove\nCancel"))
                 if confirm==1 {
                     let old=try DesktopInstaller.selected(root:root)
                     try DesktopInstaller.uninstall(root:root)
                     if let old {NativeInstall.removeLaunchEntry(old)}
-                    _ = show(old == nil ? strings.notInstalled(helper:component != nil) : strings.removed(helper:component != nil))
+                    _ = show(old == nil ? strings.notInstalled(component) : strings.removed(component))
                 }
                 continue
             }
@@ -179,8 +212,8 @@ private func setupUI() {
                     state.complete(.success(app))
                 } catch {state.complete(.failure(error))}
             }
-            let progress=strings.text("対応する\(component == nil ? "アプリ" : "Neural TTS helper")を取得・検証・導入しています。SHA-256は配布者の真正性を保証しません。OSの安全確認を解除しません。",
-                "Downloading, verifying, and installing the \(component == nil ? "app" : "Neural TTS helper") for this system. SHA-256 does not guarantee distributor authenticity. OS security checks remain enabled.")
+            let progress=strings.text("対応する\(component == nil ? "アプリ" : strings.name(component))を取得・検証・導入しています。SHA-256は配布者の真正性を保証しません。OSの安全確認を解除しません。",
+                "Downloading, verifying, and installing \(component == nil ? "the app" : strings.name(component)) for this system. SHA-256 does not guarantee distributor authenticity. OS security checks remain enabled.")
             let status=progress.withCString {
                 castor_wait_work($0,{context in Unmanaged<SetupWork>.fromOpaque(context!).takeUnretainedValue().done ? 1 : 0},Unmanaged.passUnretained(state).toOpaque())
             }
@@ -195,6 +228,7 @@ private func setupUI() {
                     _ = show(strings.text("ショートカットを作れませんでした。既存の同名項目は保持しています。この導入アプリの起動ボタンから\(component == nil ? "Castor" : "Neural TTS helper")を開けます。",
                         "A shortcut could not be created. An existing item with the same name was kept. Use this installer's Launch button to open \(component == nil ? "Castor" : "the Neural TTS helper")."), buttons:strings.text("続ける", "Continue"))
                 }
+                if component == .feelings { _ = show(strings.feelingsInstalled(app.version)); continue }
                 let message=component == nil
                     ? strings.text("Castor \(app.version)を導入しました。初回にはSmartScreenの確認が出る場合があります。", "Castor \(app.version) was installed. SmartScreen may show a warning on first launch.")
                     : strings.text("Neural TTS helper \(app.version)を導入しました。モデルはhelper画面で任意に取得します。初回にはSmartScreenの確認が出る場合があります。", "Neural TTS helper \(app.version) was installed. Models can optionally be downloaded from the helper UI. SmartScreen may show a warning on first launch.")
@@ -267,14 +301,18 @@ import SwiftUI
     }
     func install(repair: Bool=false,component:DesktopHelperComponent?=nil){
         guard !busy else{return};busy=true;fraction=nil;detail=nil
-        status=strings.text("\(component == nil ? "Castor" : "Neural TTS helper")を取得・検証・導入中...", "Downloading, verifying, and installing \(component == nil ? "Castor" : "the Neural TTS helper")...")
+        status=strings.text("\(strings.name(component))を取得・検証・導入中...", "Downloading, verifying, and installing \(strings.name(component))...")
         job=Task {
             do {
                 let (release,manifest)=try await DesktopInstaller.latest()
                 let app=try await DesktopInstaller.install(root:NativeInstall.installationRoot(component:component),release:release,manifest:manifest,
                     platform:NativeInstall.platform,repair:repair,component:component,extract:{try await NativeInstall.extract($0,$1)},stamp:{try NativeInstall.stamp($0,component:component)},
                     progress:{ value in Task { @MainActor in self.show(value) } })
-                if let component {
+                if component == .feelings {
+                    try? NativeInstall.pruneOldVersions(component:component)
+                    status=strings.feelingsInstalled(app.version)
+                }
+                else if let component {
                     do {
                         try NativeInstall.createLaunchEntry(app)
                         try? NativeInstall.pruneOldVersions(component:component)
@@ -293,7 +331,7 @@ import SwiftUI
             // Before the first update, the selected version is still where an older Setup put it.
             let root=try NativeInstall.selectedRoot(component:component)
             if let app=try DesktopInstaller.selected(root:root){try NativeInstall.launch(app,root:root)}
-            else {status=strings.notInstalled(helper:component != nil)}
+            else {status=strings.notInstalled(component)}
         }catch{status=strings.errorMessage(error)}
     }
     func cleanOlderVersions(component:DesktopHelperComponent?=nil) {
@@ -302,7 +340,7 @@ import SwiftUI
         catch { status=strings.cleanupFailed(error) }
     }
     func remove(component:DesktopHelperComponent?=nil){
-        let alert=NSAlert();alert.messageText=strings.removalTitle(helper:component != nil);alert.informativeText=strings.removalDetail(helper:component != nil)
+        let alert=NSAlert();alert.messageText=strings.removalTitle(component);alert.informativeText=strings.removalDetail(component)
         alert.addButton(withTitle:strings.text("削除", "Remove"));alert.addButton(withTitle:strings.cancel)
         if alert.runModal() == .alertFirstButtonReturn {
             do{
@@ -310,7 +348,7 @@ import SwiftUI
                 let old=try DesktopInstaller.selected(root:root)
                 try DesktopInstaller.uninstall(root:root)
                 if let old{NativeInstall.removeLaunchEntry(old,root:root)}
-                status=old == nil ? strings.notInstalled(helper:component != nil) : strings.removed(helper:component != nil)
+                status=old == nil ? strings.notInstalled(component) : strings.removed(component)
             }catch{status=strings.errorMessage(error)}
         }
     }
@@ -370,6 +408,9 @@ struct ReleaseHistoryView: View {
                     .font(.caption).foregroundStyle(.secondary)
                 HStack{Button(model.strings.text("Neural TTSを取得・更新", "Download / Update Neural TTS")){model.install(component:.neuralTTS)};Button(model.strings.text("起動", "Launch")){model.launch(component:.neuralTTS)};Button(model.strings.text("修復", "Repair")){model.install(repair:true,component:.neuralTTS)};Button(model.strings.text("削除", "Remove")){model.remove(component:.neuralTTS)}}
                 Button(model.strings.cleanupButton){model.cleanOlderVersions(component:.neuralTTS)}
+                Divider()
+                Text(model.strings.feelingsDescription).font(.caption).foregroundStyle(.secondary)
+                HStack{Button(model.strings.text("感情モデルを取得・更新", "Download / Update Feeling Model")){model.install(component:.feelings)};Button(model.strings.text("修復", "Repair")){model.install(repair:true,component:.feelings)};Button(model.strings.text("削除", "Remove")){model.remove(component:.feelings)}}
             }
         }.padding(24).frame(width:570).environment(\.locale,Locale(identifier:model.strings.language.rawValue))
             .sheet(isPresented:$model.showHistory){ReleaseHistoryView(model:model)}

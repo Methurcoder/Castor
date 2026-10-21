@@ -86,6 +86,16 @@ Windowsの初回GUI、実機のOS警告・マイク、開発環境のないPCで
 配布manifestの`components.NeuralTTS`にそのOS/CPU用のassetがある場合だけ取得します。
 helperを消してもモデルcacheは削除しません。v1.0.0にOS別のhelper assetを用意しています。
 
+## 任意の感情モデル
+
+導入GUIで感情モデルの取得/更新・修復・削除を選べます（Mac・Windows とも。起動する画面はありません）。
+`CastorHelpers/Feelings`領域（Macは`~/Library/Application Support/Castor/Versions`の下、Windowsは
+`%LOCALAPPDATA%\Programs\Castor`の下）へ導入し、配布manifestの`components.Feelings`にそのOS/CPU用の
+assetがある場合だけ取得します。中身はモデルのデータだけで（Macは`CastorFeelings.mlmodelc`、
+Windowsは`CastorFeelings.onnx`、`feelings.json`・`tokenizer.json`・ライセンス）、実行ファイルは含みません。
+Castor本体は次の起動時に選択中の版を読みます。Mac本体はサンドボックスのため、この1か所だけ
+読み取り専用で許可しています。削除すると会話AIの返す感情に戻ります。詳しくは`docs/FEELINGS.md`。
+
 Voice設定から導入GUIを開きます。`build-castor-app.py`の候補はMac ResourcesへCastorSetup.app、
 WindowsはCastorPet.exeの隣へCastorSetup.exeを同梱します。開発用ビルドにはGUIが無いことがあり、
 その場合は配布ページを案内します。Windows/Swift runtimeは再帰収集します。

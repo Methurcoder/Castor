@@ -76,12 +76,16 @@ public nonisolated struct FeelingModelFiles: Sendable {
     public let maxTokens: Int
     public let tokenizer: FeelingTokenizer
 
-    /// Folders searched in order: `$CASTOR_FEELINGS_DIR`, then
+    /// Folders searched in order: `$CASTOR_FEELINGS_DIR`; the version Castor Setup
+    /// selected under `componentRoot`; then the hand-placed
     /// `<Application Support>/Castor/Models/Feelings` (Mac) or
     /// `%LOCALAPPDATA%\Castor\Models\Feelings` (Windows).
     public static func searchDirectories(environment: [String: String] = ProcessInfo.processInfo.environment) -> [URL] {
         var directories: [URL] = []
         if let path = environment[environmentKey], !path.isEmpty { directories.append(URL(fileURLWithPath: path)) }
+        if let root = componentRoot(environment: environment), let installed = installedComponent(root: root) {
+            directories.append(installed)
+        }
         #if os(Windows)
         if let local = environment["LOCALAPPDATA"], !local.isEmpty {
             directories.append(URL(fileURLWithPath: local).appendingPathComponent("Castor/Models/\(folderName)"))
@@ -92,6 +96,38 @@ public nonisolated struct FeelingModelFiles: Sendable {
         }
         #endif
         return directories
+    }
+
+    /// Where Castor Setup installs the optional Feelings component:
+    /// `~/Library/Application Support/Castor/Versions/CastorHelpers/Feelings` (Mac,
+    /// the real home even inside the sandbox) or
+    /// `%LOCALAPPDATA%\Programs\Castor\CastorHelpers\Feelings` (Windows).
+    public static func componentRoot(environment: [String: String] = ProcessInfo.processInfo.environment) -> URL? {
+        #if os(Windows)
+        guard let local = environment["LOCALAPPDATA"], !local.isEmpty else { return nil }
+        return URL(fileURLWithPath: local).appendingPathComponent("Programs/Castor/CastorHelpers/\(folderName)", isDirectory: true)
+        #elseif os(macOS)
+        guard let entry = getpwuid(getuid()), let home = entry.pointee.pw_dir else { return nil }
+        return URL(fileURLWithPath: String(cString: home))
+            .appendingPathComponent("Library/Application Support/Castor/Versions/CastorHelpers/\(folderName)", isDirectory: true)
+        #else
+        return nil
+        #endif
+    }
+
+    /// The version folder Castor Setup selected under `root`, read from its
+    /// receipt (`.CastorInstaller/CurrentInstall.json`, or the older
+    /// `CurrentInstall.json`). Nil when nothing is installed or the receipt
+    /// names anything but a plain `CastorFeelings-…` folder.
+    public static func installedComponent(root: URL) -> URL? {
+        struct Receipt: Decodable { let folder: String }
+        let receipts = [root.appendingPathComponent(".CastorInstaller/CurrentInstall.json"), root.appendingPathComponent("CurrentInstall.json")]
+        guard let file = receipts.first(where: { FileManager.default.fileExists(atPath: $0.path) }),
+              let data = try? Data(contentsOf: file), data.count <= 4_194_304,
+              let folder = (try? JSONDecoder().decode(Receipt.self, from: data))?.folder,
+              folder.hasPrefix("CastorFeelings-"), !folder.contains("/"), !folder.contains("\\"), !folder.contains(":"), !folder.contains("..")
+        else { return nil }
+        return root.appendingPathComponent(folder, isDirectory: true)
     }
 
     /// The first folder holding a readable model description, or nil.

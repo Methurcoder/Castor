@@ -116,6 +116,22 @@ third-party notices in `licenses/`; Castor loads it at run time.
 - License: MIT License, Copyright (c) Microsoft Corporation
   (`CastorDesktop/Sources/COnnxRuntime/vendor/LICENSE-onnxruntime`)
 
+## Ruri v3 and ModernBERT-Ja (optional feeling model)
+
+The optional Feelings component (`CastorFeelings.mlmodelc` on Mac,
+`CastorFeelings.onnx` on Windows, with `tokenizer.json`) is a fine-tune of
+Ruri v3 70m with a nine-feeling classification head. Ruri v3 was trained from
+ModernBERT-Ja 70m. The component's `licenses/` folder holds both texts
+(`scripts/feelings_licenses/`). It is not committed and is downloaded only
+when chosen in Castor Setup.
+
+- Ruri v3 70m: <https://huggingface.co/cl-nagoya/ruri-v3-70m>
+  — Apache License 2.0, Hayato Tsukagoshi and Ryohei Sasano (cl-nagoya)
+- ModernBERT-Ja 70m: <https://huggingface.co/sbintuitions/modernbert-ja-70m>
+  — MIT License, Copyright (c) 2025 SB Intuitions
+- Training lines were written and labelled by Qwen3.5-9B and Qwen3.8-27B
+  (Apache License 2.0); see `docs/FEELINGS.md`.
+
 ## Microsoft Edge WebView2 SDK (Windows creation window)
 
 `CastorDesktop/Sources/CDesktopUI/vendor/WebView2.h` and the redistributable

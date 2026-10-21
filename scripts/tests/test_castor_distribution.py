@@ -138,6 +138,51 @@ class DistributionTests(unittest.TestCase):
             release.prepare(self.output,'helper-test',{'windows_x86_64':self.windows},neural_helpers={'windows_x86_64':helper})
         self.assertFalse(self.output.exists())
 
+    def feeling_model(self):
+        model = self.base/'feelings'
+        (model/'CastorFeelings.mlmodelc/weights').mkdir(parents=True)
+        (model/'CastorFeelings.mlmodelc/model.mil').write_text('mil fixture')
+        (model/'CastorFeelings.mlmodelc/weights/weight.bin').write_bytes(b'weights fixture')
+        (model/'CastorFeelings.onnx').write_bytes(b'onnx fixture')
+        (model/'feelings.json').write_text(json.dumps({'feelings': list(release.FEELINGS), 'max_tokens': 128}))
+        (model/'tokenizer.json').write_text(json.dumps({'model': {'type': 'Unigram', 'vocab': []}}))
+        (model/'tokenizer_fixtures.json').write_text('[]')
+        return model
+
+    def test_optional_feeling_model_is_a_data_component_per_platform(self):
+        release.prepare(self.output, 'v2', {'macos_arm64': self.mac, 'windows_x86_64': self.windows}, feelings=self.feeling_model())
+        manifest = json.loads((self.output/'castor-downloads.json').read_text())
+        components = manifest['components']['Feelings']
+        self.assertEqual(set(components), {'macos_arm64', 'windows_x86_64'})
+        for platform, entry in components.items():
+            self.assertEqual(entry['asset'], f'CastorFeelings-v2-{platform}.zip')
+            self.assertEqual(entry['sha256'], hashlib.sha256((self.output/entry['asset']).read_bytes()).hexdigest())
+            self.assertIn('inventory', entry)
+            with zipfile.ZipFile(self.output/entry['asset']) as z:
+                names = set(z.namelist())
+            self.assertTrue({'feelings.json', 'tokenizer.json', 'LICENSE', 'THIRD_PARTY_NOTICES.md',
+                             'licenses/ruri-v3-70m-Apache-2.0-LICENSE.txt', 'licenses/modernbert-ja-70m-LICENSE.txt'} <= names)
+            # Only the platform's own model; development files stay out.
+            self.assertNotIn('tokenizer_fixtures.json', names)
+            if platform.startswith('macos'):
+                self.assertIn('CastorFeelings.mlmodelc/weights/weight.bin', names)
+                self.assertNotIn('CastorFeelings.onnx', names)
+            else:
+                self.assertEqual({n for n in names if n.startswith('CastorFeelings')}, {'CastorFeelings.onnx'})
+        later = self.base/'later'
+        release.prepare(later, 'v3', {'windows_x86_64': self.windows}, previous=self.output, feelings=self.base/'feelings')
+        entry = json.loads((later/'castor-downloads.json').read_text())['components']['Feelings']['windows_x86_64']
+        # The same model: nothing to download beyond the file list.
+        self.assertNotIn('patch', entry)
+        self.assertEqual(json.loads((later/entry['inventory']['asset']).read_text())['patch'], [])
+
+    def test_feeling_model_rejects_unknown_feelings(self):
+        model = self.feeling_model()
+        (model/'feelings.json').write_text(json.dumps({'feelings': ['happy', 'grumpy']}))
+        with self.assertRaisesRegex(ValueError, 'does not know'):
+            release.prepare(self.output, 'v2', {'windows_x86_64': self.windows}, feelings=model)
+        self.assertFalse(self.output.exists())
+
     def test_common_launchers_have_os_correct_newlines_and_stable_modes(self):
         for suffix, expected, mode in [('.command', b'first\nsecond\n', 0o755),
                                        ('.cmd', b'first\r\nsecond\r\n', 0o644),

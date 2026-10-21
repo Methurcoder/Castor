@@ -129,7 +129,11 @@ final class SetupWindow {
     // MARK: Page messages
 
     private func handle(_ message: [String: Any]) {
-        let component: DesktopHelperComponent? = message["component"] is String ? .neuralTTS : nil
+        let component: DesktopHelperComponent? = switch message["component"] as? String {
+        case "feelings"?: .feelings
+        case .some: .neuralTTS
+        case nil: nil
+        }
         switch message["type"] as? String {
         case "ready":
             SetupWindow.sawReady = true
@@ -143,7 +147,7 @@ final class SetupWindow {
         case "launch":
             do {
                 if let app = try DesktopInstaller.selected(root: NativeInstall.installationRoot(component: component)) { try NativeInstall.launch(app) }
-                else { post(["type": "message", "text": strings.notInstalled(helper: component != nil)]) }
+                else { post(["type": "message", "text": strings.notInstalled(component)]) }
             } catch { fail(error) }
         case "remove":
             do {
@@ -151,7 +155,7 @@ final class SetupWindow {
                 let old = try DesktopInstaller.selected(root: root)
                 try DesktopInstaller.uninstall(root: root)
                 if let old { NativeInstall.removeLaunchEntry(old) }
-                post(["type": "message", "text": old == nil ? strings.notInstalled(helper: component != nil) : strings.removed(helper: component != nil)])
+                post(["type": "message", "text": old == nil ? strings.notInstalled(component) : strings.removed(component)])
                 sendStatus()
             } catch { fail(error) }
         case "cleanup":
@@ -182,12 +186,12 @@ final class SetupWindow {
         }
         let root = (try? NativeInstall.root).map { SetupWindow.nativePath($0).replacingOccurrences(of: "/", with: "\\") } ?? ""
         post(["type": "init", "language": strings.isJapanese ? "ja" : "en",
-              "installed": installed(nil), "helper": installed(.neuralTTS),
+              "installed": installed(nil), "helper": installed(.neuralTTS), "feelings": installed(.feelings),
               "license": text("LICENSE"), "notices": text("THIRD_PARTY_NOTICES.md"), "root": root])
     }
 
     private func sendStatus() {
-        post(["type": "status", "installed": installed(nil), "helper": installed(.neuralTTS)])
+        post(["type": "status", "installed": installed(nil), "helper": installed(.neuralTTS), "feelings": installed(.feelings)])
     }
 
     private func post(_ message: [String: Any]) {
@@ -210,8 +214,8 @@ final class SetupWindow {
         generation += 1
         let ticket = generation
         post(["type": "progress", "text": strings.text(
-            "対応する\(component == nil ? "アプリ" : "Neural TTS helper")を取得・検証・導入しています…",
-            "Downloading, verifying and installing the \(component == nil ? "app" : "Neural TTS helper")…")])
+            "対応する\(component == nil ? "アプリ" : strings.name(component))を取得・検証・導入しています…",
+            "Downloading, verifying and installing \(component == nil ? "the app" : strings.name(component))…")])
         let strings = strings
         job = Task.detached(priority: .userInitiated) {
             let result: Result<DesktopInstalledApp, Error>
@@ -261,6 +265,12 @@ final class SetupWindow {
         case .success(let installed): app = installed
         case .failure(let error):
             if error is CancellationError { post(["type": "cancelled"]) } else { fail(error) }
+            return
+        }
+        if component == .feelings {
+            try? NativeInstall.pruneOldVersions(component: component)
+            post(["type": "installed", "version": app.version, "component": "feelings", "note": ""])
+            sendStatus()
             return
         }
         var note = ""

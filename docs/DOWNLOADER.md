@@ -165,7 +165,7 @@ Windowsで起動し、Swift/ICU/Visual C++等の再配布条件・必要なラ�
 
 ### 差分アップデート用のファイル
 
-本体とNeural TTS helperのZIPごとに、入っている全ファイルのパス・SHA-256・容量を並べた
+本体・Neural TTS helper・感情モデルのZIPごとに、入っている全ファイルのパス・SHA-256・容量を並べた
 `<ZIP名>.files.json` も生成し、`castor-downloads.json` の `inventory` に記録します。
 `--previous` に前回の準備フォルダ（または前回Releaseの資産を集めたフォルダ）を渡すと、
 前回のどのファイルとも中身が違うファイルだけを入れた `<ZIP名>-patch.zip` を作り、
@@ -177,6 +177,13 @@ python3 scripts/prepare-castor-release.py --version v1.0.3 \
   --previous /path/to/v1.0.2-release-folder \
   --output /path/to/new-release-folder
 ```
+
+`--feelings <フォルダ>` を渡すと、準備する各OS/CPU向けに任意の感情モデル
+`CastorFeelings-<版>-<OS>.zip` を作り、`components.Feelings` に記録します。フォルダには
+`feelings.json`・`tokenizer.json`と、Mac 用の `CastorFeelings.mlmodelc`（無ければ
+`CastorFeelings.mlpackage` を `xcrun coremlcompiler` でコンパイル）、Windows 用の
+`CastorFeelings.onnx` を置きます。開発用の照合ファイルなど他のファイルは入れません。
+`scripts/feelings_licenses/` のライセンス本文を `licenses/` に同梱します。
 
 導入アプリ（CastorSetup）の動作:
 

@@ -3,11 +3,12 @@ import Foundation
 import os
 import CastorCore
 
-/// The optional feeling classifier on the Mac (Core ML). When its files are in
-/// `~/Library/Application Support/Castor/Models/Feelings` (or `$CASTOR_FEELINGS_DIR`),
+/// The optional feeling classifier on the Mac (Core ML). When Castor Setup has
+/// installed the Feelings component (or the files are in
+/// `<Application Support>/Castor/Models/Feelings` or `$CASTOR_FEELINGS_DIR`),
 /// each spoken line gets its own feeling; otherwise the language model's
-/// `tts.emotion` is used as before. The package is compiled once and the
-/// compiled model is kept beside it.
+/// `tts.emotion` is used as before. Setup ships the compiled model; a bare
+/// package is compiled once and kept beside it when that folder is writable.
 @Observable
 final class PetFeelingReader {
     static let shared = PetFeelingReader()
@@ -39,18 +40,24 @@ final class PetFeelingReader {
                 guard FileManager.default.fileExists(atPath: package.path) else { return nil }
                 let temporary = try await MLModel.compileModel(at: package)
                 try? FileManager.default.removeItem(at: compiled)
-                try FileManager.default.moveItem(at: temporary, to: compiled)
+                if (try? FileManager.default.moveItem(at: temporary, to: compiled)) == nil {
+                    return try classifier(files: files, compiled: temporary, started: started)
+                }
             }
-            let configuration = MLModelConfiguration()
-            configuration.computeUnits = .all
-            let model = try MLModel(contentsOf: compiled, configuration: configuration)
-            let classifier = files.classifier(runner: CoreMLFeelingRunner(model: model))
-            logger.info("Feeling model ready in \(Date().timeIntervalSince(started), format: .fixed(precision: 2))s")
-            return classifier
+            return try classifier(files: files, compiled: compiled, started: started)
         } catch {
             logger.notice("Feeling model unavailable: \(error.localizedDescription, privacy: .public)")
             return nil
         }
+    }
+
+    nonisolated private static func classifier(files: FeelingModelFiles, compiled: URL, started: Date) throws -> FeelingClassifier {
+        let configuration = MLModelConfiguration()
+        configuration.computeUnits = .all
+        let model = try MLModel(contentsOf: compiled, configuration: configuration)
+        let classifier = files.classifier(runner: CoreMLFeelingRunner(model: model))
+        logger.info("Feeling model ready in \(Date().timeIntervalSince(started), format: .fixed(precision: 2))s")
+        return classifier
     }
 }
 

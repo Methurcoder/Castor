@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 @testable import PetRuntime
+import CastorCore
 
 private func installerZIP(_ names: [String]) -> Data {
     var out=Data(),central=Data()
@@ -150,6 +151,38 @@ private actor InstallerGate {
         #expect(throws:(any Error).self){try PackageZIP.validate(installerZIP([name]),platform:"windows_x86_64",component:.neuralTTS)}
     }
     try PackageZIP.validate(installerZIP(["CastorNeuralTTS.app/Contents/MacOS/CastorNeuralTTS"]),platform:"macos_arm64",component:.neuralTTS)
+}
+@Test func feelingZIPCarriesOnlyModelDataForItsPlatform() throws {
+    let common=["feelings.json","tokenizer.json","LICENSE","THIRD_PARTY_NOTICES.md","licenses/","licenses/ruri-v3-70m-Apache-2.0-LICENSE.txt"]
+    try PackageZIP.validate(installerZIP(common+["CastorFeelings.mlmodelc/","CastorFeelings.mlmodelc/model.mil","CastorFeelings.mlmodelc/weights/weight.bin"]),platform:"macos_arm64",component:.feelings)
+    try PackageZIP.validate(installerZIP(common+["CastorFeelings.onnx"]),platform:"windows_x86_64",component:.feelings)
+    for (name,platform) in [("CastorFeelings.onnx","macos_arm64"),("CastorFeelings.mlmodelc/model.mil","windows_x86_64"),("CastorPet.exe","windows_x86_64"),
+                            ("CastorFeelings.app/Contents/MacOS/CastorFeelings","macos_arm64"),("licenses/run.exe","windows_x86_64"),("tokenizer_fixtures.json","macos_arm64")] {
+        #expect(throws:(any Error).self){try PackageZIP.validate(installerZIP(common+[name]),platform:platform,component:.feelings)}
+    }
+}
+@Test func feelingModelInstallsAsDataWithoutLaunchEntry() async throws {
+    let root=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathComponent("CastorHelpers/Feelings")
+    defer {try? FileManager.default.removeItem(at:root.deletingLastPathComponent().deletingLastPathComponent())}
+    let zip=installerZIP(["feelings.json","tokenizer.json","CastorFeelings.mlmodelc/model.mil"])
+    let asset="CastorFeelings-v1.0.1-macos_arm64.zip"
+    let release=DesktopRelease(tag_name:"v1.0.1",draft:false,prerelease:false,assets:[.init(name:asset,browser_download_url:"https://github.com/Methurcoder/Castor/releases/download/v1.0.1/\(asset)",size:Int64(zip.count))])
+    let manifest=DesktopDownloadManifest(schema:1,version:"v1.0.1",platforms:[:],components:["Feelings":["macos_arm64":.init(asset:asset,sha256:PackageIntegrity.sha256(zip),bytes:Int64(zip.count))]])
+    let installed=try await DesktopInstaller.install(root:root,release:release,manifest:manifest,platform:"macos_arm64",component:.feelings,
+        extract:{_,to in
+            try Data(#"{"feelings":["neutral","happy"]}"#.utf8).write(to:to.appendingPathComponent("feelings.json"))
+            try Data("{}".utf8).write(to:to.appendingPathComponent("tokenizer.json"))
+            let model=to.appendingPathComponent("CastorFeelings.mlmodelc");try FileManager.default.createDirectory(at:model,withIntermediateDirectories:false)
+            try Data("mil".utf8).write(to:model.appendingPathComponent("model.mil"))
+        },stamp:{_ in},download:{_,to in try zip.write(to:to)})
+    #expect(installed.component == .feelings && installed.folder == "CastorFeelings-v1.0.1-macos_arm64")
+    #expect(!DesktopHelperComponent.feelings.isApp)
+    // The app finds the selected version from the same receipt Setup wrote.
+    let found=try #require(FeelingModelFiles.installedComponent(root:root))
+    #expect(found.standardizedFileURL.path == root.appendingPathComponent(installed.folder).standardizedFileURL.path)
+    #expect(FileManager.default.fileExists(atPath:found.appendingPathComponent("CastorFeelings.mlmodelc/model.mil").path))
+    try DesktopInstaller.uninstall(root:root)
+    #expect(FeelingModelFiles.installedComponent(root:root) == nil)
 }
 @Test func helperInstallationIsIndependentAndCancellationRetainsItsPreviousVersion() async throws {
     let base=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

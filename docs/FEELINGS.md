@@ -19,12 +19,24 @@
 出力はどちらも `probabilities`（[1, 9]、`feelings.json` の順）。入力文は `キャラ: {返事}` か
 `ユーザー: {発言}\nキャラ: {返事}`、`<s> … </s>` で最大128トークン。
 
-## 置き場所
+## 配り方と置き場所
 
-- Mac: `~/Library/Containers/dev.pomegranate.prototype/Data/Library/Application Support/Castor/Models/Feelings/`
-  （サンドボックス内の Application Support）
-- Windows: `%LOCALAPPDATA%\Castor\Models\Feelings\`（ONNX Runtime は既存の顔モデルと同じ `onnxruntime.dll`）
-- 開発時はどちらも `CASTOR_FEELINGS_DIR` で指定できる（Mac アプリはサンドボックス外を読めない）
+Castor Setup の「感情モデル（任意）」から、選んだ人だけが取得します（Release の
+`CastorFeelings-<版>-<OS>.zip`、`components.Feelings`。作り方は `docs/DOWNLOADER.md`）。
+Mac 用の ZIP にはコンパイル済みの `CastorFeelings.mlmodelc` が入ります。
+
+探す順番（`FeelingModelFiles.searchDirectories`）:
+
+1. `CASTOR_FEELINGS_DIR`（開発用）
+2. Setup が選択した版: Mac は `~/Library/Application Support/Castor/Versions/CastorHelpers/Feelings/<版>/`、
+   Windows は `%LOCALAPPDATA%\Programs\Castor\CastorHelpers\Feelings\<版>\`。
+   `.CastorInstaller/CurrentInstall.json` の `folder` を読む。Mac アプリはサンドボックスのため、
+   この場所だけ読み取り専用の例外（`home-relative-path.read-only`）で許可している
+3. 手で置く場合: Mac は `~/Library/Containers/dev.pomegranate.prototype/Data/Library/Application Support/Castor/Models/Feelings/`、
+   Windows は `%LOCALAPPDATA%\Castor\Models\Feelings\`
+
+ONNX Runtime は Windows 本体の顔モデルと同じ `onnxruntime.dll` を使います。新しい版は Castor を
+起動し直すと読み込まれます。
 
 ## コード
 
@@ -42,8 +54,8 @@
 
 ## 作り方とライセンス
 
-- 生徒: Ruri v3 70m（cl-nagoya、Apache-2.0）。配布するときは THIRD_PARTY_NOTICES に Ruri v3 と
-  ModernBERT-Ja の表記を加える
+- 生徒: Ruri v3 70m（cl-nagoya、Apache-2.0）。その元は ModernBERT-Ja 70m（SB Intuitions、MIT）。
+  両方の表記を THIRD_PARTY_NOTICES に、本文を部品の `licenses/` に入れている（`scripts/feelings_licenses/`）
 - 教師: Qwen3.5-9B（Apache-2.0）が気持ちの割合を付けた。文は Qwen3.5-9B と Qwen3.8-27B（Apache-2.0）が
   書いたもので、27B が自然さを採点して4以上だけ使った
 - Claude が書いた文（気持ち多数決ゲームのセリフ）は学習に使っていない。精度の確認だけに使った

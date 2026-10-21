@@ -93,3 +93,20 @@ private struct FixedRunner: FeelingModelRunning {
     let first = FeelingModelFiles.searchDirectories(environment: [FeelingModelFiles.environmentKey: directory.path]).first
     #expect(first?.standardizedFileURL.path == directory.standardizedFileURL.path)
 }
+
+@Test func feelingModelFilesFollowTheSetupReceipt() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("feelings-root-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: root) }
+    #expect(FeelingModelFiles.installedComponent(root: root) == nil)
+    let metadata = root.appendingPathComponent(".CastorInstaller")
+    try FileManager.default.createDirectory(at: metadata, withIntermediateDirectories: true)
+    let receipt = metadata.appendingPathComponent("CurrentInstall.json")
+    try Data(#"{"version":"v1.0.1","platform":"macos_arm64","folder":"CastorFeelings-v1.0.1-macos_arm64","component":"Feelings"}"#.utf8).write(to: receipt)
+    let installed = try #require(FeelingModelFiles.installedComponent(root: root))
+    #expect(installed.lastPathComponent == "CastorFeelings-v1.0.1-macos_arm64")
+    // A receipt pointing anywhere else is not followed.
+    for folder in ["../Models", "Castor-v1.0.1-macos_arm64", "CastorFeelings-x/../../etc"] {
+        try Data(#"{"folder":"\#(folder)"}"#.utf8).write(to: receipt)
+        #expect(FeelingModelFiles.installedComponent(root: root) == nil)
+    }
+}

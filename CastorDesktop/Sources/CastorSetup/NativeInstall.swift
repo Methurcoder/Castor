@@ -96,6 +96,8 @@ enum NativeInstall {
     }
     static func stamp(_ payload: URL,component:DesktopHelperComponent?=nil) throws {
 #if os(macOS)
+        // Model data (no app bundle) is only read by Castor, never opened by Gatekeeper.
+        guard component?.isApp ?? true else { return }
         let app=payload.appendingPathComponent("\(component?.stem ?? "Castor").app")
         let value="0081;\(String(Int(Date().timeIntervalSince1970),radix:16));CastorSetup;\(UUID().uuidString)"
         let status=value.withCString { raw in app.path.withCString { path in
@@ -112,6 +114,8 @@ enum NativeInstall {
 #endif
     }
     static func createLaunchEntry(_ app: DesktopInstalledApp) throws {
+        // Model data has nothing to open.
+        guard app.component?.isApp ?? true else { return }
         // Never overwrite another user's app or an unrelated Castor shortcut.
         let installBase=try installationRoot(component:app.component)
 #if os(macOS)
@@ -167,6 +171,7 @@ enum NativeInstall {
     }
     /// `root` is where `app` is installed (the installation root by default).
     static func removeLaunchEntry(_ app: DesktopInstalledApp, root installRoot: URL? = nil) {
+        guard app.component?.isApp ?? true else { return }
 #if os(macOS)
         guard let installBase=installRoot ?? (try? installationRoot(component:app.component)) else{return}
         DesktopInstallLayout.removeLaunchEntry(app,root:installBase,launchFolder:launchFolder)
@@ -182,6 +187,7 @@ enum NativeInstall {
     #endif
     /// `root` is where `app` is installed (the installation root by default).
     static func launch(_ app: DesktopInstalledApp, root: URL? = nil) throws {
+        guard app.component?.isApp ?? true else { throw AdapterError.unsupported }
         let folder=try (root ?? installationRoot(component:app.component)).appendingPathComponent(app.folder,isDirectory:true)
 #if os(macOS)
         _ = NSWorkspace.shared.open(folder.appendingPathComponent("\(app.component?.stem ?? "Castor").app"))

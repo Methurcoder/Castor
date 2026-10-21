@@ -124,7 +124,12 @@ public enum PackageZIP {
                 }
             }
             let allowed: Bool
-            if let component {
+            if component == .feelings {
+                // Model data only: the description, the vocabulary, the platform model and notices.
+                let model = platform.hasPrefix("macos") ? name.hasPrefix("CastorFeelings.mlmodelc/") : name == "CastorFeelings.onnx"
+                allowed = model || ["feelings.json", "tokenizer.json", "LICENSE", "THIRD_PARTY_NOTICES.md"].contains(name)
+                    || (name.hasPrefix("licenses/") && (name.hasSuffix(".txt") || name == "licenses/"))
+            } else if let component {
                 if platform.hasPrefix("macos") {allowed=name.hasPrefix("\(component.stem).app/")||["LICENSE","THIRD_PARTY_NOTICES.md"].contains(name)}
                 else {allowed=name=="\(component.stem).exe"||name.hasPrefix("_internal/")||name.hasPrefix("licenses/")||["LICENSE","THIRD_PARTY_NOTICES.md"].contains(name)}
             } else if platform.hasPrefix("macos") { allowed=name.hasPrefix("Castor.app/")||name=="LICENSE"||name=="THIRD_PARTY_NOTICES.md" }

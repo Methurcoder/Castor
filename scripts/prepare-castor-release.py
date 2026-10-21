@@ -10,6 +10,7 @@ import re
 import shutil
 import stat
 import struct
+import subprocess
 import tempfile
 import zipfile
 
@@ -26,6 +27,8 @@ CREATION_WINDOW_FILES = ('index.html', 'app.css', 'app.js')
 SETUP_WINDOW = 'SetupUI'
 SETUP_WINDOW_FILES = ('index.html', 'setup.css', 'setup.js')
 WINDOWS_MODELS = ('AnimeFaceFeatures.onnx', 'AnimeFaceBoxHead.onnx', 'AnimeFaceLandmarks.onnx', 'AnimeSegmentation.onnx')
+FEELINGS = ('neutral', 'happy', 'sad', 'angry', 'surprised', 'thoughtful', 'embarrassed', 'frustrated', 'jealous')
+FEELINGS_LICENSES = ROOT/'scripts'/'feelings_licenses'
 
 
 def folder_files(folder, allowed):
@@ -133,7 +136,7 @@ def previous_inventory(previous, group, platform):
     if previous is None:
         return None
     manifest = json.loads((previous/'castor-downloads.json').read_text(encoding='utf-8'))
-    entry = (manifest.get('components', {}).get('NeuralTTS', {}) if group == 'NeuralTTS' else manifest.get('platforms', {})).get(platform)
+    entry = (manifest.get('platforms', {}) if group == 'app' else manifest.get('components', {}).get(group, {})).get(platform)
     if not entry:
         return None
     listed = entry.get('inventory')
@@ -177,7 +180,55 @@ def add_update_files(stage, archive, entry, old_files):
                           'bytes': listed.stat().st_size}
 
 
-def prepare(output, version, apps, setups=None, neural_helpers=None, installers=None, previous=None):
+def check_feelings(source, platforms):
+    """The optional feeling model folder: feelings.json, tokenizer.json and the
+    platform model (CastorFeelings.mlmodelc or .mlpackage for Mac,
+    CastorFeelings.onnx for Windows). Nothing else from the folder is packaged."""
+    source = source.resolve()
+    if not source.is_dir():
+        raise ValueError('The feeling model input must be a directory.')
+    for name in ('feelings.json', 'tokenizer.json'):
+        valid_file(source/name)
+    description = json.loads((source/'feelings.json').read_text(encoding='utf-8'))
+    if not description.get('feelings') or any(f not in FEELINGS for f in description['feelings']):
+        raise ValueError('feelings.json names a feeling Castor does not know.')
+    if json.loads((source/'tokenizer.json').read_text(encoding='utf-8')).get('model', {}).get('type') != 'Unigram':
+        raise ValueError('tokenizer.json must be the Unigram tokenizer of the feeling model.')
+    if any(p.startswith('macos') for p in platforms):
+        if not (source/'CastorFeelings.mlmodelc').is_dir() and not (source/'CastorFeelings.mlpackage').is_dir():
+            raise ValueError('The Mac feeling model needs CastorFeelings.mlmodelc or CastorFeelings.mlpackage.')
+    if 'windows_x86_64' in platforms:
+        valid_file(source/'CastorFeelings.onnx')
+    for name in ('ruri-v3-70m-Apache-2.0-LICENSE.txt', 'modernbert-ja-70m-LICENSE.txt'):
+        valid_file(FEELINGS_LICENSES/name)
+    return source
+
+
+def feelings_files(source, platform, build):
+    """(file, name in the ZIP) for one platform; the Mac model is compiled into
+    `build` when only the package is given."""
+    files = [(source/'feelings.json', 'feelings.json'), (source/'tokenizer.json', 'tokenizer.json')]
+    if platform.startswith('macos'):
+        compiled = source/'CastorFeelings.mlmodelc'
+        if not compiled.is_dir():
+            compiled = build/'CastorFeelings.mlmodelc'
+            if not compiled.is_dir():
+                subprocess.run(['xcrun', 'coremlcompiler', 'compile', str(source/'CastorFeelings.mlpackage'), str(build)],
+                               check=True, stdout=subprocess.DEVNULL)
+        for p in sorted(compiled.rglob('*')):
+            if p.is_symlink():
+                raise ValueError('Review feeling model symlinks before packaging.')
+            if p.is_file():
+                valid_file(p)
+                files.append((p, 'CastorFeelings.mlmodelc/'+p.relative_to(compiled).as_posix()))
+    else:
+        files.append((source/'CastorFeelings.onnx', 'CastorFeelings.onnx'))
+    files.extend((p, 'licenses/'+p.name) for p in sorted(FEELINGS_LICENSES.glob('*.txt')))
+    files.extend((ROOT/name, name) for name in LICENSES)
+    return files
+
+
+def prepare(output, version, apps, setups=None, neural_helpers=None, installers=None, previous=None, feelings=None):
     previous = previous.resolve() if previous else None
     if previous is not None and not (previous/'castor-downloads.json').is_file():
         raise ValueError('The previous release folder needs its castor-downloads.json.')
@@ -188,6 +239,7 @@ def prepare(output, version, apps, setups=None, neural_helpers=None, installers=
             raise ValueError('Unexpected installer platform.')
         check_installer(source.resolve(), platform)
     neural_helpers = neural_helpers or {}
+    feelings = check_feelings(feelings, apps) if feelings else None
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,63}', version):
         raise ValueError('Version must be a simple Release name.')
     if not apps:
@@ -344,6 +396,19 @@ def prepare(output, version, apps, setups=None, neural_helpers=None, installers=
                 for source, relative in files: put(z,source,relative)
             manifest['components']['NeuralTTS'][helper_platform] = {'asset':name,'sha256':hashlib.sha256(archive.read_bytes()).hexdigest(),'bytes':archive.stat().st_size}
             add_update_files(stage, archive, manifest['components']['NeuralTTS'][helper_platform], previous_inventory(previous, 'NeuralTTS', helper_platform))
+        if feelings:
+            # The same model for every platform being released; Mac and Windows differ only in format.
+            manifest.setdefault('components', {})['Feelings'] = {}
+            with tempfile.TemporaryDirectory(prefix='castor-feelings-', dir=output.parent) as build:
+                for platform in apps:
+                    name = f'CastorFeelings-{version}-{platform}.zip'
+                    archive = stage/name
+                    with zipfile.ZipFile(archive, 'w') as z:
+                        for source, relative in feelings_files(feelings, platform, Path(build)):
+                            put(z, source, relative)
+                    entry = {'asset': name, 'sha256': hashlib.sha256(archive.read_bytes()).hexdigest(), 'bytes': archive.stat().st_size}
+                    manifest['components']['Feelings'][platform] = entry
+                    add_update_files(stage, archive, entry, previous_inventory(previous, 'Feelings', platform))
         if installers:
             manifest['installers'] = {}
         for platform, source in installers.items():
@@ -367,6 +432,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--version', required=True)
     parser.add_argument('--output', type=Path, required=True, help='New folder outside the checkout')
+    parser.add_argument('--feelings', type=Path,
+                        help='Feeling model folder (feelings.json, tokenizer.json, CastorFeelings.mlpackage/.mlmodelc and/or .onnx); adds the optional Feelings component')
     parser.add_argument('--previous', type=Path,
                         help='Folder of the previous release (its castor-downloads.json and assets); adds patch ZIPs with only the changed files')
     for p in PLATFORMS:
@@ -383,8 +450,8 @@ def main():
                 {p: getattr(args,'setup_'+p) for p in PLATFORMS if getattr(args,'setup_'+p)},
                 {p: getattr(args,'neural_helper_'+p) for p in PLATFORMS if getattr(args,'neural_helper_'+p)},
                 {p: getattr(args,'installer_'+p) for p in PLATFORMS if getattr(args,'installer_'+p)},
-                args.previous)
-    except (ValueError, OSError, KeyError, plistlib.InvalidFileException) as error:
+                args.previous, args.feelings)
+    except (ValueError, OSError, KeyError, plistlib.InvalidFileException, subprocess.CalledProcessError) as error:
         parser.exit(1, f'error: {error}\n')
 
 
